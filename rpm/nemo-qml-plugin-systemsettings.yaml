@@ -16,6 +16,8 @@ PkgConfigBR:
     - qmsystem2
     - profile
     - QtSystemInfo
+PkgBR:
+    - mce-headers
 Files:
     - "%{_libdir}/qt4/imports/org/nemomobile/systemsettings/libnemosystemsettings.so"
     - "%{_libdir}/qt4/imports/org/nemomobile/systemsettings/qmldir"

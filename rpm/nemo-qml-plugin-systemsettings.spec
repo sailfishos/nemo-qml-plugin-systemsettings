@@ -21,6 +21,7 @@ BuildRequires:  pkgconfig(QtDeclarative)
 BuildRequires:  pkgconfig(qmsystem2)
 BuildRequires:  pkgconfig(profile)
 BuildRequires:  pkgconfig(QtSystemInfo)
+BuildRequires:  mce-headers
 
 %description
 %{summary}.
