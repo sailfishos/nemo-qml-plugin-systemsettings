@@ -9,15 +9,24 @@ Sources:
     - "%{name}-%{version}.tar.bz2"
 License: BSD
 Configure: none
-Builder: qmake
+Builder: qmake5
 PkgConfigBR:
-    - QtCore >= 4.7.0
-    - QtDeclarative
-    - qmsystem2
+    - Qt5Qml
+    - Qt5SystemInfo
+    - qmsystem2-qt5
     - profile
-    - QtSystemInfo
-PkgBR:
-    - mce-headers
+    - mce
 Files:
-    - "%{_libdir}/qt4/imports/org/nemomobile/systemsettings/libnemosystemsettings.so"
-    - "%{_libdir}/qt4/imports/org/nemomobile/systemsettings/qmldir"
+    - "%{_libdir}/qt5/qml/org/nemomobile/systemsettings/libnemosystemsettings.so"
+    - "%{_libdir}/qt5/qml/org/nemomobile/systemsettings/qmldir"
+    - "%{_libdir}/libsystemsettings.so.*"
+
+SubPackages:
+    - Name: devel
+      Summary: System settings C++ library
+      Group: System/Libraries
+      Description: "%{summary}."
+      Files:
+          - "%{_libdir}/pkgconfig/systemsettings.pc"
+          - "%{_includedir}/systemsettings/*"
+          - "%{_libdir}/libsystemsettings.so"
