@@ -4,6 +4,7 @@ TARGET = systemsettings
 # TODO: hide_symbols
 CONFIG += qt create_pc create_prl no_install_prl
 QT += qml dbus systeminfo
+QT -= gui
 
 CONFIG += link_pkgconfig
 PKGCONFIG += qmsystem2-qt5 profile
