@@ -29,17 +29,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
+#include "aboutsettings.h"
+
 #include <QDebug>
 #include <QStringList>
-#include "aboutsettings.h"
+#include <QStorageInfo>
+#include <QNetworkInfo>
+#include <QDeviceInfo>
 
 AboutSettings::AboutSettings(QObject *parent)
     : QObject(parent),
-      m_sysinfo(new QSystemStorageInfo(this)),
-      m_netinfo(new QSystemNetworkInfo(this)),
-      m_devinfo(new QSystemDeviceInfo(this))
+      m_sysinfo(new QStorageInfo(this)),
+      m_netinfo(new QNetworkInfo(this)),
+      m_devinfo(new QDeviceInfo(this))
 {
-    qDebug() << "Drives:" << m_sysinfo->logicalDrives();
+    qDebug() << "Drives:" << m_sysinfo->allLogicalDrives();
 }
 
 AboutSettings::~AboutSettings()
@@ -58,17 +62,17 @@ qlonglong AboutSettings::availableDiskSpace() const
 
 const QString AboutSettings::bluetoothAddress() const
 {
-    return m_netinfo->macAddress(QSystemNetworkInfo::BluetoothMode);
+    return m_netinfo->macAddress(QNetworkInfo::BluetoothMode, 0);
 }
 
 const QString AboutSettings::wlanMacAddress() const
 {
-    return m_netinfo->macAddress(QSystemNetworkInfo::WlanMode);
+    return m_netinfo->macAddress(QNetworkInfo::WlanMode, 0);
 }
 
 const QString AboutSettings::imei() const
 {
-    return m_devinfo->imei();
+    return m_devinfo->imei(0);
 }
 
 const QString AboutSettings::manufacturer() const

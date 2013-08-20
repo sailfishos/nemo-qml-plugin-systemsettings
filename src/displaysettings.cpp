@@ -35,17 +35,33 @@
 #include "displaysettings.h"
 #include <QDebug>
 
+static const char *MceDisplayBrightness = "/system/osso/dsm/display/display_brightness";
+static const char *MceDisplayDimTimeout = "/system/osso/dsm/display/display_dim_timeout";
+static const char *MceDisplayBlankTimeout = "/system/osso/dsm/display/display_blank_timeout";
+static const char *MceDisplayUseAdaptiveDimming = "/system/osso/dsm/display/use_adaptive_display_dimming";
+
 DisplaySettings::DisplaySettings(QObject *parent)
     : QObject(parent)
 {
     m_mceIface = new ComNokiaMceRequestInterface(MCE_SERVICE, MCE_REQUEST_PATH, QDBusConnection::systemBus(), this);
-    QDBusPendingReply<QDBusVariant> result = m_mceIface->get_config(QDBusObjectPath("/system/osso/dsm/display/display_brightness"));
+    QDBusPendingReply<QDBusVariant> result = m_mceIface->get_config(QDBusObjectPath(MceDisplayBrightness));
     result.waitForFinished();
-
     m_brightness = result.value().variant().toInt();
+
+    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayDimTimeout));
+    result.waitForFinished();
+    m_dimTimeout = result.value().variant().toInt();
+
+    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayBlankTimeout));
+    result.waitForFinished();
+    m_blankTimeout = result.value().variant().toInt();
+
+    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayUseAdaptiveDimming));
+    result.waitForFinished();
+    m_adaptiveDimming = result.value().variant().toBool();
 }
 
-int DisplaySettings::brightness()
+int DisplaySettings::brightness() const
 {
     return m_brightness;
 }
@@ -54,7 +70,7 @@ void DisplaySettings::setBrightness(int value)
 {
     if (m_brightness != value) {
         m_brightness = value;
-        m_mceIface->set_config(QDBusObjectPath("/system/osso/dsm/display/display_brightness"), QDBusVariant(value));
+        m_mceIface->set_config(QDBusObjectPath(MceDisplayBrightness), QDBusVariant(value));
         emit brightnessChanged();
     }
 }
@@ -67,3 +83,44 @@ int DisplaySettings::maximumBrightness()
     return result.value().variant().toInt();
 }
 
+int DisplaySettings::dimTimeout() const
+{
+    return m_dimTimeout;
+}
+
+void DisplaySettings::setDimTimeout(int value)
+{
+    if (m_dimTimeout != value) {
+        m_dimTimeout = value;
+        m_mceIface->set_config(QDBusObjectPath(MceDisplayDimTimeout), QDBusVariant(value));
+        emit dimTimeoutChanged();
+    }
+}
+
+int DisplaySettings::blankTimeout() const
+{
+    return m_blankTimeout;
+}
+
+void DisplaySettings::setBlankTimeout(int value)
+{
+    if (m_blankTimeout != value) {
+        m_blankTimeout = value;
+        m_mceIface->set_config(QDBusObjectPath(MceDisplayBlankTimeout), QDBusVariant(value));
+        emit blankTimeoutChanged();
+    }
+}
+
+bool DisplaySettings::adaptiveDimming() const
+{
+    return m_adaptiveDimming;
+}
+
+void DisplaySettings::setAdaptiveDimming(bool enabled)
+{
+    if (m_adaptiveDimming != enabled) {
+        m_adaptiveDimming = enabled;
+        m_mceIface->set_config(QDBusObjectPath(MceDisplayUseAdaptiveDimming), QDBusVariant(enabled));
+        emit adaptiveDimmingChanged();
+    }
+}

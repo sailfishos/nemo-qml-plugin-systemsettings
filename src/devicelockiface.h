@@ -29,49 +29,29 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#include "usbsettings.h"
+#ifndef DEVICELOCKINTERFACE_H
+#define DEVICELOCKINTERFACE_H
+#include <QObject>
+#include <QSettings>
+#include <QProcess>
+#include <QDebug>
 
-USBSettings::USBSettings(QObject *parent)
-    : QObject(parent),
-      m_qmmode(new MeeGo::QmUSBMode(this))
+class DeviceLockInterface : public QObject
 {
-    connect(m_qmmode, SIGNAL(modeChanged(MeeGo::QmUSBMode::Mode)),
-            this, SIGNAL(currentModeChanged()));
+    Q_OBJECT
+    Q_PROPERTY(bool isSet READ isSet NOTIFY isSetChanged);
+public:
+    explicit DeviceLockInterface(QObject *parent = 0);
+    virtual ~DeviceLockInterface();
 
-    foreach (MeeGo::QmUSBMode::Mode supportedMode, m_qmmode->getSupportedModes()) {
-        m_supportedUSBModes.append((int)supportedMode);
-    }
-    emit supportedUSBModesChanged();
-}
+    Q_INVOKABLE bool checkCode(const QString &code);
+    Q_INVOKABLE bool setCode(const QString &oldCode, const QString &newCode);
+    Q_INVOKABLE bool isSet();
+signals:
+    void isSetChanged();
+private:
+    bool m_codeSet;
+    bool m_cacheRefreshNeeded;
+};
 
-USBSettings::~USBSettings()
-{
-}
-
-USBSettings::Mode USBSettings::currentMode() const
-{
-    return (Mode)m_qmmode->getMode();
-}
-
-USBSettings::Mode USBSettings::defaultMode() const
-{
-    return (Mode)m_qmmode->getDefaultMode();
-}
-
-QList<int> USBSettings::supportedUSBModes() const
-{
-    return m_supportedUSBModes;
-}
-
-void USBSettings::setDefaultMode(const Mode mode)
-{
-    if (mode == defaultMode()) {
-        return;
-    }
-
-    if (m_qmmode->setDefaultMode((MeeGo::QmUSBMode::Mode)mode)) {
-        emit defaultModeChanged();
-    } else {
-        qWarning("Couldn't set default mode");
-    }
-}
+#endif

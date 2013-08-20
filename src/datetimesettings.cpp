@@ -80,8 +80,9 @@ bool DateTimeSettings::automaticTimezoneUpdate()
 void DateTimeSettings::setAutomaticTimezoneUpdate(bool enable)
 {
     bool enabled = m_autoTimezone == MeeGo::QmTime::AutoTimeZoneOn;
-    if (enabled == enable)
+    if (enabled == enable) {
         return;
+    }
 
     m_time.setAutoTimeZone(enable ? MeeGo::QmTime::AutoTimeZoneOn : MeeGo::QmTime::AutoTimeZoneOff);
 }
@@ -93,8 +94,9 @@ QString DateTimeSettings::timezone() const
 
 void DateTimeSettings::setTimezone(const QString &tz)
 {
-    if (tz == m_timezone)
+    if (tz == m_timezone) {
         return;
+    }
 
     m_time.setTimezone(tz);
 }

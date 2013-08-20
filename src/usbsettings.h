@@ -32,7 +32,6 @@
 #ifndef USBSETTINGS_H
 #define USBSETTINGS_H
 
-#include <QObject>
 #include <qmusbmode.h>
 
 class USBSettings: public QObject
@@ -43,15 +42,24 @@ class USBSettings: public QObject
 
     Q_PROPERTY(Mode currentMode READ currentMode NOTIFY currentModeChanged)
     Q_PROPERTY(Mode defaultMode READ defaultMode WRITE setDefaultMode NOTIFY defaultModeChanged)
+    Q_PROPERTY(QList<int> supportedUSBModes READ supportedUSBModes NOTIFY supportedUSBModesChanged)
 
 public:
     enum Mode {
-        AskMode = 0,
-        MassStorageMode,
-        DeveloperMode,
-        MTPMode,
-        ChargingMode,
-        UndefinedMode
+        Connected = MeeGo::QmUSBMode::Connected,
+        DataInUse = MeeGo::QmUSBMode::DataInUse,
+        Disconnected = MeeGo::QmUSBMode::Disconnected,
+        MassStorage = MeeGo::QmUSBMode::MassStorage,
+        ChargingOnly = MeeGo::QmUSBMode::ChargingOnly,
+        OviSuite = MeeGo::QmUSBMode::OviSuite,
+        ModeRequest = MeeGo::QmUSBMode::ModeRequest,
+        Ask = MeeGo::QmUSBMode::Ask,
+        Undefined = MeeGo::QmUSBMode::Undefined,
+        SDK = MeeGo::QmUSBMode::SDK,
+        Developer = MeeGo::QmUSBMode::Developer,
+        MTP = MeeGo::QmUSBMode::MTP,
+        Adb = MeeGo::QmUSBMode::Adb,
+        Diag = MeeGo::QmUSBMode::Diag
     };
 
     explicit USBSettings(QObject *parent = 0);
@@ -59,6 +67,7 @@ public:
 
     Mode currentMode() const;
     Mode defaultMode() const;
+    QList<int> supportedUSBModes() const;
 
 public slots:
     void setDefaultMode(const Mode mode);
@@ -66,9 +75,12 @@ public slots:
 signals:
     void currentModeChanged();
     void defaultModeChanged();
+    void supportedUSBModesChanged();
 
 private:
     MeeGo::QmUSBMode *m_qmmode;
+
+    QList<int> m_supportedUSBModes;
 };
 
 #endif

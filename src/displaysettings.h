@@ -33,7 +33,7 @@
 #define DISPLAYSETTINGS_H
 
 #include <QObject>
-#include <qdeclarative.h>
+#include <QtQml>
 
 class ComNokiaMceRequestInterface;
 
@@ -43,21 +43,39 @@ class DisplaySettings: public QObject
 
     Q_PROPERTY(int brightness READ brightness WRITE setBrightness NOTIFY brightnessChanged)
     Q_PROPERTY(int maximumBrightness READ maximumBrightness CONSTANT)
+    Q_PROPERTY(int dimTimeout READ dimTimeout WRITE setDimTimeout NOTIFY dimTimeoutChanged)
+    Q_PROPERTY(int blankTimeout READ blankTimeout WRITE setBlankTimeout NOTIFY blankTimeoutChanged)
+    Q_PROPERTY(bool adaptiveDimming READ adaptiveDimming WRITE setAdaptiveDimming NOTIFY adaptiveDimmingChanged)
 
 public:
     explicit DisplaySettings(QObject *parent = 0);
 
-    int brightness();
+    int brightness() const;
     void setBrightness(int);
 
     int maximumBrightness();
 
+    int dimTimeout() const;
+    void setDimTimeout(int t);
+
+    int blankTimeout() const;
+    void setBlankTimeout(int t);
+
+    bool adaptiveDimming() const;
+    void setAdaptiveDimming(bool);
+
 signals:
     void brightnessChanged();
+    void dimTimeoutChanged();
+    void blankTimeoutChanged();
+    void adaptiveDimmingChanged();
 
 private:
     ComNokiaMceRequestInterface *m_mceIface;
     int m_brightness;
+    int m_dimTimeout;
+    int m_blankTimeout;
+    bool m_adaptiveDimming;
 };
 
 QML_DECLARE_TYPE(DisplaySettings)

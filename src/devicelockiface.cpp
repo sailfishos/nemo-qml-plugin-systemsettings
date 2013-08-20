@@ -29,49 +29,63 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#include "usbsettings.h"
+#include <QObject>
+#include <QSettings>
+#include <QProcess>
+#include <QDebug>
+#include "devicelockiface.h"
 
-USBSettings::USBSettings(QObject *parent)
+static bool runPlugin(QStringList args)
+{
+    QSettings s("/usr/share/lipstick/devicelock/devicelock.conf", QSettings::IniFormat);
+    QString pluginName = s.value("DeviceLock/pluginName").toString();
+
+    if (pluginName.isEmpty()) {
+        qWarning("DeviceLock: no plugin configuration set in /usr/share/lipstick/devicelock/devicelock.conf");
+        return false;
+    }
+
+    QProcess p;
+    p.start(pluginName, args);
+    if (!p.waitForFinished()) {
+        qWarning("DeviceLock: plugin did not finish in time");
+        return false;
+    }
+
+    qDebug() << p.readAllStandardOutput();
+    qWarning() << p.readAllStandardError();
+    return p.exitCode() == 0;
+}
+
+DeviceLockInterface::DeviceLockInterface(QObject *parent)
     : QObject(parent),
-      m_qmmode(new MeeGo::QmUSBMode(this))
+      m_cacheRefreshNeeded(true)
 {
-    connect(m_qmmode, SIGNAL(modeChanged(MeeGo::QmUSBMode::Mode)),
-            this, SIGNAL(currentModeChanged()));
+}
 
-    foreach (MeeGo::QmUSBMode::Mode supportedMode, m_qmmode->getSupportedModes()) {
-        m_supportedUSBModes.append((int)supportedMode);
+DeviceLockInterface::~DeviceLockInterface()
+{
+}
+
+bool DeviceLockInterface::checkCode(const QString &code)
+{
+    return runPlugin(QStringList() << "--check-code" << code);
+}
+
+bool DeviceLockInterface::setCode(const QString &oldCode, const QString &newCode)
+{
+    bool return_value = runPlugin(QStringList() << "--set-code" << oldCode << newCode);
+    if (return_value) {
+        m_cacheRefreshNeeded = true;
+        emit isSetChanged();
     }
-    emit supportedUSBModesChanged();
+    return return_value;
 }
 
-USBSettings::~USBSettings()
-{
-}
-
-USBSettings::Mode USBSettings::currentMode() const
-{
-    return (Mode)m_qmmode->getMode();
-}
-
-USBSettings::Mode USBSettings::defaultMode() const
-{
-    return (Mode)m_qmmode->getDefaultMode();
-}
-
-QList<int> USBSettings::supportedUSBModes() const
-{
-    return m_supportedUSBModes;
-}
-
-void USBSettings::setDefaultMode(const Mode mode)
-{
-    if (mode == defaultMode()) {
-        return;
+bool DeviceLockInterface::isSet() {
+    if (m_cacheRefreshNeeded) {
+        m_codeSet = runPlugin(QStringList() << "--is-set" << "lockcode");
+        m_cacheRefreshNeeded = false;
     }
-
-    if (m_qmmode->setDefaultMode((MeeGo::QmUSBMode::Mode)mode)) {
-        emit defaultModeChanged();
-    } else {
-        qWarning("Couldn't set default mode");
-    }
+    return m_codeSet;
 }
