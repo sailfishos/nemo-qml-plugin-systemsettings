@@ -33,6 +33,8 @@
 
 #include <QDir>
 #include <QDebug>
+#include <QQmlEngine>
+#include <qqml.h>
 
 const char * const AlarmToneDir = "/usr/share/sounds/jolla-ringtones/stereo/";
 
@@ -40,11 +42,6 @@ const char * const AlarmToneDir = "/usr/share/sounds/jolla-ringtones/stereo/";
 AlarmToneModel::AlarmToneModel(QObject *parent)
     : QAbstractListModel(parent)
 {
-    QHash<int, QByteArray> roles;
-    roles[FilenameRole] = "filename";
-    roles[TitleRole] = "title";
-    setRoleNames(roles);
-
     QDir ringtoneDir(AlarmToneDir);
     QStringList filters;
     filters << "*.wav" << "*.mp3" << "*.ogg"; // TODO: need more?
@@ -53,6 +50,15 @@ AlarmToneModel::AlarmToneModel(QObject *parent)
 
 AlarmToneModel::~AlarmToneModel()
 {
+}
+
+QHash<int, QByteArray> AlarmToneModel::roleNames() const
+{
+    QHash<int, QByteArray> roles;
+    roles[FilenameRole] = "filename";
+    roles[TitleRole] = "title";
+
+    return roles;
 }
 
 int AlarmToneModel::rowCount(const QModelIndex &parent) const
@@ -77,4 +83,20 @@ QVariant AlarmToneModel::data(const QModelIndex &index, int role) const
     default:
         return QVariant();
     }
+}
+
+QJSValue AlarmToneModel::get(int index) const
+{
+    if (index < 0 || m_fileInfoList.count() <= index) {
+        return QJSValue();
+    }
+
+    QFileInfo info = m_fileInfoList.at(index);
+    QJSEngine *const engine = qmlEngine(this);
+    QJSValue value = engine->newObject();
+
+    value.setProperty("filename", engine->toScriptValue(info.absoluteFilePath()));
+    value.setProperty("title",   engine->toScriptValue(info.baseName()));
+
+    return value;
 }

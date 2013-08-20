@@ -37,15 +37,17 @@
 
 class Language {
 public:
-    Language(QString name, QString localeCode, QString region);
+    Language(QString name, QString localeCode, QString region, QString regionLabel);
     QString name() const;
     QString localeCode() const;
     QString region() const;
+    QString regionLabel() const;
 
 private:
     QString m_name;
     QString m_localeCode;
     QString m_region;
+    QString m_regionLabel;
 };
 
 class LanguageModel: public QAbstractListModel
@@ -58,7 +60,8 @@ public:
     enum LanguageRoles {
         NameRole = Qt::UserRole + 1,
         LocaleRole,
-        RegionRole
+        RegionRole,
+        RegionLabelRole
     };
 
     enum LocaleUpdateMode {
@@ -73,10 +76,17 @@ public:
     virtual QVariant data(const QModelIndex &index, int role) const;
 
     int currentIndex() const;
+
+    Q_INVOKABLE QString languageName(int index) const;
+    Q_INVOKABLE QString locale(int index) const;
+
     Q_INVOKABLE void setSystemLocale(const QString &localeCode, LocaleUpdateMode updateMode);
 
 signals:
     void currentIndexChanged();
+
+protected:
+    QHash<int, QByteArray> roleNames() const;
 
 private:
     void readCurrentLocale();

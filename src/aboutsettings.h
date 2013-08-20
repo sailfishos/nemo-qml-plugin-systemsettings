@@ -32,12 +32,11 @@
 #ifndef ABOUTSETTINGS_H
 #define ABOUTSETTINGS_H
 
-#include <QSystemStorageInfo>
-#include <QSystemNetworkInfo>
-#include <QSystemDeviceInfo>
+#include <QObject>
 
-QTM_USE_NAMESPACE
-
+class QStorageInfo;
+class QNetworkInfo;
+class QDeviceInfo;
 class AboutSettings: public QObject
 {
     Q_OBJECT
@@ -64,9 +63,9 @@ public:
     const QString model() const;
 
 private:
-    QSystemStorageInfo *m_sysinfo;
-    QSystemNetworkInfo *m_netinfo;
-    QSystemDeviceInfo *m_devinfo;
+    QStorageInfo *m_sysinfo;
+    QNetworkInfo *m_netinfo;
+    QDeviceInfo *m_devinfo;
 };
 
 #endif

@@ -34,11 +34,13 @@
 
 #include <QAbstractListModel>
 #include <QFileInfo>
+#include <QJSValue>
 
-class AlarmToneModel : public QAbstractListModel
+class AlarmToneModel
+        : public QAbstractListModel
 {
     Q_OBJECT
-
+    Q_PROPERTY(int count READ rowCount CONSTANT)
 public:
     enum ApplicationRoles {
         FilenameRole = Qt::UserRole + 1,
@@ -47,13 +49,18 @@ public:
 
     explicit AlarmToneModel(QObject *parent = 0);
     virtual ~AlarmToneModel();
-    
+
     virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
     virtual QVariant data(const QModelIndex &index, int role) const;
+
+    Q_INVOKABLE QJSValue get(int index) const;
 
 signals:
     void selectedFileChanged();
     void currentIndexChanged();
+
+protected:
+    QHash<int, QByteArray> roleNames() const;
 
 private:
     QFileInfoList m_fileInfoList;

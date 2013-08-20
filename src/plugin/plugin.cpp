@@ -30,9 +30,9 @@
  */
 
 #include <QtGlobal>
-#include <QtDeclarative>
-#include <QDeclarativeEngine>
-#include <QDeclarativeExtensionPlugin>
+#include <QtQml>
+#include <QQmlEngine>
+#include <QQmlExtensionPlugin>
 
 #include "languagemodel.h"
 #include "datetimesettings.h"
@@ -41,11 +41,15 @@
 #include "displaysettings.h"
 #include "usbsettings.h"
 #include "aboutsettings.h"
+#include "devicelockiface.h"
 
-class SystemSettingsPlugin : public QDeclarativeExtensionPlugin
+class SystemSettingsPlugin : public QQmlExtensionPlugin
 {
+    Q_OBJECT
+    Q_PLUGIN_METADATA(IID "org.nemomobile.systemsettings")
+
 public:
-    void initializeEngine(QDeclarativeEngine *engine, const char *uri)
+    void initializeEngine(QQmlEngine *engine, const char *uri)
     {
         Q_UNUSED(uri)
     }
@@ -60,8 +64,8 @@ public:
         qmlRegisterType<DisplaySettings>(uri, 1, 0, "DisplaySettings");
         qmlRegisterType<USBSettings>(uri, 1, 0, "USBSettings");
         qmlRegisterType<AboutSettings>(uri, 1, 0, "AboutSettings");
+        qmlRegisterType<DeviceLockInterface>(uri, 1, 0, "DeviceLockInterface");
     }
 };
 
-Q_EXPORT_PLUGIN2(systemsettingsplugin, SystemSettingsPlugin)
-
+#include "plugin.moc"
