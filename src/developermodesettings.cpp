@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013 Jolla Ltd. <pekka.vuorela@jollamobile.com>
+ * Copyright (C) 2013 Jolla Ltd.
+ * Contact: Thomas Perl <thomas.perl@jollamobile.com>
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -29,45 +30,69 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#include <QtGlobal>
-#include <QtQml>
-#include <QQmlEngine>
-#include <QQmlExtensionPlugin>
-
-#include "languagemodel.h"
-#include "datetimesettings.h"
-#include "profilecontrol.h"
-#include "alarmtonemodel.h"
-#include "displaysettings.h"
-#include "usbsettings.h"
-#include "aboutsettings.h"
-#include "devicelockiface.h"
 #include "developermodesettings.h"
 
-class SystemSettingsPlugin : public QQmlExtensionPlugin
+//#include <QDebug>
+//#include <QNetworkInfo>
+
+DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
+    : QObject(parent)
+    , m_wlanIpAddress("1.2.3.4")
+    , m_usbIpAddress("192.168.2.15")
+    , m_developerModeEnabled(false)
+    , m_remoteLoginEnabled(false)
 {
-    Q_OBJECT
-    Q_PLUGIN_METADATA(IID "org.nemomobile.systemsettings")
+}
 
-public:
-    void initializeEngine(QQmlEngine *engine, const char *uri)
-    {
-        Q_UNUSED(uri)
+DeveloperModeSettings::~DeveloperModeSettings()
+{
+}
+
+const QString
+DeveloperModeSettings::wlanIpAddress() const
+{
+    return m_wlanIpAddress;
+}
+
+const QString
+DeveloperModeSettings::usbIpAddress() const
+{
+    return m_usbIpAddress;
+}
+
+bool
+DeveloperModeSettings::developerModeEnabled() const
+{
+    return m_developerModeEnabled;
+}
+
+bool
+DeveloperModeSettings::remoteLoginEnabled() const
+{
+    return m_remoteLoginEnabled;
+}
+
+void
+DeveloperModeSettings::setDeveloperMode(bool enabled)
+{
+    if (m_developerModeEnabled != enabled) {
+        m_developerModeEnabled = enabled;
+        emit developerModeEnabledChanged();
     }
+}
 
-    void registerTypes(const char *uri)
-    {
-        Q_ASSERT(QLatin1String(uri) == QLatin1String("org.nemomobile.systemsettings"));
-        qmlRegisterType<LanguageModel>(uri, 1, 0, "LanguageModel");
-        qmlRegisterType<DateTimeSettings>(uri, 1, 0, "DateTimeSettings");
-        qmlRegisterType<ProfileControl>(uri, 1, 0, "ProfileControl");
-        qmlRegisterType<AlarmToneModel>(uri, 1, 0, "AlarmToneModel");
-        qmlRegisterType<DisplaySettings>(uri, 1, 0, "DisplaySettings");
-        qmlRegisterType<USBSettings>(uri, 1, 0, "USBSettings");
-        qmlRegisterType<AboutSettings>(uri, 1, 0, "AboutSettings");
-        qmlRegisterType<DeviceLockInterface>(uri, 1, 0, "DeviceLockInterface");
-        qmlRegisterType<DeveloperModeSettings>(uri, 1, 0, "DeveloperModeSettings");
+void
+DeveloperModeSettings::setRemoteLogin(bool enabled)
+{
+    if (m_remoteLoginEnabled != enabled) {
+        m_remoteLoginEnabled = enabled;
+        emit remoteLoginEnabledChanged();
     }
-};
+}
 
-#include "plugin.moc"
+void
+DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
+{
+    m_usbIpAddress = usbIpAddress;
+    emit usbIpAddressChanged();
+}
