@@ -20,7 +20,8 @@ SOURCES += \
     displaysettings.cpp \
     usbsettings.cpp \
     aboutsettings.cpp \
-    devicelockiface.cpp
+    devicelockiface.cpp \
+    developermodesettings.cpp
 
 HEADERS += \
     languagemodel.h \
@@ -31,7 +32,8 @@ HEADERS += \
     displaysettings.h \
     usbsettings.h \
     aboutsettings.h \
-    devicelockiface.h
+    devicelockiface.h \
+    developermodesettings.h
 
 develheaders.path = /usr/include/systemsettings
 develheaders.files = $$HEADERS
