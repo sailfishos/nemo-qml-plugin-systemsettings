@@ -34,6 +34,25 @@
 #define DEVELOPERMODESETTINGS_H
 
 #include <QObject>
+#include <QThread>
+
+class DeveloperModeSettingsWorker : public QObject {
+    Q_OBJECT
+
+    public:
+        DeveloperModeSettingsWorker(QObject *parent = NULL);
+
+    public slots:
+        void enableDeveloperMode();
+        void disableDeveloperMode();
+
+    signals:
+        void statusChanged(bool working, QString message);
+        void developerModeEnabledChanged(bool enabled);
+
+    private:
+        bool m_working;
+};
 
 class DeveloperModeSettings : public QObject
 {
@@ -55,6 +74,14 @@ class DeveloperModeSettings : public QObject
             READ remoteLoginEnabled
             NOTIFY remoteLoginEnabledChanged)
 
+    Q_PROPERTY(bool workerWorking
+            READ workerWorking
+            NOTIFY workerWorkingChanged)
+
+    Q_PROPERTY(QString workerMessage
+            READ workerMessage
+            NOTIFY workerMessageChanged)
+
 public:
     explicit DeveloperModeSettings(QObject *parent = NULL);
     virtual ~DeveloperModeSettings();
@@ -63,6 +90,8 @@ public:
     const QString usbIpAddress() const;
     bool developerModeEnabled() const;
     bool remoteLoginEnabled() const;
+    bool workerWorking() const;
+    const QString workerMessage() const;
 
     Q_INVOKABLE void setDeveloperMode(bool enabled);
     Q_INVOKABLE void setRemoteLogin(bool enabled);
@@ -73,12 +102,28 @@ signals:
     void usbIpAddressChanged();
     void developerModeEnabledChanged();
     void remoteLoginEnabledChanged();
+    void workerWorkingChanged();
+    void workerMessageChanged();
+
+    /* For worker */
+    void workerEnableDeveloperMode();
+    void workerDisableDeveloperMode();
+
+private slots:
+    /* For worker */
+    void onWorkerStatusChanged(bool working, QString message);
+    void onWorkerDeveloperModeEnabledChanged(bool enabled);
 
 private:
+    QThread m_worker_thread;
+    DeveloperModeSettingsWorker *m_worker;
+
     QString m_wlanIpAddress;
     QString m_usbIpAddress;
     bool m_developerModeEnabled;
     bool m_remoteLoginEnabled;
+    bool m_workerWorking;
+    QString m_workerMessage;
 };
 
 #endif /* DEVELOPERMODESETTINGS_H */
