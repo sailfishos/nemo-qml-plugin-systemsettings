@@ -35,6 +35,7 @@
 
 #include <QObject>
 #include <QThread>
+#include <QMap>
 
 class DeveloperModeSettingsWorker : public QObject {
     Q_OBJECT
@@ -52,6 +53,31 @@ class DeveloperModeSettingsWorker : public QObject {
 
     private:
         bool m_working;
+};
+
+class NetworkAddressEntry {
+    public:
+        NetworkAddressEntry(QString state=QString(), QString ip=QString())
+            : state(state)
+            , ip(ip)
+        {
+        }
+
+        QString state;
+        QString ip;
+};
+
+class NetworkAddressEnumerator : public QObject {
+    Q_OBJECT
+
+    public:
+        NetworkAddressEnumerator();
+        ~NetworkAddressEnumerator();
+
+        QMap<QString,NetworkAddressEntry> enumerate();
+
+    private:
+        QString getIP(QString device);
 };
 
 class DeveloperModeSettings : public QObject
@@ -96,6 +122,7 @@ public:
     Q_INVOKABLE void setDeveloperMode(bool enabled);
     Q_INVOKABLE void setRemoteLogin(bool enabled);
     Q_INVOKABLE void setUsbIpAddress(const QString &usbIpAddress);
+    Q_INVOKABLE void refresh();
 
 signals:
     void wlanIpAddressChanged();
@@ -117,6 +144,7 @@ private slots:
 private:
     QThread m_worker_thread;
     DeveloperModeSettingsWorker *m_worker;
+    NetworkAddressEnumerator m_enumerator;
 
     QString m_wlanIpAddress;
     QString m_usbIpAddress;
