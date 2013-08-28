@@ -44,6 +44,7 @@ class DeveloperModeSettingsWorker : public QObject {
         DeveloperModeSettingsWorker(QObject *parent = NULL);
 
     public slots:
+        void retrieveDeveloperModeStatus();
         void enableDeveloperMode();
         void disableDeveloperMode();
 
@@ -133,6 +134,7 @@ signals:
     void workerMessageChanged();
 
     /* For worker */
+    void workerRetrieveDeveloperModeStatus();
     void workerEnableDeveloperMode();
     void workerDisableDeveloperMode();
 

@@ -57,6 +57,29 @@ DeveloperModeSettingsWorker::DeveloperModeSettingsWorker(QObject *parent)
 }
 
 void
+DeveloperModeSettingsWorker::retrieveDeveloperModeStatus()
+{
+    if (m_working) {
+        // Ignore request - something else in progress
+        return;
+    }
+
+    bool isDeveloperModeEnabled = false;
+
+    m_working = true;
+    emit statusChanged(true, "Retrieving status");
+
+    // TODO: Get installation status of developer mode from system
+    QThread::sleep(1);
+    isDeveloperModeEnabled = true;
+    // isDeveloperModeEnabled = fales;
+
+    emit statusChanged(false, "Status retrieved");
+    emit developerModeEnabledChanged(isDeveloperModeEnabled);
+    m_working = false;
+}
+
+void
 DeveloperModeSettingsWorker::enableDeveloperMode()
 {
     if (m_working) {
@@ -66,12 +89,14 @@ DeveloperModeSettingsWorker::enableDeveloperMode()
 
     m_working = true;
     emit statusChanged(true, "Enabling developer mode");
+
     // TODO: Implement enabling of developer mode
     QThread::sleep(3);
     emit statusChanged(true, "Installing packages");
     QThread::sleep(2);
     emit statusChanged(true, "Registering device");
     QThread::sleep(3);
+
     emit statusChanged(false, "Developer mode enabled");
     emit developerModeEnabledChanged(true);
     m_working = false;
@@ -87,12 +112,14 @@ DeveloperModeSettingsWorker::disableDeveloperMode()
 
     m_working = true;
     emit statusChanged(true, "Disabling developer mode");
+
     // TODO: Implement disabling of developer mode
     QThread::sleep(2);
     emit statusChanged(true, "Removing packages");
     QThread::sleep(2);
     emit statusChanged(true, "Disabling logins");
     QThread::sleep(2);
+
     emit statusChanged(false, "Developer mode disabled");
     emit developerModeEnabledChanged(false);
     m_working = false;
@@ -171,7 +198,7 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_enumerator()
     , m_wlanIpAddress("-")
     , m_usbIpAddress("-")
-    , m_developerModeEnabled(false) // TODO: Determine from package manager
+    , m_developerModeEnabled(false)
     , m_remoteLoginEnabled(false) // TODO: Read (from password manager?)
     , m_workerWorking(false)
     , m_workerMessage("")
@@ -179,6 +206,8 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     m_worker->moveToThread(&m_worker_thread);
 
     /* Messages to worker */
+    QObject::connect(this, SIGNAL(workerRetrieveDeveloperModeStatus()),
+            m_worker, SLOT(retrieveDeveloperModeStatus()));
     QObject::connect(this, SIGNAL(workerEnableDeveloperMode()),
             m_worker, SLOT(enableDeveloperMode()));
     QObject::connect(this, SIGNAL(workerDisableDeveloperMode()),
@@ -193,6 +222,9 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     m_worker_thread.start();
 
     refresh();
+
+    // Get current developer mode status
+    emit workerRetrieveDeveloperModeStatus();
 
     // TODO: Watch WLAN / USB IP addresses for changes
     // TODO: Watch package manager for changes to developer mode
