@@ -141,29 +141,29 @@ Q_DECLARE_METATYPE(DeveloperModeSettings::Status);
 class DeveloperModeSettingsWorker : public QObject {
     Q_OBJECT
 
-    public:
-        DeveloperModeSettingsWorker(QObject *parent = NULL);
+public:
+    DeveloperModeSettingsWorker(QObject *parent = NULL);
 
-    public slots:
-        /* from Settings object */
-        void retrieveDeveloperModeStatus();
-        void enableDeveloperMode();
-        void disableDeveloperMode();
+public slots:
+    /* from Settings object */
+    void retrieveDeveloperModeStatus();
+    void enableDeveloperMode();
+    void disableDeveloperMode();
 
-        /* from D-Bus */
-        void onInstallPackageResult(QString packageName, bool success);
-        void onRemovePackageResult(QString packageName, bool success);
-        void onPackageProgressChanged(QString packageName, int progress);
+    /* from D-Bus */
+    void onInstallPackageResult(QString packageName, bool success);
+    void onRemovePackageResult(QString packageName, bool success);
+    void onPackageProgressChanged(QString packageName, int progress);
 
-    signals:
-        void statusChanged(bool working, enum DeveloperModeSettings::Status status);
-        void progressChanged(int progress);
-        void developerModeEnabledChanged(bool enabled);
+signals:
+    void statusChanged(bool working, enum DeveloperModeSettings::Status status);
+    void progressChanged(int progress);
+    void developerModeEnabledChanged(bool enabled);
 
-    private:
-        bool m_working;
-        QDBusConnection m_sessionBus;
-        QDBusInterface m_storeClient;
+private:
+    bool m_working;
+    QDBusConnection m_sessionBus;
+    QDBusInterface m_storeClient;
 };
 
 #endif /* DEVELOPERMODESETTINGS_H */
