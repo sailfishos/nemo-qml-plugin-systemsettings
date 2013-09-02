@@ -96,12 +96,13 @@ DeveloperModeSettingsWorker::retrieveDeveloperModeStatus()
     }
 
     m_working = true;
-    emit statusChanged(true, "Retrieving status" /* XXX: i18n */);
+    emit progressChanged(-1);
+    emit statusChanged(true, DeveloperModeSettings::CheckingStatus);
 
     QDBusReply<bool> enabled = m_storeClient.call(STORE_CLIENT_CHECK_INSTALLED,
             DEVELOPER_MODE_PACKAGE);
 
-    emit statusChanged(false, "");
+    emit statusChanged(false, DeveloperModeSettings::Idle);
     emit developerModeEnabledChanged(enabled.value());
     m_working = false;
 }
@@ -115,7 +116,8 @@ DeveloperModeSettingsWorker::enableDeveloperMode()
     }
 
     m_working = true;
-    emit statusChanged(true, "Enabling developer mode" /* XXX: i18n */);
+    emit progressChanged(-1);
+    emit statusChanged(true, DeveloperModeSettings::Installing);
     m_storeClient.call(STORE_CLIENT_INSTALL_PACKAGE, DEVELOPER_MODE_PACKAGE);
 }
 
@@ -128,7 +130,8 @@ DeveloperModeSettingsWorker::disableDeveloperMode()
     }
 
     m_working = true;
-    emit statusChanged(true, "Disabling developer mode" /* XXX: i18n */);
+    emit progressChanged(-1);
+    emit statusChanged(true, DeveloperModeSettings::Removing);
     m_storeClient.call(STORE_CLIENT_REMOVE_PACKAGE, DEVELOPER_MODE_PACKAGE, true);
 }
 
@@ -137,7 +140,8 @@ DeveloperModeSettingsWorker::onInstallPackageResult(QString packageName, bool su
 {
     qDebug() << "onInstallPackageResult:" << packageName << success;
     if (packageName == DEVELOPER_MODE_PACKAGE) {
-        emit statusChanged(false, "");
+        emit statusChanged(false, success ? DeveloperModeSettings::Success :
+                DeveloperModeSettings::Failure);
         emit developerModeEnabledChanged(success);
         m_working = false;
     }
@@ -148,7 +152,8 @@ DeveloperModeSettingsWorker::onRemovePackageResult(QString packageName, bool suc
 {
     qDebug() << "onRemovePackageResult:" << packageName << success;
     if (packageName == DEVELOPER_MODE_PACKAGE) {
-        emit statusChanged(false, "");
+        emit statusChanged(false, success ? DeveloperModeSettings::Success :
+                DeveloperModeSettings::Failure);
         emit developerModeEnabledChanged(!success);
         m_working = false;
     }
@@ -160,7 +165,7 @@ DeveloperModeSettingsWorker::onPackageProgressChanged(QString packageName, int p
     qDebug() << "onPackageProgressChanged:" << packageName << progress;
     if (packageName == DEVELOPER_MODE_PACKAGE) {
         if (m_working) {
-            emit statusChanged(true, QString("Progress: %1").arg(progress));
+            emit progressChanged(progress);
         }
     }
 }
@@ -241,8 +246,15 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_developerModeEnabled(false)
     , m_remoteLoginEnabled(false) // TODO: Read (from password manager?)
     , m_workerWorking(false)
-    , m_workerMessage("")
+    , m_workerStatus(Idle)
+    , m_workerProgress(-1)
 {
+    static bool enumRegistered = false;
+    if (!enumRegistered) {
+        qRegisterMetaType<DeveloperModeSettings::Status>("DeveloperModeSettings::Status");
+        enumRegistered = true;
+    }
+
     m_worker->moveToThread(&m_worker_thread);
 
     /* Messages to worker */
@@ -254,10 +266,12 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
             m_worker, SLOT(disableDeveloperMode()));
 
     /* Messages from worker */
-    QObject::connect(m_worker, SIGNAL(statusChanged(bool, QString)),
-            this, SLOT(onWorkerStatusChanged(bool, QString)));
+    QObject::connect(m_worker, SIGNAL(statusChanged(bool, enum DeveloperModeSettings::Status)),
+            this, SLOT(onWorkerStatusChanged(bool, enum DeveloperModeSettings::Status)));
     QObject::connect(m_worker, SIGNAL(developerModeEnabledChanged(bool)),
             this, SLOT(onWorkerDeveloperModeEnabledChanged(bool)));
+    QObject::connect(m_worker, SIGNAL(progressChanged(int)),
+            this, SLOT(onWorkerProgressChanged(int)));
 
     m_worker_thread.start();
 
@@ -308,10 +322,16 @@ DeveloperModeSettings::workerWorking() const
     return m_workerWorking;
 }
 
-const QString
-DeveloperModeSettings::workerMessage() const
+enum DeveloperModeSettings::Status
+DeveloperModeSettings::workerStatus() const
 {
-    return m_workerMessage;
+    return m_workerStatus;
+}
+
+int
+DeveloperModeSettings::workerProgress() const
+{
+    return m_workerProgress;
 }
 
 void
@@ -375,16 +395,25 @@ DeveloperModeSettings::refresh()
 }
 
 void
-DeveloperModeSettings::onWorkerStatusChanged(bool working, QString message)
+DeveloperModeSettings::onWorkerStatusChanged(bool working, enum DeveloperModeSettings::Status status)
 {
     if (m_workerWorking != working) {
         m_workerWorking = working;
         emit workerWorkingChanged();
     }
 
-    if (m_workerMessage != message) {
-        m_workerMessage = message;
-        emit workerMessageChanged();
+    if (m_workerStatus != status) {
+        m_workerStatus = status;
+        emit workerStatusChanged();
+    }
+}
+
+void
+DeveloperModeSettings::onWorkerProgressChanged(int progress)
+{
+    if (m_workerProgress != progress) {
+        m_workerProgress = progress;
+        emit workerProgressChanged();
     }
 }
 
