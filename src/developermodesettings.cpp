@@ -441,7 +441,7 @@ DeveloperModeSettings::refresh()
         }
     }
 
-    foreach (QString device, entries.keys()) {
+    foreach (const QString &device, entries.keys()) {
         NetworkAddressEntry entry = entries[device];
         qDebug() << "Device:" << device
                  << "IP:" << entry.ip
