@@ -276,13 +276,13 @@ DeveloperModeSettings::~DeveloperModeSettings()
     delete m_worker;
 }
 
-const QString
+QString
 DeveloperModeSettings::wlanIpAddress() const
 {
     return m_wlanIpAddress;
 }
 
-const QString
+QString
 DeveloperModeSettings::usbIpAddress() const
 {
     return m_usbIpAddress;

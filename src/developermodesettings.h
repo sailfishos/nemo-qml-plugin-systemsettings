@@ -88,8 +88,8 @@ public:
         Failure,
     };
 
-    const QString wlanIpAddress() const;
-    const QString usbIpAddress() const;
+    QString wlanIpAddress() const;
+    QString usbIpAddress() const;
     bool developerModeEnabled() const;
     bool remoteLoginEnabled() const;
     bool workerWorking() const;
