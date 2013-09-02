@@ -47,7 +47,8 @@
 
 
 /* Interfaces for IP addresses */
-#define USB_NETWORK_INTERFACE "rndis0"
+#define USB_NETWORK_FALLBACK_INTERFACE "usb0"
+#define USB_NETWORK_FALLBACK_IP "192.168.2.15"
 #define WLAN_NETWORK_INTERFACE "wlan0"
 
 /* Developer mode package */
@@ -67,6 +68,19 @@
 #define STORE_CLIENT_INSTALL_PACKAGE_RESULT "installPackageResult"
 #define STORE_CLIENT_REMOVE_PACKAGE_RESULT "removePackageResult"
 #define STORE_CLIENT_PACKAGE_PROGRESS_CHANGED "packageProgressChanged"
+
+/* D-Bus service */
+#define USB_MODED_SERVICE "com.meego.usb_moded"
+#define USB_MODED_PATH "/com/meego/usb_moded"
+#define USB_MODED_INTERFACE "com.meego.usb_moded"
+
+/* D-Bus method names */
+#define USB_MODED_GET_NET_CONFIG "get_net_config"
+#define USB_MODED_SET_NET_CONFIG "net_config"
+
+/* USB Mode Daemon network configuration properties */
+#define USB_MODED_CONFIG_IP "ip"
+#define USB_MODED_CONFIG_INTERFACE "interface"
 
 
 DeveloperModeSettingsWorker::DeveloperModeSettingsWorker(QObject *parent)
@@ -235,14 +249,37 @@ NetworkAddressEnumerator::getIP(QString device)
     return result;
 }
 
+static inline QString
+usb_moded_get_config(QDBusInterface &usb, QString key, QString fallback)
+{
+    QString value = fallback;
+
+    QDBusMessage msg = usb.call(USB_MODED_GET_NET_CONFIG, key);
+    QList<QVariant> result = msg.arguments();
+    if (result[0].toString() == key && result.size() == 2) {
+        value = result[1].toString();
+    }
+
+    return value;
+}
+
+static inline void
+usb_moded_set_config(QDBusInterface &usb, QString key, QString value)
+{
+    usb.call(USB_MODED_SET_NET_CONFIG, key, value);
+}
+
 
 DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     : QObject(parent)
     , m_worker_thread()
     , m_worker(new DeveloperModeSettingsWorker)
     , m_enumerator()
+    , m_usbModeDaemon(USB_MODED_SERVICE, USB_MODED_PATH, USB_MODED_INTERFACE,
+            QDBusConnection::systemBus())
     , m_wlanIpAddress("-")
-    , m_usbIpAddress("-")
+    , m_usbInterface(USB_NETWORK_FALLBACK_INTERFACE)
+    , m_usbIpAddress(USB_NETWORK_FALLBACK_IP)
     , m_developerModeEnabled(false)
     , m_remoteLoginEnabled(false) // TODO: Read (from password manager?)
     , m_workerWorking(false)
@@ -358,20 +395,33 @@ DeveloperModeSettings::setRemoteLogin(bool enabled)
 void
 DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
 {
-    // TODO: Really set this (maybe through the worker?)
-    m_usbIpAddress = usbIpAddress;
-    emit usbIpAddressChanged();
+    if (m_usbIpAddress != usbIpAddress) {
+        usb_moded_set_config(m_usbModeDaemon, USB_MODED_CONFIG_IP, usbIpAddress);
+        m_usbIpAddress = usbIpAddress;
+        emit usbIpAddressChanged();
+    }
 }
 
 void
 DeveloperModeSettings::refresh()
 {
+    /* Retrieve network configuration from usb_moded */
+    m_usbInterface = usb_moded_get_config(m_usbModeDaemon,
+            USB_MODED_CONFIG_INTERFACE, USB_NETWORK_FALLBACK_INTERFACE);
+    QString usbIp = usb_moded_get_config(m_usbModeDaemon,
+            USB_MODED_CONFIG_IP, USB_NETWORK_FALLBACK_IP);
+    if (usbIp != m_usbIpAddress) {
+        m_usbInterface = usbIp;
+        emit usbIpAddressChanged();
+    }
+
+    /* Retrieve network configuration from interfaces */
     QMap<QString,NetworkAddressEntry> entries = m_enumerator.enumerate();
 
-    if (entries.contains(USB_NETWORK_INTERFACE)) {
-        NetworkAddressEntry entry = entries[USB_NETWORK_INTERFACE];
+    if (entries.contains(m_usbInterface)) {
+        NetworkAddressEntry entry = entries[m_usbIpAddress];
         qDebug() << "Got USB IP, state =" << entry.state;
-        if (m_usbIpAddress != entry.ip) {
+        if (entry.state == "up" && m_usbIpAddress != entry.ip) {
             m_usbIpAddress = entry.ip;
             emit usbIpAddressChanged();
         }
@@ -380,7 +430,7 @@ DeveloperModeSettings::refresh()
     if (entries.contains(WLAN_NETWORK_INTERFACE)) {
         NetworkAddressEntry entry = entries[WLAN_NETWORK_INTERFACE];
         qDebug() << "Got WLAN IP, state =" << entry.state;
-        if (m_wlanIpAddress != entry.ip) {
+        if (entry.state == "up" && m_wlanIpAddress != entry.ip) {
             m_wlanIpAddress = entry.ip;
             emit wlanIpAddressChanged();
         }

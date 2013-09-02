@@ -149,8 +149,10 @@ private:
     QThread m_worker_thread;
     DeveloperModeSettingsWorker *m_worker;
     NetworkAddressEnumerator m_enumerator;
+    QDBusInterface m_usbModeDaemon;
 
     QString m_wlanIpAddress;
+    QString m_usbInterface;
     QString m_usbIpAddress;
     bool m_developerModeEnabled;
     bool m_remoteLoginEnabled;
