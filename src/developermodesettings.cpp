@@ -108,6 +108,7 @@ DeveloperModeSettingsWorker::retrieveDeveloperModeStatus()
 {
     if (m_working) {
         // Ignore request - something else in progress
+        qWarning() << "Ignoring retrieveDeveloperModeStatus request (m_working is true)";
         return;
     }
 
@@ -128,6 +129,7 @@ DeveloperModeSettingsWorker::enableDeveloperMode()
 {
     if (m_working) {
         // Ignore request - something else in progress
+        qWarning() << "Ignoring enableDeveloperMode request (m_working is true)";
         return;
     }
 
@@ -142,6 +144,7 @@ DeveloperModeSettingsWorker::disableDeveloperMode()
 {
     if (m_working) {
         // Ignore request - something else in progress
+        qWarning() << "Ignoring disableDeveloperMode request (m_working is true)";
         return;
     }
 
