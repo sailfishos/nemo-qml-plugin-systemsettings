@@ -37,14 +37,6 @@
 #include <QDir>
 #include <QDBusReply>
 
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <net/if.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
 /* Symbolic constants */
 #define PROGRESS_INDETERMINATE (-1)
 
@@ -189,67 +181,18 @@ DeveloperModeSettingsWorker::onPackageProgressChanged(QString packageName, int p
     }
 }
 
-
-NetworkAddressEnumerator::NetworkAddressEnumerator()
+static QMap<QString,QString>
+enumerate_network_interfaces()
 {
-}
+    QMap<QString,QString> result;
 
-NetworkAddressEnumerator::~NetworkAddressEnumerator()
-{
-}
-
-QMap<QString,NetworkAddressEntry>
-NetworkAddressEnumerator::enumerate()
-{
-    QMap<QString,NetworkAddressEntry> result;
-
-    QDir dir("/sys/class/net");
-    foreach (QString device, dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        QString filename = QString("/sys/class/net/%1/operstate").arg(device);
-
-        QFile operstate(filename);
-        if (!operstate.open(QIODevice::ReadOnly)) {
-            qDebug() << "Cannot open: " << filename;
-            continue;
+    foreach (const QNetworkInterface &intf, QNetworkInterface::allInterfaces()) {
+        foreach (const QNetworkAddressEntry &entry, intf.addressEntries()) {
+            if (entry.ip().protocol() == QAbstractSocket::IPv4Protocol) {
+                result[intf.name()] = entry.ip().toString();
+            }
         }
-
-        QByteArray data = operstate.readAll();
-        QString state = QString::fromUtf8(data).trimmed();
-        operstate.close();
-
-        result[device] = NetworkAddressEntry(state, getIP(device));
     }
-
-    return result;
-}
-
-QString
-NetworkAddressEnumerator::getIP(QString device)
-{
-    QByteArray device_utf8(device.toUtf8());
-    QString result = "-";
-
-    struct ifreq ifr;
-    struct sockaddr_in *sin = (struct sockaddr_in *)&ifr.ifr_addr;
-
-    memset(&ifr, 0, sizeof(ifr));
-    int sfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sfd < 0) {
-        qDebug() << "Cannot open socket in getIP()";
-        return result;
-    }
-
-    strcpy(ifr.ifr_name, device_utf8.data());
-    sin->sin_family = AF_INET;
-
-    if (ioctl(sfd, SIOCGIFADDR, &ifr) != 0) {
-        close(sfd);
-        //qDebug() << "ioctl(SIOCGIFRADDR)";
-        return result;
-    }
-
-    result = QString::fromUtf8(inet_ntoa(sin->sin_addr));
-    close(sfd);
 
     return result;
 }
@@ -279,7 +222,6 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     : QObject(parent)
     , m_worker_thread()
     , m_worker(new DeveloperModeSettingsWorker)
-    , m_enumerator()
     , m_usbModeDaemon(USB_MODED_SERVICE, USB_MODED_PATH, USB_MODED_INTERFACE,
             QDBusConnection::systemBus())
     , m_wlanIpAddress("-")
@@ -421,31 +363,28 @@ DeveloperModeSettings::refresh()
     }
 
     /* Retrieve network configuration from interfaces */
-    QMap<QString,NetworkAddressEntry> entries = m_enumerator.enumerate();
+    QMap<QString,QString> entries = enumerate_network_interfaces();
 
     if (entries.contains(m_usbInterface)) {
-        NetworkAddressEntry entry = entries[m_usbIpAddress];
-        qDebug() << "Got USB IP, state =" << entry.state;
-        if (entry.state == "up" && m_usbIpAddress != entry.ip) {
-            m_usbIpAddress = entry.ip;
+        QString ip = entries[m_usbIpAddress];
+        if (m_usbIpAddress != ip) {
+            m_usbIpAddress = ip;
             emit usbIpAddressChanged();
         }
     }
 
     if (entries.contains(WLAN_NETWORK_INTERFACE)) {
-        NetworkAddressEntry entry = entries[WLAN_NETWORK_INTERFACE];
-        qDebug() << "Got WLAN IP, state =" << entry.state;
-        if (entry.state == "up" && m_wlanIpAddress != entry.ip) {
-            m_wlanIpAddress = entry.ip;
+        QString ip = entries[WLAN_NETWORK_INTERFACE];
+        if (m_wlanIpAddress != ip) {
+            m_wlanIpAddress = ip;
             emit wlanIpAddressChanged();
         }
     }
 
     foreach (const QString &device, entries.keys()) {
-        NetworkAddressEntry entry = entries[device];
+        QString ip = entries[device];
         qDebug() << "Device:" << device
-                 << "IP:" << entry.ip
-                 << "State:" << entry.state;
+                 << "IP:" << ip;
     }
 }
 

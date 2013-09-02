@@ -38,33 +38,9 @@
 #include <QMap>
 #include <QDBusConnection>
 #include <QDBusInterface>
+#include <QNetworkInterface>
 
 class DeveloperModeSettingsWorker;
-
-class NetworkAddressEntry {
-    public:
-        NetworkAddressEntry(QString state=QString(), QString ip=QString())
-            : state(state)
-            , ip(ip)
-        {
-        }
-
-        QString state;
-        QString ip;
-};
-
-class NetworkAddressEnumerator : public QObject {
-    Q_OBJECT
-
-    public:
-        NetworkAddressEnumerator();
-        ~NetworkAddressEnumerator();
-
-        QMap<QString,NetworkAddressEntry> enumerate();
-
-    private:
-        QString getIP(QString device);
-};
 
 class DeveloperModeSettings : public QObject
 {
@@ -148,7 +124,6 @@ private slots:
 private:
     QThread m_worker_thread;
     DeveloperModeSettingsWorker *m_worker;
-    NetworkAddressEnumerator m_enumerator;
     QDBusInterface m_usbModeDaemon;
 
     QString m_wlanIpAddress;
