@@ -45,6 +45,8 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+/* Symbolic constants */
+#define PROGRESS_INDETERMINATE (-1)
 
 /* Interfaces for IP addresses */
 #define USB_NETWORK_FALLBACK_INTERFACE "usb0"
@@ -110,7 +112,7 @@ DeveloperModeSettingsWorker::retrieveDeveloperModeStatus()
     }
 
     m_working = true;
-    emit progressChanged(-1);
+    emit progressChanged(PROGRESS_INDETERMINATE);
     emit statusChanged(true, DeveloperModeSettings::CheckingStatus);
 
     QDBusReply<bool> enabled = m_storeClient.call(STORE_CLIENT_CHECK_INSTALLED,
@@ -130,7 +132,7 @@ DeveloperModeSettingsWorker::enableDeveloperMode()
     }
 
     m_working = true;
-    emit progressChanged(-1);
+    emit progressChanged(PROGRESS_INDETERMINATE);
     emit statusChanged(true, DeveloperModeSettings::Installing);
     m_storeClient.call(STORE_CLIENT_INSTALL_PACKAGE, DEVELOPER_MODE_PACKAGE);
 }
@@ -144,7 +146,7 @@ DeveloperModeSettingsWorker::disableDeveloperMode()
     }
 
     m_working = true;
-    emit progressChanged(-1);
+    emit progressChanged(PROGRESS_INDETERMINATE);
     emit statusChanged(true, DeveloperModeSettings::Removing);
     m_storeClient.call(STORE_CLIENT_REMOVE_PACKAGE, DEVELOPER_MODE_PACKAGE, true);
 }
@@ -284,7 +286,7 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_remoteLoginEnabled(false) // TODO: Read (from password manager?)
     , m_workerWorking(false)
     , m_workerStatus(Idle)
-    , m_workerProgress(-1)
+    , m_workerProgress(PROGRESS_INDETERMINATE)
 {
     static bool enumRegistered = false;
     if (!enumRegistered) {
