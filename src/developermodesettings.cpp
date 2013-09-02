@@ -35,6 +35,7 @@
 #include <QDebug>
 #include <QFile>
 #include <QDir>
+#include <QDBusReply>
 
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -49,11 +50,41 @@
 #define USB_NETWORK_INTERFACE "rndis0"
 #define WLAN_NETWORK_INTERFACE "wlan0"
 
+/* Developer mode package */
+#define DEVELOPER_MODE_PACKAGE "jolla-developer-mode"
+
+/* D-Bus service */
+#define STORE_CLIENT_SERVICE "com.jolla.jollastore"
+#define STORE_CLIENT_PATH "/StoreClient"
+#define STORE_CLIENT_INTERFACE "com.jolla.jollastore"
+
+/* D-Bus method names */
+#define STORE_CLIENT_CHECK_INSTALLED "checkInstalled"
+#define STORE_CLIENT_INSTALL_PACKAGE "installPackage"
+#define STORE_CLIENT_REMOVE_PACKAGE "removePackage"
+
+/* D-Bus signal names */
+#define STORE_CLIENT_INSTALL_PACKAGE_RESULT "installPackageResult"
+#define STORE_CLIENT_REMOVE_PACKAGE_RESULT "removePackageResult"
+#define STORE_CLIENT_PACKAGE_PROGRESS_CHANGED "packageProgressChanged"
+
 
 DeveloperModeSettingsWorker::DeveloperModeSettingsWorker(QObject *parent)
     : QObject(parent)
     , m_working(false)
+    , m_sessionBus(QDBusConnection::sessionBus())
+    , m_storeClient(STORE_CLIENT_SERVICE, STORE_CLIENT_PATH,
+            STORE_CLIENT_INTERFACE)
 {
+    m_sessionBus.connect("", "", STORE_CLIENT_INTERFACE,
+            STORE_CLIENT_INSTALL_PACKAGE_RESULT,
+            this, SLOT(onInstallPackageResult(QString, bool)));
+    m_sessionBus.connect("", "", STORE_CLIENT_INTERFACE,
+            STORE_CLIENT_REMOVE_PACKAGE_RESULT,
+            this, SLOT(onRemovePackageResult(QString, bool)));
+    m_sessionBus.connect("", "", STORE_CLIENT_INTERFACE,
+            STORE_CLIENT_PACKAGE_PROGRESS_CHANGED,
+            this, SLOT(onPackageProgressChanged(QString, int)));
 }
 
 void
@@ -64,18 +95,14 @@ DeveloperModeSettingsWorker::retrieveDeveloperModeStatus()
         return;
     }
 
-    bool isDeveloperModeEnabled = false;
-
     m_working = true;
-    emit statusChanged(true, "Retrieving status");
+    emit statusChanged(true, "Retrieving status" /* XXX: i18n */);
 
-    // TODO: Get installation status of developer mode from system
-    QThread::sleep(1);
-    isDeveloperModeEnabled = true;
-    // isDeveloperModeEnabled = fales;
+    QDBusReply<bool> enabled = m_storeClient.call(STORE_CLIENT_CHECK_INSTALLED,
+            DEVELOPER_MODE_PACKAGE);
 
-    emit statusChanged(false, "Status retrieved");
-    emit developerModeEnabledChanged(isDeveloperModeEnabled);
+    emit statusChanged(false, "");
+    emit developerModeEnabledChanged(enabled.value());
     m_working = false;
 }
 
@@ -88,18 +115,8 @@ DeveloperModeSettingsWorker::enableDeveloperMode()
     }
 
     m_working = true;
-    emit statusChanged(true, "Enabling developer mode");
-
-    // TODO: Implement enabling of developer mode
-    QThread::sleep(3);
-    emit statusChanged(true, "Installing packages");
-    QThread::sleep(2);
-    emit statusChanged(true, "Registering device");
-    QThread::sleep(3);
-
-    emit statusChanged(false, "Developer mode enabled");
-    emit developerModeEnabledChanged(true);
-    m_working = false;
+    emit statusChanged(true, "Enabling developer mode" /* XXX: i18n */);
+    m_storeClient.call(STORE_CLIENT_INSTALL_PACKAGE, DEVELOPER_MODE_PACKAGE);
 }
 
 void
@@ -111,18 +128,41 @@ DeveloperModeSettingsWorker::disableDeveloperMode()
     }
 
     m_working = true;
-    emit statusChanged(true, "Disabling developer mode");
+    emit statusChanged(true, "Disabling developer mode" /* XXX: i18n */);
+    m_storeClient.call(STORE_CLIENT_REMOVE_PACKAGE, DEVELOPER_MODE_PACKAGE, true);
+}
 
-    // TODO: Implement disabling of developer mode
-    QThread::sleep(2);
-    emit statusChanged(true, "Removing packages");
-    QThread::sleep(2);
-    emit statusChanged(true, "Disabling logins");
-    QThread::sleep(2);
+void
+DeveloperModeSettingsWorker::onInstallPackageResult(QString packageName, bool success)
+{
+    qDebug() << "onInstallPackageResult:" << packageName << success;
+    if (packageName == DEVELOPER_MODE_PACKAGE) {
+        emit statusChanged(false, "");
+        emit developerModeEnabledChanged(success);
+        m_working = false;
+    }
+}
 
-    emit statusChanged(false, "Developer mode disabled");
-    emit developerModeEnabledChanged(false);
-    m_working = false;
+void
+DeveloperModeSettingsWorker::onRemovePackageResult(QString packageName, bool success)
+{
+    qDebug() << "onRemovePackageResult:" << packageName << success;
+    if (packageName == DEVELOPER_MODE_PACKAGE) {
+        emit statusChanged(false, "");
+        emit developerModeEnabledChanged(!success);
+        m_working = false;
+    }
+}
+
+void
+DeveloperModeSettingsWorker::onPackageProgressChanged(QString packageName, int progress)
+{
+    qDebug() << "onPackageProgressChanged:" << packageName << progress;
+    if (packageName == DEVELOPER_MODE_PACKAGE) {
+        if (m_working) {
+            emit statusChanged(true, QString("Progress: %1").arg(progress));
+        }
+    }
 }
 
 

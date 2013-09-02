@@ -36,6 +36,8 @@
 #include <QObject>
 #include <QThread>
 #include <QMap>
+#include <QDBusConnection>
+#include <QDBusInterface>
 
 class DeveloperModeSettingsWorker : public QObject {
     Q_OBJECT
@@ -44,9 +46,15 @@ class DeveloperModeSettingsWorker : public QObject {
         DeveloperModeSettingsWorker(QObject *parent = NULL);
 
     public slots:
+        /* from Settings object */
         void retrieveDeveloperModeStatus();
         void enableDeveloperMode();
         void disableDeveloperMode();
+
+        /* from D-Bus */
+        void onInstallPackageResult(QString packageName, bool success);
+        void onRemovePackageResult(QString packageName, bool success);
+        void onPackageProgressChanged(QString packageName, int progress);
 
     signals:
         void statusChanged(bool working, QString message);
@@ -54,6 +62,8 @@ class DeveloperModeSettingsWorker : public QObject {
 
     private:
         bool m_working;
+        QDBusConnection m_sessionBus;
+        QDBusInterface m_storeClient;
 };
 
 class NetworkAddressEntry {
