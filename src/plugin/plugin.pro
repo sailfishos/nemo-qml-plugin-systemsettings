@@ -3,7 +3,7 @@ PLUGIN_IMPORT_PATH = org/nemomobile/systemsettings
 
 TEMPLATE = lib
 CONFIG += qt plugin hide_symbols link_pkgconfig
-QT += qml
+QT += qml dbus network
 QT -= gui
 
 PKGCONFIG += qmsystem2-qt5 profile

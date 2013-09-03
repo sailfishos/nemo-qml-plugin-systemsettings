@@ -42,6 +42,7 @@
 #include "usbsettings.h"
 #include "aboutsettings.h"
 #include "devicelockiface.h"
+#include "developermodesettings.h"
 
 class SystemSettingsPlugin : public QQmlExtensionPlugin
 {
@@ -65,6 +66,8 @@ public:
         qmlRegisterType<USBSettings>(uri, 1, 0, "USBSettings");
         qmlRegisterType<AboutSettings>(uri, 1, 0, "AboutSettings");
         qmlRegisterType<DeviceLockInterface>(uri, 1, 0, "DeviceLockInterface");
+        qmlRegisterType<DeveloperModeSettings>(uri, 1, 0, "DeveloperModeSettings");
+        qRegisterMetaType<DeveloperModeSettings::Status>("DeveloperModeSettings::Status");
     }
 };
 
