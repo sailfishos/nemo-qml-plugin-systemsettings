@@ -24,5 +24,14 @@
             <arg name="states" direction="out" type="u"/>
         </signal>
     </interface>
+    <interface name="com.nokia.mce.signal">
+        <signal name="config_change_ind">
+            <arg name="key" direction="out" type="s"/>
+            <arg name="value" direction="out" type="v"/>
+        </signal>
+        <signal name="display_status_ind">
+            <arg name="state" direction="out" type="s"/>
+        </signal>
+    </interface>
 </node>
 

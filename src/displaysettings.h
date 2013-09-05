@@ -36,6 +36,8 @@
 #include <QtQml>
 
 class ComNokiaMceRequestInterface;
+class ComNokiaMceSignalInterface;
+class QDBusVariant;
 
 class DisplaySettings: public QObject
 {
@@ -45,7 +47,8 @@ class DisplaySettings: public QObject
     Q_PROPERTY(int maximumBrightness READ maximumBrightness CONSTANT)
     Q_PROPERTY(int dimTimeout READ dimTimeout WRITE setDimTimeout NOTIFY dimTimeoutChanged)
     Q_PROPERTY(int blankTimeout READ blankTimeout WRITE setBlankTimeout NOTIFY blankTimeoutChanged)
-    Q_PROPERTY(bool adaptiveDimming READ adaptiveDimming WRITE setAdaptiveDimming NOTIFY adaptiveDimmingChanged)
+    Q_PROPERTY(bool adaptiveDimmingEnabled READ adaptiveDimmingEnabled WRITE setAdaptiveDimmingEnabled NOTIFY adaptiveDimmingEnabledChanged)
+    Q_PROPERTY(bool ambientLightSensorEnabled READ ambientLightSensorEnabled WRITE setAmbientLightSensorEnabled NOTIFY ambientLightSensorEnabledChanged)
 
 public:
     explicit DisplaySettings(QObject *parent = 0);
@@ -61,21 +64,30 @@ public:
     int blankTimeout() const;
     void setBlankTimeout(int t);
 
-    bool adaptiveDimming() const;
-    void setAdaptiveDimming(bool);
+    bool adaptiveDimmingEnabled() const;
+    void setAdaptiveDimmingEnabled(bool);
+
+    bool ambientLightSensorEnabled() const;
+    void setAmbientLightSensorEnabled(bool);
 
 signals:
     void brightnessChanged();
     void dimTimeoutChanged();
     void blankTimeoutChanged();
-    void adaptiveDimmingChanged();
+    void adaptiveDimmingEnabledChanged();
+    void ambientLightSensorEnabledChanged();
+
+private slots:
+    void configChange(const QString &key, const QDBusVariant &value);
 
 private:
     ComNokiaMceRequestInterface *m_mceIface;
+    ComNokiaMceSignalInterface *m_mceSignalIface;
     int m_brightness;
     int m_dimTimeout;
     int m_blankTimeout;
-    bool m_adaptiveDimming;
+    bool m_adaptiveDimmingEnabled;
+    bool m_ambientLightSensorEnabled;
 };
 
 QML_DECLARE_TYPE(DisplaySettings)

@@ -39,6 +39,7 @@ static const char *MceDisplayBrightness = "/system/osso/dsm/display/display_brig
 static const char *MceDisplayDimTimeout = "/system/osso/dsm/display/display_dim_timeout";
 static const char *MceDisplayBlankTimeout = "/system/osso/dsm/display/display_blank_timeout";
 static const char *MceDisplayUseAdaptiveDimming = "/system/osso/dsm/display/use_adaptive_display_dimming";
+static const char *MceDisplayUseAmbientLightSensor = "/system/osso/dsm/display/als_enabled";
 
 DisplaySettings::DisplaySettings(QObject *parent)
     : QObject(parent)
@@ -58,7 +59,14 @@ DisplaySettings::DisplaySettings(QObject *parent)
 
     result = m_mceIface->get_config(QDBusObjectPath(MceDisplayUseAdaptiveDimming));
     result.waitForFinished();
-    m_adaptiveDimming = result.value().variant().toBool();
+    m_adaptiveDimmingEnabled = result.value().variant().toBool();
+
+    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayUseAmbientLightSensor));
+    result.waitForFinished();
+    m_ambientLightSensorEnabled = result.value().variant().toBool();
+
+    m_mceSignalIface = new ComNokiaMceSignalInterface(MCE_SERVICE, MCE_SIGNAL_PATH, QDBusConnection::systemBus(), this);
+    connect(m_mceSignalIface, SIGNAL(config_change_ind(QString,QDBusVariant)), this, SLOT(configChange(QString,QDBusVariant)));
 }
 
 int DisplaySettings::brightness() const
@@ -111,16 +119,65 @@ void DisplaySettings::setBlankTimeout(int value)
     }
 }
 
-bool DisplaySettings::adaptiveDimming() const
+bool DisplaySettings::adaptiveDimmingEnabled() const
 {
-    return m_adaptiveDimming;
+    return m_adaptiveDimmingEnabled;
 }
 
-void DisplaySettings::setAdaptiveDimming(bool enabled)
+void DisplaySettings::setAdaptiveDimmingEnabled(bool enabled)
 {
-    if (m_adaptiveDimming != enabled) {
-        m_adaptiveDimming = enabled;
+    if (m_adaptiveDimmingEnabled != enabled) {
+        m_adaptiveDimmingEnabled = enabled;
         m_mceIface->set_config(QDBusObjectPath(MceDisplayUseAdaptiveDimming), QDBusVariant(enabled));
-        emit adaptiveDimmingChanged();
+        emit adaptiveDimmingEnabledChanged();
+    }
+}
+
+bool DisplaySettings::ambientLightSensorEnabled() const
+{
+    return m_ambientLightSensorEnabled;
+}
+
+void DisplaySettings::setAmbientLightSensorEnabled(bool enabled)
+{
+    if (m_ambientLightSensorEnabled != enabled) {
+        m_ambientLightSensorEnabled = enabled;
+        m_mceIface->set_config(QDBusObjectPath(MceDisplayUseAmbientLightSensor), QDBusVariant(enabled));
+        emit ambientLightSensorEnabledChanged();
+    }
+}
+
+void DisplaySettings::configChange(const QString &key, const QDBusVariant &value)
+{
+    if (key == MceDisplayBrightness) {
+        int val = value.variant().toInt();
+        if (val != m_brightness) {
+            m_brightness = val;
+            emit brightnessChanged();
+        }
+    } else if (key == MceDisplayDimTimeout) {
+        int val = value.variant().toInt();
+        if (val != m_dimTimeout) {
+            m_dimTimeout = val;
+            emit dimTimeoutChanged();
+        }
+    } else if (key == MceDisplayBlankTimeout) {
+        int val = value.variant().toInt();
+        if (val != m_blankTimeout) {
+            m_blankTimeout = val;
+            emit blankTimeoutChanged();
+        }
+    } else if (key == MceDisplayUseAdaptiveDimming) {
+        bool val = value.variant().toBool();
+        if (val != m_adaptiveDimmingEnabled) {
+            m_adaptiveDimmingEnabled = val;
+            emit adaptiveDimmingEnabledChanged();
+        }
+    } else if (key == MceDisplayUseAmbientLightSensor) {
+        bool val = value.variant().toBool();
+        if (val != m_ambientLightSensorEnabled) {
+            m_ambientLightSensorEnabled = val;
+            emit ambientLightSensorEnabledChanged();
+        }
     }
 }
