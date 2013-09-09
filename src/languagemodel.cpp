@@ -91,27 +91,7 @@ LanguageModel::LanguageModel(QObject *parent)
     : QAbstractListModel(parent),
       m_currentIndex(-1)
 {
-    // get supported languages
-    QDir languageDirectory(LanguageSupportDirectory);
-    QFileInfoList fileInfoList = languageDirectory.entryInfoList(QStringList("*.conf"), QDir::Files);
-
-    foreach (const QFileInfo &fileInfo, fileInfoList) {
-        QSettings settings(fileInfo.filePath(), QSettings::IniFormat);
-        settings.setIniCodec("UTF-8");
-        QString name = settings.value("Name").toString();
-        QString localeCode = settings.value("LocaleCode").toString();
-        QString region = settings.value("Region").toString();
-        //% "Region: %1"
-        QString regionLabel = settings.value("RegionLabel", qtTrId("settings_system-la-region")).toString();
-        if (name.isEmpty() || localeCode.isEmpty() || region.isEmpty()) {
-            continue;
-        }
-        Language newLanguage(name, localeCode, region, regionLabel);
-        m_languages.append(newLanguage);
-    }
-
-    qSort(m_languages.begin(), m_languages.end(), nameLessThan);
-
+    m_languages = supportedLanguages();
     readCurrentLocale();
 }
 
@@ -225,6 +205,32 @@ void LanguageModel::setSystemLocale(const QString &localeCode, LocaleUpdateMode 
                                      QDBusConnection::systemBus());
         dsmeInterface.call("req_reboot");
     }
+}
+
+QList<Language> LanguageModel::supportedLanguages()
+{
+    // get supported languages
+    QDir languageDirectory(LanguageSupportDirectory);
+    QFileInfoList fileInfoList = languageDirectory.entryInfoList(QStringList("*.conf"), QDir::Files);
+    QList<Language> languages;
+
+    foreach (const QFileInfo &fileInfo, fileInfoList) {
+        QSettings settings(fileInfo.filePath(), QSettings::IniFormat);
+        settings.setIniCodec("UTF-8");
+        QString name = settings.value("Name").toString();
+        QString localeCode = settings.value("LocaleCode").toString();
+        QString region = settings.value("Region").toString();
+        //% "Region: %1"
+        QString regionLabel = settings.value("RegionLabel", qtTrId("settings_system-la-region")).toString();
+        if (name.isEmpty() || localeCode.isEmpty() || region.isEmpty()) {
+            continue;
+        }
+        Language newLanguage(name, localeCode, region, regionLabel);
+        languages.append(newLanguage);
+    }
+
+    qSort(languages.begin(), languages.end(), nameLessThan);
+    return languages;
 }
 
 int LanguageModel::getLocaleIndex(const QString &locale) const
