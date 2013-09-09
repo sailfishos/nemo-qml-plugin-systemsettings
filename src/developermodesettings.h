@@ -155,6 +155,7 @@ public slots:
     void onInstallPackageResult(QString packageName, bool success);
     void onRemovePackageResult(QString packageName, bool success);
     void onPackageProgressChanged(QString packageName, int progress);
+    void onCheckInstalledResult(QString packageName, bool installed);
 
 signals:
     void statusChanged(bool working, enum DeveloperModeSettings::Status status);
