@@ -82,6 +82,8 @@ public:
 
     Q_INVOKABLE void setSystemLocale(const QString &localeCode, LocaleUpdateMode updateMode);
 
+    static QList<Language> supportedLanguages();
+
 signals:
     void currentIndexChanged();
 
