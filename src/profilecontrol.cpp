@@ -516,7 +516,9 @@ void ProfileControl::setClockAlarmToneEnabled(bool enabled)
 
 void ProfileControl::currentProfileChangedCallback(const char *name, ProfileControl *profileControl)
 {
-    emit profileControl->profileChanged(QString::fromUtf8(name));
+    QString newProfile = QString::fromUtf8(name);
+    profileControl->m_profile = newProfile;
+    emit profileControl->profileChanged(newProfile);
 }
 
 void ProfileControl::updateStateCallBack(const char *profile, const char *key, const char *val, const char *type)
