@@ -67,7 +67,8 @@ public:
     enum VibraMode {
         VibraAlways,
         VibraSilent,
-        VibraNormal
+        VibraNormal,
+        VibraNever
     };
 
     /*!
