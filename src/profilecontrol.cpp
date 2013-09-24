@@ -151,7 +151,11 @@ int ProfileControl::vibraMode() const
             result = VibraNormal;
         }
     } else {
-        result = VibraSilent;
+        if (m_vibraInSilent) {
+            result = VibraSilent;
+        } else {
+            result = VibraNever;
+        }
     }
 
     return result;
@@ -172,6 +176,8 @@ void ProfileControl::setVibraMode(int mode)
         break;
     case VibraNormal:
         generalValue = true;
+        break;
+    case VibraNever:
         break;
     }
 
