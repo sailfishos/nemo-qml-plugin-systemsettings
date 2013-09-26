@@ -49,6 +49,7 @@ public:
     Q_INVOKABLE bool setCode(const QString &oldCode, const QString &newCode);
     Q_INVOKABLE bool isSet();
     Q_INVOKABLE void refresh();
+    Q_INVOKABLE bool clearDevice(const QString &code);
 
 signals:
     void isSetChanged();

@@ -100,3 +100,8 @@ void DeviceLockInterface::refresh()
         emit isSetChanged();
     }
 }
+
+bool DeviceLockInterface::clearDevice(const QString &code)
+{
+    return runPlugin(QStringList() << "--clear-device" << code);
+}
