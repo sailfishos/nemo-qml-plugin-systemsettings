@@ -89,3 +89,19 @@ bool DeviceLockInterface::isSet() {
     }
     return m_codeSet;
 }
+
+void DeviceLockInterface::refresh()
+{
+    bool wasCodeSet = m_codeSet;
+    m_codeSet = runPlugin(QStringList() << "--is-set" << "lockcode");
+    m_cacheRefreshNeeded = false;
+
+    if (wasCodeSet != m_codeSet) {
+        emit isSetChanged();
+    }
+}
+
+bool DeviceLockInterface::clearDevice(const QString &code)
+{
+    return runPlugin(QStringList() << "--clear-device" << code);
+}
