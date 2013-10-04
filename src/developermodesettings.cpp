@@ -48,6 +48,9 @@
 /* Developer mode package */
 #define DEVELOPER_MODE_PACKAGE "jolla-developer-mode"
 
+/* A file that is provided by the developer mode package */
+#define DEVELOPER_MODE_PROVIDED_FILE "/usr/bin/devel-su"
+
 /* D-Bus service */
 #define STORE_CLIENT_SERVICE "com.jolla.jollastore"
 #define STORE_CLIENT_PATH "/StoreClient"
@@ -112,6 +115,14 @@ DeveloperModeSettingsWorker::retrieveDeveloperModeStatus()
     emit progressChanged(PROGRESS_INDETERMINATE);
     emit statusChanged(true, DeveloperModeSettings::CheckingStatus);
     m_storeClient.call(STORE_CLIENT_CHECK_INSTALLED, DEVELOPER_MODE_PACKAGE);
+    QDBusError error = m_storeClient.lastError();
+    if (error.isValid()) {
+        qWarning() << "Could not query developer mode status: " << error.message();
+        emit statusChanged(false, DeveloperModeSettings::Idle);
+        // Fallback to detecting developer mode by existence of a provided file
+        emit developerModeEnabledChanged(QFile(DEVELOPER_MODE_PROVIDED_FILE).exists());
+        m_working = false;
+    }
 }
 
 void
@@ -127,6 +138,12 @@ DeveloperModeSettingsWorker::enableDeveloperMode()
     emit progressChanged(PROGRESS_INDETERMINATE);
     emit statusChanged(true, DeveloperModeSettings::Installing);
     m_storeClient.call(STORE_CLIENT_INSTALL_PACKAGE, DEVELOPER_MODE_PACKAGE);
+    QDBusError error = m_storeClient.lastError();
+    if (error.isValid()) {
+        qWarning() << "Could not enable developer mode: " << error.message();
+        emit statusChanged(false, DeveloperModeSettings::Failure);
+        m_working = false;
+    }
 }
 
 void
@@ -142,6 +159,12 @@ DeveloperModeSettingsWorker::disableDeveloperMode()
     emit progressChanged(PROGRESS_INDETERMINATE);
     emit statusChanged(true, DeveloperModeSettings::Removing);
     m_storeClient.call(STORE_CLIENT_REMOVE_PACKAGE, DEVELOPER_MODE_PACKAGE, true);
+    QDBusError error = m_storeClient.lastError();
+    if (error.isValid()) {
+        qWarning() << "Could not disable developer mode: " << error.message();
+        emit statusChanged(false, DeveloperModeSettings::Failure);
+        m_working = false;
+    }
 }
 
 void
