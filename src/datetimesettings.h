@@ -41,11 +41,17 @@ class DateTimeSettings: public QObject
 {
     Q_OBJECT
 
+    Q_ENUMS(HourMode)
     Q_PROPERTY(bool automaticTimeUpdate READ automaticTimeUpdate WRITE setAutomaticTimeUpdate NOTIFY automaticTimeUpdateChanged)
     Q_PROPERTY(bool automaticTimezoneUpdate READ automaticTimezoneUpdate WRITE setAutomaticTimezoneUpdate NOTIFY automaticTimezoneUpdateChanged)
     Q_PROPERTY(QString timezone READ timezone WRITE setTimezone NOTIFY timezoneChanged)
 
 public:
+    enum HourMode {
+        TwentyFourHours,
+        TwelveHours
+    };
+
     explicit DateTimeSettings(QObject *parent = 0);
     virtual ~DateTimeSettings();
 
@@ -60,6 +66,8 @@ public:
 
     QString timezone() const;
     void setTimezone(const QString &);
+
+    Q_INVOKABLE void setHourMode(HourMode mode);
 
 signals:
     void timeChanged();

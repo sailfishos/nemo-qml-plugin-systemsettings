@@ -30,6 +30,8 @@
  */
 
 #include "datetimesettings.h"
+#include <timed-qt5/interface>
+#include <timed-qt5/wallclock>
 #include <QDebug>
 
 DateTimeSettings::DateTimeSettings(QObject *parent)
@@ -99,6 +101,14 @@ void DateTimeSettings::setTimezone(const QString &tz)
     }
 
     m_time.setTimezone(tz);
+}
+
+void DateTimeSettings::setHourMode(DateTimeSettings::HourMode mode)
+{
+    Maemo::Timed::Interface timedInterface;
+    Maemo::Timed::WallClock::Settings settings;
+    settings.setFlag24(mode == TwentyFourHours);
+    timedInterface.wall_clock_settings_async(settings);
 }
 
 void DateTimeSettings::handleTimeChanged(MeeGo::QmTime::WhatChanged what)
