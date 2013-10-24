@@ -75,13 +75,5 @@ QString AboutSettings::imei() const
     return m_devinfo->imei(0);
 }
 
-QString AboutSettings::manufacturer() const
-{
-    return m_devinfo->manufacturer();
-}
 
-QString AboutSettings::productName() const
-{
-    return m_devinfo->productName();
-}
 
