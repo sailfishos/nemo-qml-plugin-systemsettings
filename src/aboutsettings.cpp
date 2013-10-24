@@ -36,6 +36,8 @@
 #include <QStorageInfo>
 #include <QNetworkInfo>
 #include <QDeviceInfo>
+#include <QFile>
+#include <QByteArray>
 
 AboutSettings::AboutSettings(QObject *parent)
     : QObject(parent),
@@ -75,5 +77,23 @@ QString AboutSettings::imei() const
     return m_devinfo->imei(0);
 }
 
+QString AboutSettings::softwareVersion() const
+{
+    QFile releaseFile("/etc/os-release");
+    if (!releaseFile.open(QIODevice::ReadOnly | QIODevice::Text))
+        return QString();
 
+    QString version;
+    QByteArray versionTag("VERSION=");
 
+    while (!releaseFile.atEnd()) {
+        QByteArray line = releaseFile.readLine();
+
+        if (line.startsWith(versionTag)) {
+            version = line.mid(versionTag.length()).simplified();
+            break;
+        }
+    }
+
+    return version;
+}
