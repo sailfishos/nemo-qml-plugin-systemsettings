@@ -46,7 +46,6 @@ class AboutSettings: public QObject
     Q_PROPERTY(QString imei READ imei CONSTANT)
     Q_PROPERTY(QString manufacturer READ manufacturer CONSTANT)
     Q_PROPERTY(QString productName READ productName CONSTANT)
-    Q_PROPERTY(QString model READ model CONSTANT)
 
 public:
     explicit AboutSettings(QObject *parent = 0);
@@ -60,7 +59,6 @@ public:
     const QString imei() const;
     const QString manufacturer() const;
     const QString productName() const;
-    const QString model() const;
 
 private:
     QStorageInfo *m_sysinfo;

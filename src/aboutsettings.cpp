@@ -85,7 +85,3 @@ const QString AboutSettings::productName() const
     return m_devinfo->productName();
 }
 
-const QString AboutSettings::model() const
-{
-    return m_devinfo->model();
-}
