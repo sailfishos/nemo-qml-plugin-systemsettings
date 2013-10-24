@@ -54,11 +54,11 @@ public:
     Q_INVOKABLE qlonglong totalDiskSpace() const;
     Q_INVOKABLE qlonglong availableDiskSpace() const;
 
-    const QString bluetoothAddress() const;
-    const QString wlanMacAddress() const;
-    const QString imei() const;
-    const QString manufacturer() const;
-    const QString productName() const;
+    QString bluetoothAddress() const;
+    QString wlanMacAddress() const;
+    QString imei() const;
+    QString manufacturer() const;
+    QString productName() const;
 
 private:
     QStorageInfo *m_sysinfo;

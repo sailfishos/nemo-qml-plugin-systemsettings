@@ -60,27 +60,27 @@ qlonglong AboutSettings::availableDiskSpace() const
     return m_sysinfo->availableDiskSpace("/");
 }
 
-const QString AboutSettings::bluetoothAddress() const
+QString AboutSettings::bluetoothAddress() const
 {
     return m_netinfo->macAddress(QNetworkInfo::BluetoothMode, 0);
 }
 
-const QString AboutSettings::wlanMacAddress() const
+QString AboutSettings::wlanMacAddress() const
 {
     return m_netinfo->macAddress(QNetworkInfo::WlanMode, 0);
 }
 
-const QString AboutSettings::imei() const
+QString AboutSettings::imei() const
 {
     return m_devinfo->imei(0);
 }
 
-const QString AboutSettings::manufacturer() const
+QString AboutSettings::manufacturer() const
 {
     return m_devinfo->manufacturer();
 }
 
-const QString AboutSettings::productName() const
+QString AboutSettings::productName() const
 {
     return m_devinfo->productName();
 }
