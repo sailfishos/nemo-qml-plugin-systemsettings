@@ -44,9 +44,7 @@ class AboutSettings: public QObject
     Q_PROPERTY(QString bluetoothAddress READ bluetoothAddress CONSTANT)
     Q_PROPERTY(QString wlanMacAddress READ wlanMacAddress CONSTANT)
     Q_PROPERTY(QString imei READ imei CONSTANT)
-    Q_PROPERTY(QString manufacturer READ manufacturer CONSTANT)
-    Q_PROPERTY(QString productName READ productName CONSTANT)
-    Q_PROPERTY(QString model READ model CONSTANT)
+    Q_PROPERTY(QString softwareVersion READ softwareVersion CONSTANT)
 
 public:
     explicit AboutSettings(QObject *parent = 0);
@@ -55,12 +53,10 @@ public:
     Q_INVOKABLE qlonglong totalDiskSpace() const;
     Q_INVOKABLE qlonglong availableDiskSpace() const;
 
-    const QString bluetoothAddress() const;
-    const QString wlanMacAddress() const;
-    const QString imei() const;
-    const QString manufacturer() const;
-    const QString productName() const;
-    const QString model() const;
+    QString bluetoothAddress() const;
+    QString wlanMacAddress() const;
+    QString imei() const;
+    QString softwareVersion() const;
 
 private:
     QStorageInfo *m_sysinfo;

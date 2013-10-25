@@ -36,6 +36,8 @@
 #include <QStorageInfo>
 #include <QNetworkInfo>
 #include <QDeviceInfo>
+#include <QFile>
+#include <QByteArray>
 
 AboutSettings::AboutSettings(QObject *parent)
     : QObject(parent),
@@ -60,32 +62,38 @@ qlonglong AboutSettings::availableDiskSpace() const
     return m_sysinfo->availableDiskSpace("/");
 }
 
-const QString AboutSettings::bluetoothAddress() const
+QString AboutSettings::bluetoothAddress() const
 {
     return m_netinfo->macAddress(QNetworkInfo::BluetoothMode, 0);
 }
 
-const QString AboutSettings::wlanMacAddress() const
+QString AboutSettings::wlanMacAddress() const
 {
     return m_netinfo->macAddress(QNetworkInfo::WlanMode, 0);
 }
 
-const QString AboutSettings::imei() const
+QString AboutSettings::imei() const
 {
     return m_devinfo->imei(0);
 }
 
-const QString AboutSettings::manufacturer() const
+QString AboutSettings::softwareVersion() const
 {
-    return m_devinfo->manufacturer();
-}
+    QFile releaseFile("/etc/os-release");
+    if (!releaseFile.open(QIODevice::ReadOnly | QIODevice::Text))
+        return QString();
 
-const QString AboutSettings::productName() const
-{
-    return m_devinfo->productName();
-}
+    QString version;
+    QByteArray versionTag("VERSION=");
 
-const QString AboutSettings::model() const
-{
-    return m_devinfo->model();
+    while (!releaseFile.atEnd()) {
+        QByteArray line = releaseFile.readLine();
+
+        if (line.startsWith(versionTag)) {
+            version = line.mid(versionTag.length()).simplified();
+            break;
+        }
+    }
+
+    return version;
 }
