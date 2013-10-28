@@ -384,7 +384,7 @@ DeveloperModeSettings::refresh()
     QString usbIp = usb_moded_get_config(m_usbModeDaemon,
             USB_MODED_CONFIG_IP, USB_NETWORK_FALLBACK_IP);
     if (usbIp != m_usbIpAddress) {
-        m_usbInterface = usbIp;
+        m_usbIpAddress = usbIp;
         emit usbIpAddressChanged();
     }
 
@@ -392,7 +392,7 @@ DeveloperModeSettings::refresh()
     QMap<QString,QString> entries = enumerate_network_interfaces();
 
     if (entries.contains(m_usbInterface)) {
-        QString ip = entries[m_usbIpAddress];
+        QString ip = entries[m_usbInterface];
         if (m_usbIpAddress != ip) {
             m_usbIpAddress = ip;
             emit usbIpAddressChanged();
