@@ -38,6 +38,7 @@
 #include <QDeviceInfo>
 #include <QFile>
 #include <QByteArray>
+#include <QRegularExpression>
 
 AboutSettings::AboutSettings(QObject *parent)
     : QObject(parent),
@@ -91,6 +92,12 @@ QString AboutSettings::softwareVersion() const
 
         if (line.startsWith(versionTag)) {
             version = line.mid(versionTag.length()).simplified();
+            // remove start and end quotes if exist
+            if (version.length() > 0 && (version.at(0) == '"' || version.at(0) == '\'')) {
+                version = version.mid(1, version.length() - 2);
+            }
+            // unescape rest
+            version.replace(QRegularExpression("\\\\(.)"), "\\1");
             break;
         }
     }
