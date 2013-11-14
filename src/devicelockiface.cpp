@@ -82,6 +82,16 @@ bool DeviceLockInterface::setCode(const QString &oldCode, const QString &newCode
     return return_value;
 }
 
+bool DeviceLockInterface::clearCode(const QString &currentCode)
+{
+    bool return_value = runPlugin(QStringList() << "--clear-code" << currentCode);
+    if (return_value) {
+        m_cacheRefreshNeeded = true;
+        emit isSetChanged();
+    }
+    return return_value;
+}
+
 bool DeviceLockInterface::isSet() {
     if (m_cacheRefreshNeeded) {
         m_codeSet = runPlugin(QStringList() << "--is-set" << "lockcode");
