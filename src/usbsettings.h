@@ -59,7 +59,8 @@ public:
         Developer = MeeGo::QmUSBMode::Developer,
         MTP = MeeGo::QmUSBMode::MTP,
         Adb = MeeGo::QmUSBMode::Adb,
-        Diag = MeeGo::QmUSBMode::Diag
+        Diag = MeeGo::QmUSBMode::Diag,
+        ConnectionSharing = MeeGo::QmUSBMode::ConnectionSharing
     };
 
     explicit USBSettings(QObject *parent = 0);

@@ -13,7 +13,7 @@ Builder: qmake5
 PkgConfigBR:
     - Qt5Qml
     - Qt5SystemInfo
-    - qmsystem2-qt5
+    - qmsystem2-qt5  >= 1.4.15
     - profile
     - mce
 Files:
