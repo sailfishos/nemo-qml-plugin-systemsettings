@@ -34,6 +34,7 @@
 
 #include <QObject>
 #include <QtQml>
+#include <QSettings>
 
 class ComNokiaMceRequestInterface;
 class ComNokiaMceSignalInterface;
@@ -49,6 +50,7 @@ class DisplaySettings: public QObject
     Q_PROPERTY(int blankTimeout READ blankTimeout WRITE setBlankTimeout NOTIFY blankTimeoutChanged)
     Q_PROPERTY(bool adaptiveDimmingEnabled READ adaptiveDimmingEnabled WRITE setAdaptiveDimmingEnabled NOTIFY adaptiveDimmingEnabledChanged)
     Q_PROPERTY(bool ambientLightSensorEnabled READ ambientLightSensorEnabled WRITE setAmbientLightSensorEnabled NOTIFY ambientLightSensorEnabledChanged)
+    Q_PROPERTY(QVariant orientationLock READ orientationLock WRITE setOrientationLock NOTIFY orientationLockChanged)
 
 public:
     explicit DisplaySettings(QObject *parent = 0);
@@ -70,12 +72,16 @@ public:
     bool ambientLightSensorEnabled() const;
     void setAmbientLightSensorEnabled(bool);
 
+    QVariant orientationLock() const;
+    void setOrientationLock(const QVariant &);
+
 signals:
     void brightnessChanged();
     void dimTimeoutChanged();
     void blankTimeoutChanged();
     void adaptiveDimmingEnabledChanged();
     void ambientLightSensorEnabledChanged();
+    void orientationLockChanged();
 
 private slots:
     void configChange(const QString &key, const QDBusVariant &value);
@@ -83,6 +89,7 @@ private slots:
 private:
     ComNokiaMceRequestInterface *m_mceIface;
     ComNokiaMceSignalInterface *m_mceSignalIface;
+    QSettings m_compositorSettings;
     int m_brightness;
     int m_dimTimeout;
     int m_blankTimeout;
