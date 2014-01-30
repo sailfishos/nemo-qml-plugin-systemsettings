@@ -42,7 +42,8 @@ static const char *MceDisplayUseAdaptiveDimming = "/system/osso/dsm/display/use_
 static const char *MceDisplayUseAmbientLightSensor = "/system/osso/dsm/display/als_enabled";
 
 DisplaySettings::DisplaySettings(QObject *parent)
-    : QObject(parent)
+    : QObject(parent),
+      m_compositorSettings("nemomobile", "lipstick")
 {
     m_mceIface = new ComNokiaMceRequestInterface(MCE_SERVICE, MCE_REQUEST_PATH, QDBusConnection::systemBus(), this);
     QDBusPendingReply<QDBusVariant> result = m_mceIface->get_config(QDBusObjectPath(MceDisplayBrightness));
@@ -145,6 +146,16 @@ void DisplaySettings::setAmbientLightSensorEnabled(bool enabled)
         m_mceIface->set_config(QDBusObjectPath(MceDisplayUseAmbientLightSensor), QDBusVariant(enabled));
         emit ambientLightSensorEnabledChanged();
     }
+}
+
+QVariant DisplaySettings::orientationLock() const
+{
+    return m_compositorSettings.value("Compositor/orientationLock", "dynamic");
+}
+
+void DisplaySettings::setOrientationLock(const QVariant &orientationLock)
+{
+    m_compositorSettings.setValue("Compositor/orientationLock", orientationLock);
 }
 
 void DisplaySettings::configChange(const QString &key, const QDBusVariant &value)
