@@ -40,6 +40,7 @@ static const char *MceDisplayDimTimeout = "/system/osso/dsm/display/display_dim_
 static const char *MceDisplayBlankTimeout = "/system/osso/dsm/display/display_blank_timeout";
 static const char *MceDisplayUseAdaptiveDimming = "/system/osso/dsm/display/use_adaptive_display_dimming";
 static const char *MceDisplayUseAmbientLightSensor = "/system/osso/dsm/display/als_enabled";
+static const char *MceDoubleTapMode = "/system/osso/dsm/doubletap/mode";
 
 DisplaySettings::DisplaySettings(QObject *parent)
     : QObject(parent),
@@ -65,6 +66,10 @@ DisplaySettings::DisplaySettings(QObject *parent)
     result = m_mceIface->get_config(QDBusObjectPath(MceDisplayUseAmbientLightSensor));
     result.waitForFinished();
     m_ambientLightSensorEnabled = result.value().variant().toBool();
+
+    result = m_mceIface->get_config(QDBusObjectPath(MceDoubleTapMode));
+    result.waitForFinished();
+    m_doubleTapMode = result.value().variant().toInt();
 
     m_mceSignalIface = new ComNokiaMceSignalInterface(MCE_SERVICE, MCE_SIGNAL_PATH, QDBusConnection::systemBus(), this);
     connect(m_mceSignalIface, SIGNAL(config_change_ind(QString,QDBusVariant)), this, SLOT(configChange(QString,QDBusVariant)));
@@ -148,6 +153,20 @@ void DisplaySettings::setAmbientLightSensorEnabled(bool enabled)
     }
 }
 
+int DisplaySettings::doubleTapMode() const
+{
+    return m_doubleTapMode;
+}
+
+void DisplaySettings::setDoubleTapMode(int mode)
+{
+    if (m_doubleTapMode != mode) {
+        m_doubleTapMode = mode;
+        m_mceIface->set_config(QDBusObjectPath(MceDoubleTapMode), QDBusVariant(mode));
+        emit doubleTapModeChanged();
+    }
+}
+
 QVariant DisplaySettings::orientationLock() const
 {
     return m_compositorSettings.value("Compositor/orientationLock", "dynamic");
@@ -189,6 +208,12 @@ void DisplaySettings::configChange(const QString &key, const QDBusVariant &value
         if (val != m_ambientLightSensorEnabled) {
             m_ambientLightSensorEnabled = val;
             emit ambientLightSensorEnabledChanged();
+        }
+    } else if (key == MceDoubleTapMode) {
+        int val = value.variant().toInt();
+        if (val != m_doubleTapMode) {
+            m_doubleTapMode = val;
+            emit doubleTapModeChanged();
         }
     }
 }
