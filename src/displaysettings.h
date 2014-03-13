@@ -44,15 +44,23 @@ class DisplaySettings: public QObject
 {
     Q_OBJECT
 
+    Q_ENUMS(DoubleTapMode)
     Q_PROPERTY(int brightness READ brightness WRITE setBrightness NOTIFY brightnessChanged)
     Q_PROPERTY(int maximumBrightness READ maximumBrightness CONSTANT)
     Q_PROPERTY(int dimTimeout READ dimTimeout WRITE setDimTimeout NOTIFY dimTimeoutChanged)
     Q_PROPERTY(int blankTimeout READ blankTimeout WRITE setBlankTimeout NOTIFY blankTimeoutChanged)
     Q_PROPERTY(bool adaptiveDimmingEnabled READ adaptiveDimmingEnabled WRITE setAdaptiveDimmingEnabled NOTIFY adaptiveDimmingEnabledChanged)
     Q_PROPERTY(bool ambientLightSensorEnabled READ ambientLightSensorEnabled WRITE setAmbientLightSensorEnabled NOTIFY ambientLightSensorEnabledChanged)
+    Q_PROPERTY(int doubleTapMode READ doubleTapMode WRITE setDoubleTapMode NOTIFY doubleTapModeChanged)
     Q_PROPERTY(QVariant orientationLock READ orientationLock WRITE setOrientationLock NOTIFY orientationLockChanged)
 
 public:
+    enum DoubleTapMode {
+        DoubleTapWakeupNever,
+        DoubleTapWakeupAlways,
+        DoubleTapWakeupNoProximity
+    };
+
     explicit DisplaySettings(QObject *parent = 0);
 
     int brightness() const;
@@ -72,6 +80,9 @@ public:
     bool ambientLightSensorEnabled() const;
     void setAmbientLightSensorEnabled(bool);
 
+    int doubleTapMode() const;
+    void setDoubleTapMode(int);
+
     QVariant orientationLock() const;
     void setOrientationLock(const QVariant &);
 
@@ -81,6 +92,7 @@ signals:
     void blankTimeoutChanged();
     void adaptiveDimmingEnabledChanged();
     void ambientLightSensorEnabledChanged();
+    void doubleTapModeChanged();
     void orientationLockChanged();
 
 private slots:
@@ -95,6 +107,7 @@ private:
     int m_blankTimeout;
     bool m_adaptiveDimmingEnabled;
     bool m_ambientLightSensorEnabled;
+    bool m_doubleTapMode;
 };
 
 QML_DECLARE_TYPE(DisplaySettings)
