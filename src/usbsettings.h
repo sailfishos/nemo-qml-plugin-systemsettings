@@ -60,6 +60,7 @@ public:
         MTP = MeeGo::QmUSBMode::MTP,
         Adb = MeeGo::QmUSBMode::Adb,
         Diag = MeeGo::QmUSBMode::Diag,
+        Host = MeeGo::QmUSBMode::Host,
         ConnectionSharing = MeeGo::QmUSBMode::ConnectionSharing
     };
 

@@ -9,7 +9,7 @@ Name:       nemo-qml-plugin-systemsettings
 # << macros
 
 Summary:    System settings plugin for Nemo Mobile
-Version:    0.0.10
+Version:    0.0.11
 Release:    1
 Group:      System/Libraries
 License:    BSD
@@ -20,7 +20,7 @@ Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5SystemInfo)
-BuildRequires:  pkgconfig(qmsystem2-qt5)  >= 1.4.15
+BuildRequires:  pkgconfig(qmsystem2-qt5)  >= 1.4.17
 BuildRequires:  pkgconfig(timed-qt5)
 BuildRequires:  pkgconfig(profile)
 BuildRequires:  pkgconfig(mce)
