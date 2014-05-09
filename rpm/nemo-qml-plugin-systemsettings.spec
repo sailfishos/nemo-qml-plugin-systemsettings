@@ -6,7 +6,6 @@ Group:      System/Libraries
 License:    BSD
 URL:        https://github.com/nemomobile/nemo-qml-plugin-systemsettings
 Source0:    %{name}-%{version}.tar.bz2
-Source100:  nemo-qml-plugin-systemsettings.yaml
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 BuildRequires:  pkgconfig(Qt5Qml)
