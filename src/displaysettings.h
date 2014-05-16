@@ -50,6 +50,7 @@ class DisplaySettings: public QObject
     Q_PROPERTY(int dimTimeout READ dimTimeout WRITE setDimTimeout NOTIFY dimTimeoutChanged)
     Q_PROPERTY(int blankTimeout READ blankTimeout WRITE setBlankTimeout NOTIFY blankTimeoutChanged)
     Q_PROPERTY(bool adaptiveDimmingEnabled READ adaptiveDimmingEnabled WRITE setAdaptiveDimmingEnabled NOTIFY adaptiveDimmingEnabledChanged)
+    Q_PROPERTY(bool lowPowerModeEnabled READ lowPowerModeEnabled WRITE setLowPowerModeEnabled NOTIFY lowPowerModeEnabledChanged)
     Q_PROPERTY(bool ambientLightSensorEnabled READ ambientLightSensorEnabled WRITE setAmbientLightSensorEnabled NOTIFY ambientLightSensorEnabledChanged)
     Q_PROPERTY(int doubleTapMode READ doubleTapMode WRITE setDoubleTapMode NOTIFY doubleTapModeChanged)
     Q_PROPERTY(QVariant orientationLock READ orientationLock WRITE setOrientationLock NOTIFY orientationLockChanged)
@@ -77,6 +78,9 @@ public:
     bool adaptiveDimmingEnabled() const;
     void setAdaptiveDimmingEnabled(bool);
 
+    bool lowPowerModeEnabled() const;
+    void setLowPowerModeEnabled(bool);
+
     bool ambientLightSensorEnabled() const;
     void setAmbientLightSensorEnabled(bool);
 
@@ -91,6 +95,7 @@ signals:
     void dimTimeoutChanged();
     void blankTimeoutChanged();
     void adaptiveDimmingEnabledChanged();
+    void lowPowerModeEnabledChanged();
     void ambientLightSensorEnabledChanged();
     void doubleTapModeChanged();
     void orientationLockChanged();
@@ -106,6 +111,7 @@ private:
     int m_dimTimeout;
     int m_blankTimeout;
     bool m_adaptiveDimmingEnabled;
+    bool m_lowPowerModeEnabled;
     bool m_ambientLightSensorEnabled;
     bool m_doubleTapMode;
 };

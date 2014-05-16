@@ -39,6 +39,7 @@ static const char *MceDisplayBrightness = "/system/osso/dsm/display/display_brig
 static const char *MceDisplayDimTimeout = "/system/osso/dsm/display/display_dim_timeout";
 static const char *MceDisplayBlankTimeout = "/system/osso/dsm/display/display_blank_timeout";
 static const char *MceDisplayUseAdaptiveDimming = "/system/osso/dsm/display/use_adaptive_display_dimming";
+static const char *MceDisplayUseLowPowerMode = "/system/osso/dsm/display/use_low_power_mode";
 static const char *MceDisplayUseAmbientLightSensor = "/system/osso/dsm/display/als_enabled";
 static const char *MceDoubleTapMode = "/system/osso/dsm/doubletap/mode";
 
@@ -62,6 +63,10 @@ DisplaySettings::DisplaySettings(QObject *parent)
     result = m_mceIface->get_config(QDBusObjectPath(MceDisplayUseAdaptiveDimming));
     result.waitForFinished();
     m_adaptiveDimmingEnabled = result.value().variant().toBool();
+
+    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayUseLowPowerMode));
+    result.waitForFinished();
+    m_lowPowerModeEnabled = result.value().variant().toBool();
 
     result = m_mceIface->get_config(QDBusObjectPath(MceDisplayUseAmbientLightSensor));
     result.waitForFinished();
@@ -139,6 +144,20 @@ void DisplaySettings::setAdaptiveDimmingEnabled(bool enabled)
     }
 }
 
+bool DisplaySettings::lowPowerModeEnabled() const
+{
+    return m_lowPowerModeEnabled;
+}
+
+void DisplaySettings::setLowPowerModeEnabled(bool enabled)
+{
+    if (m_lowPowerModeEnabled != enabled) {
+        m_lowPowerModeEnabled = enabled;
+        m_mceIface->set_config(QDBusObjectPath(MceDisplayUseLowPowerMode), QDBusVariant(enabled));
+        emit lowPowerModeEnabledChanged();
+    }
+}
+
 bool DisplaySettings::ambientLightSensorEnabled() const
 {
     return m_ambientLightSensorEnabled;
@@ -202,6 +221,12 @@ void DisplaySettings::configChange(const QString &key, const QDBusVariant &value
         if (val != m_adaptiveDimmingEnabled) {
             m_adaptiveDimmingEnabled = val;
             emit adaptiveDimmingEnabledChanged();
+        }
+    } else if (key == MceDisplayUseLowPowerMode) {
+        bool val = value.variant().toBool();
+        if (val != m_lowPowerModeEnabled) {
+            m_lowPowerModeEnabled = val;
+            emit lowPowerModeEnabledChanged();
         }
     } else if (key == MceDisplayUseAmbientLightSensor) {
         bool val = value.variant().toBool();
