@@ -44,6 +44,7 @@
 #define USB_NETWORK_FALLBACK_INTERFACE "usb0"
 #define USB_NETWORK_FALLBACK_IP "192.168.2.15"
 #define WLAN_NETWORK_INTERFACE "wlan0"
+#define WLAN_NETWORK_FALLBACK_INTERFACE "tether"
 
 /* Developer mode package */
 #define DEVELOPER_MODE_PACKAGE "jolla-developer-mode"
@@ -401,6 +402,15 @@ DeveloperModeSettings::refresh()
 
     if (entries.contains(WLAN_NETWORK_INTERFACE)) {
         QString ip = entries[WLAN_NETWORK_INTERFACE];
+        if (m_wlanIpAddress != ip) {
+            m_wlanIpAddress = ip;
+            emit wlanIpAddressChanged();
+        }
+    } else if (entries.contains(WLAN_NETWORK_FALLBACK_INTERFACE)) {
+        // If the WLAN network interface does not have an IP address,
+        // but there is a "tether" interface that does have an IP, assume
+        // it is the WLAN interface in tethering mode, and use its IP.
+        QString ip = entries[WLAN_NETWORK_FALLBACK_INTERFACE];
         if (m_wlanIpAddress != ip) {
             m_wlanIpAddress = ip;
             emit wlanIpAddressChanged();
