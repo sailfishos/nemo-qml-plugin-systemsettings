@@ -44,11 +44,12 @@ class DisplaySettings: public QObject
 {
     Q_OBJECT
 
-    Q_ENUMS(DoubleTapMode)
+    Q_ENUMS(DoubleTapMode InhibitMode)
     Q_PROPERTY(int brightness READ brightness WRITE setBrightness NOTIFY brightnessChanged)
     Q_PROPERTY(int maximumBrightness READ maximumBrightness CONSTANT)
     Q_PROPERTY(int dimTimeout READ dimTimeout WRITE setDimTimeout NOTIFY dimTimeoutChanged)
     Q_PROPERTY(int blankTimeout READ blankTimeout WRITE setBlankTimeout NOTIFY blankTimeoutChanged)
+    Q_PROPERTY(InhibitMode inhibitMode READ inhibitMode WRITE setInhibitMode NOTIFY inhibitModeChanged)
     Q_PROPERTY(bool adaptiveDimmingEnabled READ adaptiveDimmingEnabled WRITE setAdaptiveDimmingEnabled NOTIFY adaptiveDimmingEnabledChanged)
     Q_PROPERTY(bool lowPowerModeEnabled READ lowPowerModeEnabled WRITE setLowPowerModeEnabled NOTIFY lowPowerModeEnabledChanged)
     Q_PROPERTY(bool ambientLightSensorEnabled READ ambientLightSensorEnabled WRITE setAmbientLightSensorEnabled NOTIFY ambientLightSensorEnabledChanged)
@@ -60,6 +61,20 @@ public:
         DoubleTapWakeupNever,
         DoubleTapWakeupAlways,
         DoubleTapWakeupNoProximity
+    };
+
+    enum InhibitMode {
+        InhibitInvalid = -1,
+        // No inhibit
+        InhibitOff = 0,
+        // Inhibit blanking; always keep on if charger connected
+        InhibitStayOnWithCharger = 1,
+        // Inhibit blanking; always keep on or dimmed if charger connected
+        InhibitStayDimWithCharger = 2,
+        // Inhibit blanking; always keep on
+        InhibitStayOn = 3,
+        // Inhibit blanking; always keep on or dimmed
+        InhibitStayDim = 4,
     };
 
     explicit DisplaySettings(QObject *parent = 0);
@@ -74,6 +89,9 @@ public:
 
     int blankTimeout() const;
     void setBlankTimeout(int t);
+
+    InhibitMode inhibitMode() const;
+    void setInhibitMode(InhibitMode mode);
 
     bool adaptiveDimmingEnabled() const;
     void setAdaptiveDimmingEnabled(bool);
@@ -94,6 +112,7 @@ signals:
     void brightnessChanged();
     void dimTimeoutChanged();
     void blankTimeoutChanged();
+    void inhibitModeChanged();
     void adaptiveDimmingEnabledChanged();
     void lowPowerModeEnabledChanged();
     void ambientLightSensorEnabledChanged();
@@ -110,6 +129,7 @@ private:
     int m_brightness;
     int m_dimTimeout;
     int m_blankTimeout;
+    InhibitMode m_inhibitMode;
     bool m_adaptiveDimmingEnabled;
     bool m_lowPowerModeEnabled;
     bool m_ambientLightSensorEnabled;

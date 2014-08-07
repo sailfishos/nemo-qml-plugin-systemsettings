@@ -38,6 +38,7 @@
 static const char *MceDisplayBrightness = "/system/osso/dsm/display/display_brightness";
 static const char *MceDisplayDimTimeout = "/system/osso/dsm/display/display_dim_timeout";
 static const char *MceDisplayBlankTimeout = "/system/osso/dsm/display/display_blank_timeout";
+static const char *MceDisplayInhibitMode = "/system/osso/dsm/display/inhibit_blank_mode";
 static const char *MceDisplayUseAdaptiveDimming = "/system/osso/dsm/display/use_adaptive_display_dimming";
 static const char *MceDisplayUseLowPowerMode = "/system/osso/dsm/display/use_low_power_mode";
 static const char *MceDisplayUseAmbientLightSensor = "/system/osso/dsm/display/als_enabled";
@@ -59,6 +60,10 @@ DisplaySettings::DisplaySettings(QObject *parent)
     result = m_mceIface->get_config(QDBusObjectPath(MceDisplayBlankTimeout));
     result.waitForFinished();
     m_blankTimeout = result.value().variant().toInt();
+
+    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayInhibitMode));
+    result.waitForFinished();
+    m_inhibitMode = static_cast<InhibitMode>(result.value().variant().toInt());
 
     result = m_mceIface->get_config(QDBusObjectPath(MceDisplayUseAdaptiveDimming));
     result.waitForFinished();
@@ -127,6 +132,20 @@ void DisplaySettings::setBlankTimeout(int value)
         m_blankTimeout = value;
         m_mceIface->set_config(QDBusObjectPath(MceDisplayBlankTimeout), QDBusVariant(value));
         emit blankTimeoutChanged();
+    }
+}
+
+DisplaySettings::InhibitMode DisplaySettings::inhibitMode() const
+{
+    return m_inhibitMode;
+}
+
+void DisplaySettings::setInhibitMode(InhibitMode mode)
+{
+    if (m_inhibitMode != mode) {
+        m_inhibitMode = mode;
+        m_mceIface->set_config(QDBusObjectPath(MceDisplayInhibitMode), QDBusVariant(static_cast<int>(mode)));
+        emit inhibitModeChanged();
     }
 }
 
@@ -215,6 +234,12 @@ void DisplaySettings::configChange(const QString &key, const QDBusVariant &value
         if (val != m_blankTimeout) {
             m_blankTimeout = val;
             emit blankTimeoutChanged();
+        }
+    } else if (key == MceDisplayInhibitMode) {
+        InhibitMode val = static_cast<InhibitMode>(value.variant().toInt());
+        if (val != m_inhibitMode) {
+            m_inhibitMode = val;
+            emit inhibitModeChanged();
         }
     } else if (key == MceDisplayUseAdaptiveDimming) {
         bool val = value.variant().toBool();
