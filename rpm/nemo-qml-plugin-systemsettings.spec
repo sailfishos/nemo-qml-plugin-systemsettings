@@ -14,6 +14,7 @@ BuildRequires:  pkgconfig(qmsystem2-qt5)  >= 1.4.17
 BuildRequires:  pkgconfig(timed-qt5)
 BuildRequires:  pkgconfig(profile)
 BuildRequires:  pkgconfig(mce)
+BuildRequires:  pkgconfig(mlite5)
 
 %description
 %{summary}.

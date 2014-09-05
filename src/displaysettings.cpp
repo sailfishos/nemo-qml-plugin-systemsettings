@@ -33,6 +33,7 @@
 #include <mce/mode-names.h>
 #include "mceiface.h"
 #include "displaysettings.h"
+#include <MGConfItem>
 #include <QDebug>
 
 static const char *MceDisplayBrightness = "/system/osso/dsm/display/display_brightness";
@@ -45,9 +46,11 @@ static const char *MceDisplayUseAmbientLightSensor = "/system/osso/dsm/display/a
 static const char *MceDoubleTapMode = "/system/osso/dsm/doubletap/mode";
 
 DisplaySettings::DisplaySettings(QObject *parent)
-    : QObject(parent),
-      m_compositorSettings("nemomobile", "lipstick")
+    : QObject(parent)
 {
+    m_orientationLock = new MGConfItem("/lipstick/orientationLock", this);
+    connect(m_orientationLock, SIGNAL(valueChanged()), SIGNAL(orientationLockChanged()));
+
     m_mceIface = new ComNokiaMceRequestInterface(MCE_SERVICE, MCE_REQUEST_PATH, QDBusConnection::systemBus(), this);
     QDBusPendingReply<QDBusVariant> result = m_mceIface->get_config(QDBusObjectPath(MceDisplayBrightness));
     result.waitForFinished();
@@ -207,12 +210,12 @@ void DisplaySettings::setDoubleTapMode(int mode)
 
 QVariant DisplaySettings::orientationLock() const
 {
-    return m_compositorSettings.value("Compositor/orientationLock", "dynamic");
+    return m_orientationLock->value("dynamic");
 }
 
 void DisplaySettings::setOrientationLock(const QVariant &orientationLock)
 {
-    m_compositorSettings.setValue("Compositor/orientationLock", orientationLock);
+    m_orientationLock->set(orientationLock);
 }
 
 void DisplaySettings::configChange(const QString &key, const QDBusVariant &value)
