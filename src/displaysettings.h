@@ -34,11 +34,11 @@
 
 #include <QObject>
 #include <QtQml>
-#include <QSettings>
 
 class ComNokiaMceRequestInterface;
 class ComNokiaMceSignalInterface;
 class QDBusVariant;
+class MGConfItem;
 
 class DisplaySettings: public QObject
 {
@@ -125,7 +125,7 @@ private slots:
 private:
     ComNokiaMceRequestInterface *m_mceIface;
     ComNokiaMceSignalInterface *m_mceSignalIface;
-    QSettings m_compositorSettings;
+    MGConfItem *m_orientationLock;
     int m_brightness;
     int m_dimTimeout;
     int m_blankTimeout;

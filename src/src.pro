@@ -7,7 +7,7 @@ QT += qml dbus systeminfo
 QT -= gui
 
 CONFIG += link_pkgconfig
-PKGCONFIG += qmsystem2-qt5 profile
+PKGCONFIG += qmsystem2-qt5 profile mlite5
 
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
 
