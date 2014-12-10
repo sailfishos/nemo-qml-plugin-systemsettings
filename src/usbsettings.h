@@ -61,6 +61,7 @@ public:
         Adb = MeeGo::QmUSBMode::Adb,
         Diag = MeeGo::QmUSBMode::Diag,
         Host = MeeGo::QmUSBMode::Host,
+        Charger = MeeGo::QmUSBMode::Charger,
         ConnectionSharing = MeeGo::QmUSBMode::ConnectionSharing
     };
 
