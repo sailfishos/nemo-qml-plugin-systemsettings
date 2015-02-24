@@ -39,6 +39,8 @@
 #include <QDebug>
 #include <QJSEngine>
 
+#include <sys/statvfs.h>
+
 DiskUsageWorker::DiskUsageWorker(QObject *parent)
     : QObject(parent)
     , m_quit(false)
@@ -111,6 +113,17 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
         if (path.startsWith(":rpm:")) {
             QString glob = path.mid(5);
             usage[path] = calculateRpmSize(glob);
+        } else if (path == "/") {
+            // Shortcut for getting usage of rootfs
+            // TODO: Once we have Qt 5.4, use QStorageInfo
+            struct statvfs stv;
+            memset(&stv, 0, sizeof(stv));
+            if (statvfs(path.toUtf8().constData(), &stv) != 0) {
+                // Do not make an entry for the usage here
+                qWarning() << "statvfs() failed on:" << path;
+                continue;
+            }
+            usage[path] = quint64(float(stv.f_frsize) * float(stv.f_blocks));
         } else {
             usage[path] = calculateSize(path);
         }
@@ -128,7 +141,8 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
             const QString &subpath = it2.key();
             const qlonglong subbytes = it2.value().toLongLong();
 
-            if (subpath.length() > path.length() && subpath.indexOf(path) == 0) {
+            if ((subpath.length() > path.length() && subpath.indexOf(path) == 0) ||
+                    (path == "/" && subpath.startsWith(":rpm:"))) {
                 bytes -= subbytes;
             }
         }
