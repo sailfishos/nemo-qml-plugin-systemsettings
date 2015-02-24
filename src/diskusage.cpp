@@ -72,12 +72,48 @@ static quint64 calculateSize(const QString &directory)
     return 0L;
 }
 
+static quint64 calculateRpmSize(const QString &glob)
+{
+    QProcess rpm;
+    rpm.start("rpm", QStringList() << "-qa" << "--queryformat=%{name}|%{size}\\n" << glob, QIODevice::ReadOnly);
+    rpm.waitForFinished();
+    if (rpm.exitStatus() != QProcess::NormalExit) {
+        qWarning() << "Could not determine size of RPM packages matching:" << glob;
+        return 0L;
+    }
+
+    quint64 result = 0L;
+
+    QStringList lines = QString::fromUtf8(rpm.readAll()).split('\n', QString::SkipEmptyParts);
+    foreach (const QString &line, lines) {
+        int index = line.indexOf('|');
+        if (index == -1) {
+            qWarning() << "Could not parse RPM output line:" << line;
+            continue;
+        }
+
+        QString package = line.left(index);
+        result += line.mid(index+1).toULongLong();
+    }
+
+    return result;
+}
+
 void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
 {
     QVariantMap usage;
 
     foreach (const QString &path, paths) {
-        usage[path] =  calculateSize(path);
+        // Pseudo-path for querying RPM database for file sizes
+        // ----------------------------------------------------
+        // Example path with package name: ":rpm:python3-base"
+        // Example path with glob: ":rpm:harbour-*" (will sum up all matching package sizes)
+        if (path.startsWith(":rpm:")) {
+            QString glob = path.mid(5);
+            usage[path] = calculateRpmSize(glob);
+        } else {
+            usage[path] = calculateSize(path);
+        }
 
         if (m_quit) {
             break;
