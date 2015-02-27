@@ -64,7 +64,7 @@ static quint64 calculateSize(QString directory)
     }
 
     QProcess du;
-    du.start("du", QStringList() << "-sb" << directory, QIODevice::ReadOnly);
+    du.start("du", QStringList() << "-sxb" << directory, QIODevice::ReadOnly);
     du.waitForFinished();
     if (du.exitStatus() != QProcess::NormalExit) {
         qWarning() << "Could not determine size of:" << directory;
