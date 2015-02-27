@@ -51,8 +51,13 @@ DiskUsageWorker::~DiskUsageWorker()
 {
 }
 
-static quint64 calculateSize(const QString &directory)
+static quint64 calculateSize(QString directory)
 {
+    // In lieu of wordexp(3) support in Qt, fake it
+    if (directory.startsWith("~/")) {
+        directory = QDir::homePath() + '/' + directory.mid(2);
+    }
+
     QDir d(directory);
     if (!d.exists() || !d.isReadable()) {
         return 0L;
