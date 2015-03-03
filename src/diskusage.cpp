@@ -38,6 +38,9 @@
 #include <QProcess>
 #include <QDebug>
 #include <QJSEngine>
+#include <QDBusConnection>
+#include <QDBusMessage>
+#include <QDBusReply>
 
 #include <sys/statvfs.h>
 
@@ -106,6 +109,20 @@ static quint64 calculateRpmSize(const QString &glob)
     return result;
 }
 
+static quint64 calculateApkdSize(const QString &rest)
+{
+    QDBusMessage msg = QDBusMessage::createMethodCall("com.jolla.apkd",
+            "/com/jolla/apkd", "com.jolla.apkd", "getAndroidAppDataUsage");
+
+    QDBusReply<qulonglong> reply = QDBusConnection::systemBus().call(msg);
+    if (reply.isValid()) {
+        return quint64(reply.value());
+    }
+
+    qWarning() << "Could not determine Android app data usage";
+    return 0L;
+}
+
 void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
 {
     QVariantMap usage;
@@ -118,6 +135,10 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
         if (path.startsWith(":rpm:")) {
             QString glob = path.mid(5);
             usage[path] = calculateRpmSize(glob);
+        } else if (path.startsWith(":apkd:")) {
+            // Pseudo-path for querying Android apps' data usage
+            QString rest = path.mid(6);
+            usage[path] = calculateApkdSize(rest);
         } else if (path == "/") {
             // Shortcut for getting usage of rootfs
             // TODO: Once we have Qt 5.4, use QStorageInfo
@@ -147,7 +168,7 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
             const qlonglong subbytes = it2.value().toLongLong();
 
             if ((subpath.length() > path.length() && subpath.indexOf(path) == 0) ||
-                    (path == "/" && subpath.startsWith(":rpm:"))) {
+                    (path == "/" && subpath.startsWith(":"))) {
                 bytes -= subbytes;
             }
         }
