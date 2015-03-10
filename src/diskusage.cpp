@@ -194,16 +194,16 @@ public:
     ~DiskUsagePrivate();
 
 private:
-    QThread m_thread;
+    QThread *m_thread;
     DiskUsageWorker *m_worker;
 };
 
 DiskUsagePrivate::DiskUsagePrivate(DiskUsage *usage)
     : q_ptr(usage)
-    , m_thread()
+    , m_thread(new QThread())
     , m_worker(new DiskUsageWorker())
 {
-    m_worker->moveToThread(&m_thread);
+    m_worker->moveToThread(m_thread);
 
     QObject::connect(usage, SIGNAL(submit(QStringList, QJSValue *)),
                      m_worker, SLOT(submit(QStringList, QJSValue *)));
@@ -211,7 +211,13 @@ DiskUsagePrivate::DiskUsagePrivate(DiskUsage *usage)
     QObject::connect(m_worker, SIGNAL(finished(QVariantMap, QJSValue *)),
                      usage, SLOT(finished(QVariantMap, QJSValue *)));
 
-    m_thread.start();
+    QObject::connect(m_thread, SIGNAL(finished()),
+                     m_worker, SLOT(deleteLater()));
+
+    QObject::connect(m_thread, SIGNAL(finished()),
+                     m_thread, SLOT(deleteLater()));
+
+    m_thread->start();
 }
 
 DiskUsagePrivate::~DiskUsagePrivate()
@@ -219,13 +225,8 @@ DiskUsagePrivate::~DiskUsagePrivate()
     // Make sure the worker quits as soon as possible
     m_worker->scheduleQuit();
 
-    // Wait for thread to shut down
-    m_thread.quit();
-    if (!m_thread.wait(10 * 1000)) {
-        qWarning("Worker thread did not quit in time");
-    }
-
-    m_worker->deleteLater();
+    // Tell thread to shut down as early as possible
+    m_thread->quit();
 }
 
 
