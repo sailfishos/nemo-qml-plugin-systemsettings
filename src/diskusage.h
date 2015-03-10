@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013 Jolla Ltd. <pekka.vuorela@jollamobile.com>
+ * Copyright (C) 2015 Jolla Ltd.
+ * Contact: Thomas Perl <thomas.perl@jolla.com>
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -29,48 +30,56 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#include <QtGlobal>
-#include <QtQml>
-#include <QQmlEngine>
-#include <QQmlExtensionPlugin>
+#ifndef DISKUSAGE_H
+#define DISKUSAGE_H
 
-#include "languagemodel.h"
-#include "datetimesettings.h"
-#include "profilecontrol.h"
-#include "alarmtonemodel.h"
-#include "displaysettings.h"
-#include "usbsettings.h"
-#include "aboutsettings.h"
-#include "devicelockiface.h"
-#include "developermodesettings.h"
-#include "diskusage.h"
+#include <QObject>
+#include <QVariant>
+#include <QJSValue>
+#include <QScopedPointer>
 
-class SystemSettingsPlugin : public QQmlExtensionPlugin
+class DiskUsagePrivate;
+
+class DiskUsage : public QObject
 {
     Q_OBJECT
-    Q_PLUGIN_METADATA(IID "org.nemomobile.systemsettings")
+    Q_DECLARE_PRIVATE(DiskUsage)
+
+    // True while calculation takes place
+    Q_PROPERTY(bool working
+            READ working
+            NOTIFY workingChanged)
 
 public:
-    void initializeEngine(QQmlEngine *engine, const char *uri)
-    {
-        Q_UNUSED(uri)
+    explicit DiskUsage(QObject *parent=0);
+    virtual ~DiskUsage();
+
+    // Calculate the disk usage of the given paths, then call
+    // callback with a QVariantMap (mapping paths to usages in bytes)
+    Q_INVOKABLE void calculate(const QStringList &paths, QJSValue callback);
+
+signals:
+    void workingChanged();
+
+signals:
+    void submit(QStringList paths, QJSValue *callback);
+
+private slots:
+    void finished(QVariantMap usage, QJSValue *callback);
+
+private:
+    bool working() const { return m_working; }
+
+    void setWorking(bool working) {
+        if (m_working != working) {
+            m_working = working;
+            emit workingChanged();
+        }
     }
 
-    void registerTypes(const char *uri)
-    {
-        Q_ASSERT(QLatin1String(uri) == QLatin1String("org.nemomobile.systemsettings"));
-        qmlRegisterType<LanguageModel>(uri, 1, 0, "LanguageModel");
-        qmlRegisterType<DateTimeSettings>(uri, 1, 0, "DateTimeSettings");
-        qmlRegisterType<ProfileControl>(uri, 1, 0, "ProfileControl");
-        qmlRegisterType<AlarmToneModel>(uri, 1, 0, "AlarmToneModel");
-        qmlRegisterType<DisplaySettings>(uri, 1, 0, "DisplaySettings");
-        qmlRegisterType<USBSettings>(uri, 1, 0, "USBSettings");
-        qmlRegisterType<AboutSettings>(uri, 1, 0, "AboutSettings");
-        qmlRegisterType<DeviceLockInterface>(uri, 1, 0, "DeviceLockInterface");
-        qmlRegisterType<DeveloperModeSettings>(uri, 1, 0, "DeveloperModeSettings");
-        qRegisterMetaType<DeveloperModeSettings::Status>("DeveloperModeSettings::Status");
-        qmlRegisterType<DiskUsage>(uri, 1, 0, "DiskUsage");
-    }
+private:
+    QScopedPointer<DiskUsagePrivate> const d_ptr;
+    bool m_working;
 };
 
-#include "plugin.moc"
+#endif /* DISKUSAGE_H */

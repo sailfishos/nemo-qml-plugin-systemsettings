@@ -21,7 +21,8 @@ SOURCES += \
     usbsettings.cpp \
     aboutsettings.cpp \
     devicelockiface.cpp \
-    developermodesettings.cpp
+    developermodesettings.cpp \
+    diskusage.cpp
 
 HEADERS += \
     languagemodel.h \
@@ -33,7 +34,9 @@ HEADERS += \
     usbsettings.h \
     aboutsettings.h \
     devicelockiface.h \
-    developermodesettings.h
+    developermodesettings.h \
+    diskusage.h \
+    diskusage_p.h
 
 develheaders.path = /usr/include/systemsettings
 develheaders.files = $$HEADERS
