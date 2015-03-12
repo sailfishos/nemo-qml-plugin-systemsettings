@@ -149,7 +149,9 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
                 qWarning() << "statvfs() failed on:" << path;
                 continue;
             }
-            usage[path] = quint64(float(stv.f_frsize) * float(stv.f_blocks));
+            quint64 fsSize = float(stv.f_frsize) * float(stv.f_blocks);
+            quint64 freeSpace = float(stv.f_frsize) * float(stv.f_bfree);
+            usage[path] = fsSize - freeSpace;
         } else {
             usage[path] = calculateSize(path);
         }
