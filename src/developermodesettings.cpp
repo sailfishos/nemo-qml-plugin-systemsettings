@@ -58,7 +58,6 @@
 #define STORE_CLIENT_INTERFACE "com.jolla.jollastore"
 
 /* D-Bus method names */
-#define STORE_CLIENT_CHECK_INSTALLED "checkInstalled"
 #define STORE_CLIENT_INSTALL_PACKAGE "installPackage"
 #define STORE_CLIENT_REMOVE_PACKAGE "removePackage"
 
@@ -66,7 +65,6 @@
 #define STORE_CLIENT_INSTALL_PACKAGE_RESULT "installPackageResult"
 #define STORE_CLIENT_REMOVE_PACKAGE_RESULT "removePackageResult"
 #define STORE_CLIENT_PACKAGE_PROGRESS_CHANGED "packageProgressChanged"
-#define STORE_CLIENT_CHECK_INSTALLED_RESULT "checkInstalledResult"
 
 /* D-Bus service */
 #define USB_MODED_SERVICE "com.meego.usb_moded"
@@ -98,9 +96,6 @@ DeveloperModeSettingsWorker::DeveloperModeSettingsWorker(QObject *parent)
     m_sessionBus.connect("", "", STORE_CLIENT_INTERFACE,
             STORE_CLIENT_PACKAGE_PROGRESS_CHANGED,
             this, SLOT(onPackageProgressChanged(QString, int)));
-    m_sessionBus.connect("", "", STORE_CLIENT_INTERFACE,
-            STORE_CLIENT_CHECK_INSTALLED_RESULT,
-            this, SLOT(onCheckInstalledResult(QString, bool)));
 }
 
 void
@@ -115,15 +110,10 @@ DeveloperModeSettingsWorker::retrieveDeveloperModeStatus()
     m_working = true;
     emit progressChanged(PROGRESS_INDETERMINATE);
     emit statusChanged(true, DeveloperModeSettings::CheckingStatus);
-    m_storeClient.call(STORE_CLIENT_CHECK_INSTALLED, DEVELOPER_MODE_PACKAGE);
-    QDBusError error = m_storeClient.lastError();
-    if (error.isValid()) {
-        qWarning() << "Could not query developer mode status: " << error.message();
-        emit statusChanged(false, DeveloperModeSettings::Idle);
-        // Fallback to detecting developer mode by existence of a provided file
-        emit developerModeEnabledChanged(QFile(DEVELOPER_MODE_PROVIDED_FILE).exists());
-        m_working = false;
-    }
+    bool enabled = QFile(DEVELOPER_MODE_PROVIDED_FILE).exists();
+    emit statusChanged(false, DeveloperModeSettings::Idle);
+    emit developerModeEnabledChanged(enabled);
+    m_working = false;
 }
 
 void
@@ -200,17 +190,6 @@ DeveloperModeSettingsWorker::onPackageProgressChanged(QString packageName, int p
         if (m_working) {
             emit progressChanged(progress);
         }
-    }
-}
-
-void
-DeveloperModeSettingsWorker::onCheckInstalledResult(QString packageName, bool installed)
-{
-    qDebug() << "onCheckInstalledResult:" << packageName << installed;
-    if (packageName == DEVELOPER_MODE_PACKAGE) {
-        emit statusChanged(false, DeveloperModeSettings::Idle);
-        emit developerModeEnabledChanged(installed);
-        m_working = false;
     }
 }
 
