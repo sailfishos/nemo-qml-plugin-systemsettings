@@ -54,11 +54,15 @@ DiskUsageWorker::~DiskUsageWorker()
 {
 }
 
-static quint64 calculateSize(QString directory)
+static quint64 calculateSize(QString directory, QString *expandedPath)
 {
     // In lieu of wordexp(3) support in Qt, fake it
     if (directory.startsWith("~/")) {
         directory = QDir::homePath() + '/' + directory.mid(2);
+    }
+
+    if (expandedPath) {
+        *expandedPath = directory;
     }
 
     QDir d(directory);
@@ -111,6 +115,7 @@ static quint64 calculateRpmSize(const QString &glob)
 
 static quint64 calculateApkdSize(const QString &rest)
 {
+    Q_UNUSED(rest)
     QDBusMessage msg = QDBusMessage::createMethodCall("com.jolla.apkd",
             "/com/jolla/apkd", "com.jolla.apkd", "getAndroidAppDataUsage");
 
@@ -126,6 +131,7 @@ static quint64 calculateApkdSize(const QString &rest)
 void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
 {
     QVariantMap usage;
+    QMap<QString, QString> expandedPaths; // input path -> expanded path
 
     foreach (const QString &path, paths) {
         // Pseudo-path for querying RPM database for file sizes
@@ -153,7 +159,10 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
             quint64 freeSpace = float(stv.f_frsize) * float(stv.f_bfree);
             usage[path] = fsSize - freeSpace;
         } else {
-            usage[path] = calculateSize(path);
+            QString expandedPath;
+            quint64 size = calculateSize(path, &expandedPath);
+            expandedPaths[path] = expandedPath;
+            usage[path] = size;
         }
 
         if (m_quit) {
@@ -162,15 +171,18 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
     }
 
     for (QVariantMap::iterator it = usage.begin(); it != usage.end(); ++it) {
-        const QString &path = it.key();
+        QString path = expandedPaths.value(it.key(), it.key());
         qlonglong bytes = it.value().toLongLong();
 
         for (QVariantMap::const_iterator it2 = usage.cbegin(); it2 != usage.cend(); ++it2) {
-            const QString &subpath = it2.key();
+            QString subpath = expandedPaths.value(it2.key(), it2.key());
+            if (path == subpath) {
+                continue;
+            }
+
             const qlonglong subbytes = it2.value().toLongLong();
 
-            if ((subpath.length() > path.length() && subpath.indexOf(path) == 0) ||
-                    (path == "/" && subpath.startsWith(":"))) {
+            if ((subpath.length() > path.length() && subpath.indexOf(path) == 0) || (path == "/")) {
                 bytes -= subbytes;
             }
         }
