@@ -30,38 +30,23 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#ifndef DISKUSAGE_P_H
-#define DISKUSAGE_P_H
+#ifndef UT_DISKUSAGE_H
+#define UT_DISKUSAGE_H
 
 #include <QObject>
-#include <QVariant>
-#include <QJSValue>
 
-class DiskUsageWorker : public QObject
-{
+class Ut_DiskUsage : public QObject {
     Q_OBJECT
 
-public:
-    explicit DiskUsageWorker(QObject *parent=0);
-    virtual ~DiskUsageWorker();
+private slots:
+    void cleanup();
 
-    void scheduleQuit() { m_quit = true; }
-
-public slots:
-    void submit(QStringList paths, QJSValue *callback);
-
-signals:
-    void finished(QVariantMap usage, QJSValue *callback);
-
-private:
-    QVariantMap calculate(QStringList paths);
-    quint64 calculateSize(QString directory, QString *expandedPath);
-    quint64 calculateRpmSize(const QString &glob);
-    quint64 calculateApkdSize(const QString &rest);
-
-    bool m_quit;
-
-    friend class Ut_DiskUsage;
+    void testSimple();
+    void testSubtractApkdFromRoot();
+    void testSubtractRPMFromRoot();
+    void testSubtractSubdirectory();
+    void testSubtractNestedSubdirectory();
+    void testSubtractNestedSubdirectoryMulti();
 };
 
-#endif /* DISKUSAGE_P_H */
+#endif /* UT_DISKUSAGE_H */

@@ -22,7 +22,8 @@ SOURCES += \
     aboutsettings.cpp \
     devicelockiface.cpp \
     developermodesettings.cpp \
-    diskusage.cpp
+    diskusage.cpp \
+    diskusage_impl.cpp
 
 HEADERS += \
     languagemodel.h \
