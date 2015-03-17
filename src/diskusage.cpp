@@ -140,6 +140,7 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
 {
     QVariantMap usage;
     QMap<QString, QString> expandedPaths; // input path -> expanded path
+    QMap<QString, QString> originalPaths; // expanded path -> input path
 
     foreach (const QString &path, paths) {
         // Pseudo-path for querying RPM database for file sizes
@@ -170,6 +171,7 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
             QString expandedPath;
             quint64 size = calculateSize(path, &expandedPath);
             expandedPaths[path] = expandedPath;
+            originalPaths[expandedPath] = path;
             usage[path] = size;
         }
 
@@ -178,25 +180,44 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
         }
     }
 
-    for (QVariantMap::iterator it = usage.begin(); it != usage.end(); ++it) {
-        QString path = expandedPaths.value(it.key(), it.key());
-        qlonglong bytes = it.value().toLongLong();
-
-        for (QVariantMap::const_iterator it2 = usage.cbegin(); it2 != usage.cend(); ++it2) {
-            QString subpath = expandedPaths.value(it2.key(), it2.key());
-            if (path == subpath) {
-                continue;
-            }
-
-            const qlonglong subbytes = it2.value().toLongLong();
+    // Sort keys in reverse order (so child directories come before their
+    // parents, and the calculation is done correctly, no child directory
+    // subtracted once too often), for example:
+    //  1. a0 = size(/home/nemo/foo/)
+    //  2. b0 = size(/home/nemo/)
+    //  3. c0 = size(/)
+    //
+    // This will calculate the following changes in the nested for loop below:
+    //  1. b1 = b0 - a0
+    //  2. c1 = c0 - a0
+    //  3. c2 = c1 - b1
+    //
+    // Combined and simplified, this will give us the output values:
+    //  1. a' = a0
+    //  2. b' = b1 = b0 - a0
+    //  3. c' = c2 = c1 - b1 = (c0 - a0) - (b0 - a0) = c0 - a0 - b0 + a0 = c0 - b0
+    //
+    // Or with paths:
+    //  1. output(/home/nemo/foo/) = size(/home/nemo/foo/)
+    //  2. output(/home/nemo/)     = size(/home/nemo/)     - size(/home/nemo/foo/)
+    //  3. output(/)               = size(/)               - size(/home/nemo/)
+    QStringList keys;
+    foreach (const QString &key, usage.uniqueKeys()) {
+        keys << expandedPaths.value(key, key);
+    }
+    qStableSort(keys.begin(), keys.end(), qGreater<QString>());
+    for (int i=0; i<keys.length(); i++) {
+        for (int j=i+1; j<keys.length(); j++) {
+            QString subpath = keys[i];
+            QString path = keys[j];
 
             if ((subpath.length() > path.length() && subpath.indexOf(path) == 0) || (path == "/")) {
-                bytes -= subbytes;
-            }
-        }
+                qlonglong subbytes = usage[originalPaths.value(subpath, subpath)].toLongLong();
+                qlonglong bytes = usage[originalPaths.value(path, path)].toLongLong();
 
-        if (it.value() != bytes) {
-            it.value() = bytes;
+                bytes -= subbytes;
+                usage[originalPaths.value(path, path)] = bytes;
+            }
         }
     }
 
