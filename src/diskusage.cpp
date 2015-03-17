@@ -65,6 +65,14 @@ static quint64 calculateSize(QString directory, QString *expandedPath)
         *expandedPath = directory;
     }
 
+    // "/data/media/" is mounted in "/home/nemo/android_storage/" with read
+    // access for the "nemo" user ("/data/media/" itself isn't readable);
+    // Mounted via FUSE and /system/bin/sdcard, see here:
+    // https://source.android.com/devices/storage/config.html
+    if (directory == "/data/media/") {
+        directory = "/home/nemo/android_storage/";
+    }
+
     QDir d(directory);
     if (!d.exists() || !d.isReadable()) {
         return 0L;
