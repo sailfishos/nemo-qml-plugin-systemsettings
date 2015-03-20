@@ -10,6 +10,7 @@ Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5SystemInfo)
+BuildRequires:  pkgconfig(Qt5Test)
 BuildRequires:  pkgconfig(qmsystem2-qt5)  >= 1.4.17
 BuildRequires:  pkgconfig(timed-qt5)
 BuildRequires:  pkgconfig(profile)
