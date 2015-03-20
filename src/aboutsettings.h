@@ -44,6 +44,7 @@ class AboutSettings: public QObject
     Q_PROPERTY(QString bluetoothAddress READ bluetoothAddress CONSTANT)
     Q_PROPERTY(QString wlanMacAddress READ wlanMacAddress CONSTANT)
     Q_PROPERTY(QString imei READ imei CONSTANT)
+    Q_PROPERTY(QString serial READ serial CONSTANT)
     Q_PROPERTY(QString softwareVersion READ softwareVersion CONSTANT)
     Q_PROPERTY(QString adaptationVersion READ adaptationVersion CONSTANT)
 
@@ -57,6 +58,7 @@ public:
     QString bluetoothAddress() const;
     QString wlanMacAddress() const;
     QString imei() const;
+    QString serial() const;
     QString softwareVersion() const;
     QString adaptationVersion() const;
 
