@@ -39,6 +39,79 @@
 #include <QFile>
 #include <QByteArray>
 #include <QRegularExpression>
+#include <QMap>
+#include <QTextStream>
+
+
+static QMap<QString, QString> parseReleaseFile(const QString &filename)
+{
+    QMap<QString, QString> result;
+
+    // Specification of the format:
+    // http://www.freedesktop.org/software/systemd/man/os-release.html
+
+    QFile release(filename);
+    if (release.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        QTextStream in(&release);
+
+        // "All strings should be in UTF-8 format, and non-printable characters
+        // should not be used."
+        in.setCodec("UTF-8");
+
+        while (!in.atEnd()) {
+            QString line = in.readLine();
+
+            // "Lines beginning with "#" shall be ignored as comments."
+            if (line.startsWith('#')) {
+                continue;
+            }
+
+            QString key = line.section('=', 0, 0);
+            QString value = line.section('=', 1);
+
+            // Remove trailing whitespace in value
+            value = value.trimmed();
+
+            // POSIX.1-2001 says uppercase, digits and underscores.
+            //
+            // Bash uses "[a-zA-Z_]+[a-zA-Z0-9_]*", so we'll use that too,
+            // as we can safely assume that "shell-compatible variable
+            // assignments" means it should be compatible with bash.
+            //
+            // see http://stackoverflow.com/a/2821183
+            // and http://stackoverflow.com/a/2821201
+            if (!QRegExp("[a-zA-Z_]+[a-zA-Z0-9_]*").exactMatch(key)) {
+                qWarning("Invalid key in input line: '%s'", qPrintable(line));
+                continue;
+            }
+
+            // "Variable assignment values should be enclosed in double or
+            // single quotes if they include spaces, semicolons or other
+            // special characters outside of A-Z, a-z, 0-9."
+            if (((value.at(0) == '\'') || (value.at(0) == '"'))) {
+                if (value.at(0) != value.at(value.size() - 1)) {
+                    qWarning("Quoting error in input line: '%s'", qPrintable(line));
+                    continue;
+                }
+
+                // Remove the quotes
+                value = value.mid(1, value.size() - 2);
+            }
+
+            // "If double or single quotes or backslashes are to be used within
+            // variable assignments, they should be escaped with backslashes,
+            // following shell style."
+            value = value.replace(QRegularExpression("\\\\(.)"), "\\1");
+
+            result[key] = value;
+        }
+
+        release.close();
+    }
+
+    return result;
+}
+
 
 AboutSettings::AboutSettings(QObject *parent)
     : QObject(parent),
@@ -80,27 +153,10 @@ QString AboutSettings::imei() const
 
 QString AboutSettings::softwareVersion() const
 {
-    QFile releaseFile("/etc/os-release");
-    if (!releaseFile.open(QIODevice::ReadOnly | QIODevice::Text))
-        return QString();
+    return parseReleaseFile("/etc/os-release")["VERSION"];
+}
 
-    QString version;
-    QByteArray versionTag("VERSION=");
-
-    while (!releaseFile.atEnd()) {
-        QByteArray line = releaseFile.readLine();
-
-        if (line.startsWith(versionTag)) {
-            version = line.mid(versionTag.length()).simplified();
-            // remove start and end quotes if exist
-            if (version.length() > 0 && (version.at(0) == '"' || version.at(0) == '\'')) {
-                version = version.mid(1, version.length() - 2);
-            }
-            // unescape rest
-            version.replace(QRegularExpression("\\\\(.)"), "\\1");
-            break;
-        }
-    }
-
-    return version;
+QString AboutSettings::adaptationVersion() const
+{
+    return parseReleaseFile("/etc/hw-release")["VERSION_ID"];
 }
