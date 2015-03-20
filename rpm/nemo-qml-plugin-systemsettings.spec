@@ -27,6 +27,13 @@ Requires:   %{name} = %{version}-%{release}
 %description devel
 %{summary}.
 
+%package tests
+Summary:    System settings C++ library (unit tests)
+Group:      System/Libraries
+
+%description tests
+%{summary}.
+
 %prep
 %setup -q -n %{name}-%{version}
 
@@ -53,3 +60,8 @@ rm -rf %{buildroot}
 %{_libdir}/pkgconfig/systemsettings.pc
 %{_includedir}/systemsettings/*
 %{_libdir}/libsystemsettings.so
+
+%files tests
+%defattr(-,root,root,-)
+%{_libdir}/%{name}-tests/ut_diskusage
+%{_datadir}/%{name}-tests/tests.xml

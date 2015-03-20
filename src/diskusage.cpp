@@ -34,15 +34,9 @@
 #include "diskusage_p.h"
 
 #include <QThread>
-#include <QDir>
-#include <QProcess>
 #include <QDebug>
 #include <QJSEngine>
-#include <QDBusConnection>
-#include <QDBusMessage>
-#include <QDBusReply>
 
-#include <sys/statvfs.h>
 
 DiskUsageWorker::DiskUsageWorker(QObject *parent)
     : QObject(parent)
@@ -54,84 +48,16 @@ DiskUsageWorker::~DiskUsageWorker()
 {
 }
 
-static quint64 calculateSize(QString directory, QString *expandedPath)
-{
-    // In lieu of wordexp(3) support in Qt, fake it
-    if (directory.startsWith("~/")) {
-        directory = QDir::homePath() + '/' + directory.mid(2);
-    }
-
-    if (expandedPath) {
-        *expandedPath = directory;
-    }
-
-    QDir d(directory);
-    if (!d.exists() || !d.isReadable()) {
-        return 0L;
-    }
-
-    QProcess du;
-    du.start("du", QStringList() << "-sxb" << directory, QIODevice::ReadOnly);
-    du.waitForFinished();
-    if (du.exitStatus() != QProcess::NormalExit) {
-        qWarning() << "Could not determine size of:" << directory;
-        return 0L;
-    }
-    QStringList size_directory = QString::fromUtf8(du.readAll()).split('\t');
-
-    if (size_directory.size() > 1) {
-        return size_directory[0].toULongLong();
-    }
-
-    return 0L;
-}
-
-static quint64 calculateRpmSize(const QString &glob)
-{
-    QProcess rpm;
-    rpm.start("rpm", QStringList() << "-qa" << "--queryformat=%{name}|%{size}\\n" << glob, QIODevice::ReadOnly);
-    rpm.waitForFinished();
-    if (rpm.exitStatus() != QProcess::NormalExit) {
-        qWarning() << "Could not determine size of RPM packages matching:" << glob;
-        return 0L;
-    }
-
-    quint64 result = 0L;
-
-    QStringList lines = QString::fromUtf8(rpm.readAll()).split('\n', QString::SkipEmptyParts);
-    foreach (const QString &line, lines) {
-        int index = line.indexOf('|');
-        if (index == -1) {
-            qWarning() << "Could not parse RPM output line:" << line;
-            continue;
-        }
-
-        QString package = line.left(index);
-        result += line.mid(index+1).toULongLong();
-    }
-
-    return result;
-}
-
-static quint64 calculateApkdSize(const QString &rest)
-{
-    Q_UNUSED(rest)
-    QDBusMessage msg = QDBusMessage::createMethodCall("com.jolla.apkd",
-            "/com/jolla/apkd", "com.jolla.apkd", "getAndroidAppDataUsage");
-
-    QDBusReply<qulonglong> reply = QDBusConnection::systemBus().call(msg);
-    if (reply.isValid()) {
-        return quint64(reply.value());
-    }
-
-    qWarning() << "Could not determine Android app data usage";
-    return 0L;
-}
-
 void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
+{
+    emit finished(calculate(paths), callback);
+}
+
+QVariantMap DiskUsageWorker::calculate(QStringList paths)
 {
     QVariantMap usage;
     QMap<QString, QString> expandedPaths; // input path -> expanded path
+    QMap<QString, QString> originalPaths; // expanded path -> input path
 
     foreach (const QString &path, paths) {
         // Pseudo-path for querying RPM database for file sizes
@@ -145,23 +71,11 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
             // Pseudo-path for querying Android apps' data usage
             QString rest = path.mid(6);
             usage[path] = calculateApkdSize(rest);
-        } else if (path == "/") {
-            // Shortcut for getting usage of rootfs
-            // TODO: Once we have Qt 5.4, use QStorageInfo
-            struct statvfs stv;
-            memset(&stv, 0, sizeof(stv));
-            if (statvfs(path.toUtf8().constData(), &stv) != 0) {
-                // Do not make an entry for the usage here
-                qWarning() << "statvfs() failed on:" << path;
-                continue;
-            }
-            quint64 fsSize = float(stv.f_frsize) * float(stv.f_blocks);
-            quint64 freeSpace = float(stv.f_frsize) * float(stv.f_bfree);
-            usage[path] = fsSize - freeSpace;
         } else {
             QString expandedPath;
             quint64 size = calculateSize(path, &expandedPath);
             expandedPaths[path] = expandedPath;
+            originalPaths[expandedPath] = path;
             usage[path] = size;
         }
 
@@ -170,31 +84,49 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
         }
     }
 
-    for (QVariantMap::iterator it = usage.begin(); it != usage.end(); ++it) {
-        QString path = expandedPaths.value(it.key(), it.key());
-        qlonglong bytes = it.value().toLongLong();
-
-        for (QVariantMap::const_iterator it2 = usage.cbegin(); it2 != usage.cend(); ++it2) {
-            QString subpath = expandedPaths.value(it2.key(), it2.key());
-            if (path == subpath) {
-                continue;
-            }
-
-            const qlonglong subbytes = it2.value().toLongLong();
+    // Sort keys in reverse order (so child directories come before their
+    // parents, and the calculation is done correctly, no child directory
+    // subtracted once too often), for example:
+    //  1. a0 = size(/home/nemo/foo/)
+    //  2. b0 = size(/home/nemo/)
+    //  3. c0 = size(/)
+    //
+    // This will calculate the following changes in the nested for loop below:
+    //  1. b1 = b0 - a0
+    //  2. c1 = c0 - a0
+    //  3. c2 = c1 - b1
+    //
+    // Combined and simplified, this will give us the output values:
+    //  1. a' = a0
+    //  2. b' = b1 = b0 - a0
+    //  3. c' = c2 = c1 - b1 = (c0 - a0) - (b0 - a0) = c0 - a0 - b0 + a0 = c0 - b0
+    //
+    // Or with paths:
+    //  1. output(/home/nemo/foo/) = size(/home/nemo/foo/)
+    //  2. output(/home/nemo/)     = size(/home/nemo/)     - size(/home/nemo/foo/)
+    //  3. output(/)               = size(/)               - size(/home/nemo/)
+    QStringList keys;
+    foreach (const QString &key, usage.uniqueKeys()) {
+        keys << expandedPaths.value(key, key);
+    }
+    qStableSort(keys.begin(), keys.end(), qGreater<QString>());
+    for (int i=0; i<keys.length(); i++) {
+        for (int j=i+1; j<keys.length(); j++) {
+            QString subpath = keys[i];
+            QString path = keys[j];
 
             if ((subpath.length() > path.length() && subpath.indexOf(path) == 0) || (path == "/")) {
-                bytes -= subbytes;
-            }
-        }
+                qlonglong subbytes = usage[originalPaths.value(subpath, subpath)].toLongLong();
+                qlonglong bytes = usage[originalPaths.value(path, path)].toLongLong();
 
-        if (it.value() != bytes) {
-            it.value() = bytes;
+                bytes -= subbytes;
+                usage[originalPaths.value(path, path)] = bytes;
+            }
         }
     }
 
-    emit finished(usage, callback);
+    return usage;
 }
-
 
 class DiskUsagePrivate
 {
