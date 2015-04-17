@@ -31,17 +31,89 @@
 
 #include "usbsettings.h"
 
-USBSettings::USBSettings(QObject *parent)
-    : QObject(parent),
-      m_qmmode(new MeeGo::QmUSBMode(this))
-{
-    connect(m_qmmode, SIGNAL(modeChanged(MeeGo::QmUSBMode::Mode)),
-            this, SIGNAL(currentModeChanged()));
+#include "usb_moded-dbus.h"
+#include "usb_moded-modes.h"
 
-    foreach (MeeGo::QmUSBMode::Mode supportedMode, m_qmmode->getSupportedModes()) {
-        m_supportedUSBModes.append((int)supportedMode);
+#include <QDBusConnection>
+#include <QDBusMessage>
+#include <QDBusReply>
+
+
+static QDBusMessage call_usb_moded(const QString &method, const QList<QVariant> &arguments=QList<QVariant>())
+{
+    QDBusMessage methodCall = QDBusMessage::createMethodCall(USB_MODE_SERVICE, USB_MODE_OBJECT,
+            USB_MODE_INTERFACE, method);
+    methodCall.setArguments(arguments);
+    return QDBusConnection::systemBus().call(methodCall);
+}
+
+static const struct {
+    const char *name;
+    enum USBSettings::Mode mode;
+} mode_mapping[] = {
+    // States (from usb_moded-dbus.h)
+    { USB_CONNECTED, USBSettings::Connected },
+    { DATA_IN_USE, USBSettings::DataInUse },
+    { USB_DISCONNECTED, USBSettings::Disconnected },
+    { USB_CONNECTED_DIALOG_SHOW, USBSettings::ModeRequest },
+
+    // Modes (from usb_moded-modes.h)
+    { MODE_MASS_STORAGE, USBSettings::MassStorage },
+    { MODE_CHARGING, USBSettings::ChargingOnly },
+    { MODE_CHARGING_FALLBACK, USBSettings::ChargingOnly },
+    { MODE_PC_SUITE, USBSettings::PCSuite },
+    { MODE_ASK, USBSettings::Ask },
+    { MODE_UNDEFINED, USBSettings::Undefined },
+    { MODE_DEVELOPER, USBSettings::Developer },
+    { MODE_MTP, USBSettings::MTP },
+    { MODE_ADB, USBSettings::Adb },
+    { MODE_DIAG, USBSettings::Diag },
+    { MODE_CONNECTION_SHARING, USBSettings::ConnectionSharing },
+    { MODE_HOST, USBSettings::Host },
+    { MODE_CHARGER, USBSettings::Charger },
+};
+
+#define ARRAY_SIZE(x) (int)(sizeof(x)/sizeof((x)[0]))
+
+static enum USBSettings::Mode decodeMode(const QString &name)
+{
+    for (int i=0; i<ARRAY_SIZE(mode_mapping); i++) {
+        if (name == mode_mapping[i].name) {
+            return mode_mapping[i].mode;
+        }
     }
-    emit supportedUSBModesChanged();
+
+    return USBSettings::Undefined;
+}
+
+static QString encodeMode(enum USBSettings::Mode mode)
+{
+    for (int i=0; i<ARRAY_SIZE(mode_mapping); i++) {
+        if (mode == mode_mapping[i].mode) {
+            return QString(mode_mapping[i].name);
+        }
+    }
+
+    return MODE_UNDEFINED;
+}
+
+
+USBSettings::USBSettings(QObject *parent)
+    : QObject(parent)
+    , m_supportedUSBModes()
+{
+    // TODO: We could connect to USB_MODE_SUPPORTED_MODES_SIGNAL_NAME and update the internal
+    // list plus emit supportedUSBModesChanged()
+    QDBusReply<QString> supportedModes = call_usb_moded("get_modes");
+    foreach (QString part, supportedModes.value().split(',')) {
+        m_supportedUSBModes << decodeMode(part.trimmed());
+    }
+
+    QDBusConnection::systemBus().connect(USB_MODE_SERVICE, USB_MODE_OBJECT, USB_MODE_INTERFACE,
+            USB_MODE_SIGNAL_NAME, this, SLOT(currentModeChanged()));
+
+    // TODO: We could watch the default mode (no signal yet in usb_moded) and
+    // emit defaultModeChanged() so that the settings UI is always up to date
 }
 
 USBSettings::~USBSettings()
@@ -50,12 +122,14 @@ USBSettings::~USBSettings()
 
 USBSettings::Mode USBSettings::currentMode() const
 {
-    return (Mode)m_qmmode->getMode();
+    QDBusReply<QString> reply = call_usb_moded("mode_request");
+    return reply.isValid() ? decodeMode(reply.value()) : USBSettings::Undefined;
 }
 
 USBSettings::Mode USBSettings::defaultMode() const
 {
-    return (Mode)m_qmmode->getDefaultMode();
+    QDBusReply<QString> reply = call_usb_moded("get_config");
+    return reply.isValid() ? decodeMode(reply.value()) : USBSettings::Undefined;
 }
 
 QList<int> USBSettings::supportedUSBModes() const
@@ -69,9 +143,17 @@ void USBSettings::setDefaultMode(const Mode mode)
         return;
     }
 
-    if (m_qmmode->setDefaultMode((MeeGo::QmUSBMode::Mode)mode)) {
+    QDBusReply<QString> reply = call_usb_moded("set_config", QVariantList() << encodeMode(mode));
+    if (reply.isValid() && decodeMode(reply.value()) == mode) {
         emit defaultModeChanged();
     } else {
         qWarning("Couldn't set default mode");
     }
+}
+
+void USBSettings::setCurrentMode(const Mode mode)
+{
+    QDBusMessage call = QDBusMessage::createMethodCall(USB_MODE_SERVICE, USB_MODE_OBJECT, USB_MODE_INTERFACE, USB_MODE_STATE_SET);
+    call << encodeMode(mode);
+    QDBusConnection::systemBus().call(call, QDBus::NoBlock);
 }

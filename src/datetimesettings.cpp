@@ -30,22 +30,53 @@
  */
 
 #include "datetimesettings.h"
+
 #include <timed-qt5/interface>
 #include <timed-qt5/wallclock>
 #include <QDebug>
 
+
 DateTimeSettings::DateTimeSettings(QObject *parent)
-    : QObject(parent),
-      m_autoSystemTime(m_time.autoSystemTime()),
-      m_autoTimezone(m_time.autoTimeZone())
+    : QObject(parent)
+    , m_timed()
+    , m_timezone()
+    , m_autoSystemTime(false)
+    , m_autoTimezone(false)
+    , m_timedInfoValid(false)
+    , m_timedInfo()
 {
-    m_time.getTimezone(m_timezone);
-    connect(&m_time, SIGNAL(timeOrSettingsChanged(MeeGo::QmTime::WhatChanged)),
-            this, SLOT(handleTimeChanged(MeeGo::QmTime::WhatChanged)));
+    if (!m_timed.settings_changed_connect(this, SLOT(onTimedSignal(const Maemo::Timed::WallClock::Info &, bool)))) {
+        qWarning("Connection to timed signal failed: '%s'", Maemo::Timed::bus().lastError().message().toStdString().c_str());
+    }
+
+    // Request the first update of the wall clock info
+    updateTimedInfo();
 }
 
 DateTimeSettings::~DateTimeSettings()
 {
+}
+
+void DateTimeSettings::updateTimedInfo()
+{
+    QDBusPendingCall call = m_timed.get_wall_clock_info_async();
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
+
+    QObject::connect(watcher, SIGNAL(finished(QDBusPendingCallWatcher *)),
+                     this, SLOT(onGetWallClockInfoFinished(QDBusPendingCallWatcher *)));
+}
+
+void DateTimeSettings::onGetWallClockInfoFinished(QDBusPendingCallWatcher *watcher)
+{
+    QDBusPendingReply<Maemo::Timed::WallClock::Info> reply = *watcher;
+
+    if (reply.isError()) {
+        qWarning("Could not retrieve wall clock info: '%s'", reply.error().message().toStdString().c_str());
+    } else {
+        onTimedSignal(reply.value(), false);
+    }
+
+    watcher->deleteLater();
 }
 
 void DateTimeSettings::setTime(int hour, int minute)
@@ -53,7 +84,7 @@ void DateTimeSettings::setTime(int hour, int minute)
     QDate currentDate = QDate::currentDate();
     QTime time(hour, minute);
     QDateTime newTime(currentDate, time);
-    m_time.setTime(newTime.toTime_t());
+    setTime(newTime.toTime_t());
 }
 
 
@@ -61,32 +92,47 @@ void DateTimeSettings::setDate(const QDate &date)
 {
     QDateTime newTime = QDateTime::currentDateTime();
     newTime.setDate(date);
-    m_time.setTime(newTime.toTime_t());
+    setTime(newTime.toTime_t());
 }
 
 bool DateTimeSettings::automaticTimeUpdate()
 {
-    return m_autoSystemTime == MeeGo::QmTime::AutoSystemTimeOn;
+    return m_autoSystemTime;
 }
 
 void DateTimeSettings::setAutomaticTimeUpdate(bool enable)
 {
-    m_time.setAutoSystemTime(enable ? MeeGo::QmTime::AutoSystemTimeOn : MeeGo::QmTime::AutoSystemTimeOff);
+    if (enable != m_autoSystemTime) {
+        Maemo::Timed::WallClock::Settings s;
+
+        if (enable) {
+            s.setTimeNitz();
+        } else {
+            s.setTimeManual();
+        }
+
+        setSettings(s);
+    }
 }
 
 bool DateTimeSettings::automaticTimezoneUpdate()
 {
-    return m_autoTimezone == MeeGo::QmTime::AutoTimeZoneOn;
+    return m_autoTimezone;
 }
 
 void DateTimeSettings::setAutomaticTimezoneUpdate(bool enable)
 {
-    bool enabled = m_autoTimezone == MeeGo::QmTime::AutoTimeZoneOn;
-    if (enabled == enable) {
-        return;
-    }
+    if (enable != m_autoTimezone) {
+        Maemo::Timed::WallClock::Settings s;
 
-    m_time.setAutoTimeZone(enable ? MeeGo::QmTime::AutoTimeZoneOn : MeeGo::QmTime::AutoTimeZoneOff);
+        if (enable) {
+            s.setTimezoneCellular();
+        } else {
+            s.setTimezoneManual("");
+        }
+
+        setSettings(s);
+    }
 }
 
 QString DateTimeSettings::timezone() const
@@ -100,40 +146,77 @@ void DateTimeSettings::setTimezone(const QString &tz)
         return;
     }
 
-    m_time.setTimezone(tz);
+    Maemo::Timed::WallClock::Settings s;
+    s.setTimezoneManual(tz);
+    setSettings(s);
 }
 
 void DateTimeSettings::setHourMode(DateTimeSettings::HourMode mode)
 {
-    Maemo::Timed::Interface timedInterface;
-    Maemo::Timed::WallClock::Settings settings;
-    settings.setFlag24(mode == TwentyFourHours);
-    timedInterface.wall_clock_settings_async(settings);
+    Maemo::Timed::WallClock::Settings s;
+    s.setFlag24(mode == TwentyFourHours);
+    setSettings(s);
 }
 
-void DateTimeSettings::handleTimeChanged(MeeGo::QmTime::WhatChanged what)
+void DateTimeSettings::onWallClockSettingsFinished(QDBusPendingCallWatcher *watcher)
 {
-    switch (what) {
-    case MeeGo::QmTime::TimeChanged:
-        emit timeChanged();
-        // fall through
-    case MeeGo::QmTime::OnlySettingsChanged:
-    {
-        MeeGo::QmTime::AutoSystemTimeStatus newAutoSystemTime = m_time.autoSystemTime();
-        if (newAutoSystemTime != m_autoSystemTime) {
-            m_autoSystemTime = newAutoSystemTime;
-            emit automaticTimeUpdateChanged();
-        }
-        MeeGo::QmTime::AutoTimeZoneStatus newAutoTimezone = m_time.autoTimeZone();
-        if (newAutoTimezone != m_autoTimezone) {
-            m_autoTimezone = newAutoTimezone;
-            emit automaticTimezoneUpdateChanged();
-        }
-        QString newTimezone;
-        if (m_time.getTimezone(newTimezone) && newTimezone != m_timezone) {
-            m_timezone = newTimezone;
-            emit timezoneChanged();
-        }
+    QDBusPendingReply<bool> reply = *watcher;
+
+    if (reply.isError()) {
+        qWarning("Could not set wall clock settings: '%s'", reply.error().message().toStdString().c_str());
+    } else if (!reply.value()) {
+        qWarning("Could not set wall clock settings");
     }
+
+    watcher->deleteLater();
+}
+
+bool DateTimeSettings::setSettings(Maemo::Timed::WallClock::Settings &s)
+{
+    if (!s.check()) {
+        return false;
+    }
+
+    QDBusPendingCall call = m_timed.wall_clock_settings_async(s);
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
+
+    QObject::connect(watcher, SIGNAL(finished(QDBusPendingCallWatcher *)),
+                     this, SLOT(onWallClockSettingsFinished(QDBusPendingCallWatcher *)));
+
+    return true;
+}
+
+bool DateTimeSettings::setTime(time_t time)
+{
+    Maemo::Timed::WallClock::Settings s;
+    s.setTimeManual(time);
+    return setSettings(s);
+}
+
+void DateTimeSettings::onTimedSignal(const Maemo::Timed::WallClock::Info &info, bool time_changed)
+{
+    m_timedInfo = info;
+    m_timedInfoValid = true;
+
+    if (time_changed) {
+        emit timeChanged();
+    }
+
+    bool newAutoSystemTime = info.flagTimeNitz();
+    if (newAutoSystemTime != m_autoSystemTime) {
+        m_autoSystemTime = newAutoSystemTime;
+        emit automaticTimeUpdateChanged();
+    }
+
+    bool newAutoTimezone = info.flagLocalCellular();
+    if (newAutoTimezone != m_autoTimezone) {
+        m_autoTimezone = newAutoTimezone;
+        emit automaticTimezoneUpdateChanged();
+    }
+
+    QString newTimezone = info.humanReadableTz();
+    if (newTimezone != m_timezone) {
+        m_timezone = newTimezone;
+        emit timezoneChanged();
     }
 }

@@ -32,7 +32,8 @@
 #ifndef USBSETTINGS_H
 #define USBSETTINGS_H
 
-#include <qmusbmode.h>
+#include <QObject>
+#include <QList>
 
 class USBSettings: public QObject
 {
@@ -40,29 +41,37 @@ class USBSettings: public QObject
 
     Q_ENUMS(Mode)
 
-    Q_PROPERTY(Mode currentMode READ currentMode NOTIFY currentModeChanged)
+    Q_PROPERTY(Mode currentMode READ currentMode WRITE setCurrentMode NOTIFY currentModeChanged)
     Q_PROPERTY(Mode defaultMode READ defaultMode WRITE setDefaultMode NOTIFY defaultModeChanged)
     Q_PROPERTY(QList<int> supportedUSBModes READ supportedUSBModes NOTIFY supportedUSBModesChanged)
 
 public:
+    /**
+     * Keep this in sync with usb_moded-dbus.h (for states) and usb_moded-modes.h (for modes),
+     * existing enum values taken from legacy qmsystem2 enum mapping for compatibility
+     **/
     enum Mode {
-        Connected = MeeGo::QmUSBMode::Connected,
-        DataInUse = MeeGo::QmUSBMode::DataInUse,
-        Disconnected = MeeGo::QmUSBMode::Disconnected,
-        MassStorage = MeeGo::QmUSBMode::MassStorage,
-        ChargingOnly = MeeGo::QmUSBMode::ChargingOnly,
-        OviSuite = MeeGo::QmUSBMode::OviSuite,
-        ModeRequest = MeeGo::QmUSBMode::ModeRequest,
-        Ask = MeeGo::QmUSBMode::Ask,
-        Undefined = MeeGo::QmUSBMode::Undefined,
-        SDK = MeeGo::QmUSBMode::SDK,
-        Developer = MeeGo::QmUSBMode::Developer,
-        MTP = MeeGo::QmUSBMode::MTP,
-        Adb = MeeGo::QmUSBMode::Adb,
-        Diag = MeeGo::QmUSBMode::Diag,
-        Host = MeeGo::QmUSBMode::Host,
-        Charger = MeeGo::QmUSBMode::Charger,
-        ConnectionSharing = MeeGo::QmUSBMode::ConnectionSharing
+        // States (from usb_moded-dbus.h)
+        Connected = 0,
+        DataInUse = 1,
+        Disconnected = 2,
+        ModeRequest = 6,
+
+        // Modes (from usb_moded-modes.h)
+        MassStorage = 3,
+        ChargingOnly = 4,
+        PCSuite = 5,
+        Ask = 7,
+        Undefined = 8,
+        Developer = 10,
+        MTP = 11,
+        Adb = 12,
+        Diag = 13,
+        ConnectionSharing = 14,
+        Host = 15,
+        Charger = 16,
+
+        // When adding new Mode/State IDs, start with 50 (assume 0-49 was used by qmsystem2)
     };
 
     explicit USBSettings(QObject *parent = 0);
@@ -74,6 +83,7 @@ public:
 
 public slots:
     void setDefaultMode(const Mode mode);
+    void setCurrentMode(const Mode mode);
 
 signals:
     void currentModeChanged();
@@ -81,8 +91,6 @@ signals:
     void supportedUSBModesChanged();
 
 private:
-    MeeGo::QmUSBMode *m_qmmode;
-
     QList<int> m_supportedUSBModes;
 };
 

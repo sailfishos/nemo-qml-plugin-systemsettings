@@ -11,11 +11,11 @@ Requires(postun): /sbin/ldconfig
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5SystemInfo)
 BuildRequires:  pkgconfig(Qt5Test)
-BuildRequires:  pkgconfig(qmsystem2-qt5)  >= 1.4.17
 BuildRequires:  pkgconfig(timed-qt5)
 BuildRequires:  pkgconfig(profile)
 BuildRequires:  pkgconfig(mce)
 BuildRequires:  pkgconfig(mlite5)
+BuildRequires:  pkgconfig(usb_moded) >= 0.82
 
 %description
 %{summary}.
