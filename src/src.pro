@@ -7,7 +7,7 @@ QT += qml dbus systeminfo
 QT -= gui
 
 CONFIG += link_pkgconfig
-PKGCONFIG += qmsystem2-qt5 profile mlite5
+PKGCONFIG += profile mlite5 usb_moded timed-qt5
 
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
 
@@ -51,6 +51,6 @@ QMAKE_PKGCONFIG_DESCRIPTION = System settings application development files
 QMAKE_PKGCONFIG_LIBDIR = $$target.path
 QMAKE_PKGCONFIG_INCDIR = $$develheaders.path
 QMAKE_PKGCONFIG_DESTDIR = pkgconfig
-QMAKE_PKGCONFIG_REQUIRES = Qt5Core Qt5DBus profile qmsystem2-qt5
+QMAKE_PKGCONFIG_REQUIRES = Qt5Core Qt5DBus profile
 
 INSTALLS += target develheaders pkgconfig

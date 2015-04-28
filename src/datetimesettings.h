@@ -35,7 +35,8 @@
 #include <QObject>
 #include <QTime>
 
-#include <qmtime.h>
+#include <timed-qt5/interface>
+#include <timed-qt5/wallclock>
 
 class DateTimeSettings: public QObject
 {
@@ -76,13 +77,22 @@ signals:
     void timezoneChanged();
 
 private slots:
-    void handleTimeChanged(MeeGo::QmTime::WhatChanged what);
+    void onTimedSignal(const Maemo::Timed::WallClock::Info &info, bool time_changed);
+    void onGetWallClockInfoFinished(QDBusPendingCallWatcher *watcher);
+    void onWallClockSettingsFinished(QDBusPendingCallWatcher *watcher);
 
 private:
-    MeeGo::QmTime m_time;
-    MeeGo::QmTime::AutoSystemTimeStatus m_autoSystemTime;
-    MeeGo::QmTime::AutoTimeZoneStatus m_autoTimezone;
+    bool setTime(time_t time);
+    bool setSettings(Maemo::Timed::WallClock::Settings &s);
+    void updateTimedInfo();
+
+private:
+    Maemo::Timed::Interface m_timed;
     QString m_timezone;
+    bool m_autoSystemTime;
+    bool m_autoTimezone;
+    bool m_timedInfoValid;
+    Maemo::Timed::WallClock::Info m_timedInfo;
 };
 
 #endif
