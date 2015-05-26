@@ -15,7 +15,7 @@ BuildRequires:  pkgconfig(timed-qt5)
 BuildRequires:  pkgconfig(profile)
 BuildRequires:  pkgconfig(mce)
 BuildRequires:  pkgconfig(mlite5)
-BuildRequires:  pkgconfig(usb_moded) >= 0.82
+BuildRequires:  pkgconfig(usb-moded-qt5)
 
 %description
 %{summary}.
