@@ -6,7 +6,7 @@ CONFIG += qt plugin hide_symbols link_pkgconfig
 QT += qml dbus network
 QT -= gui
 
-PKGCONFIG += profile
+PKGCONFIG += profile usb-moded-qt5
 
 target.path = $$[QT_INSTALL_QML]/$$PLUGIN_IMPORT_PATH
 INSTALLS += target
