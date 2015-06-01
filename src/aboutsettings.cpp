@@ -161,7 +161,7 @@ QString AboutSettings::serial() const
     QFile serial_txt("/config/serial/serial.txt");
     if (serial_txt.exists()) {
         serial_txt.open(QIODevice::ReadOnly);
-        return QString::fromUtf8(serial_txt.readAll());
+        return QString::fromUtf8(serial_txt.readAll()).trimmed();
     } else {
         return "";
     }
