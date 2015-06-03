@@ -33,6 +33,7 @@
 #define ABOUTSETTINGS_H
 
 #include <QObject>
+#include <QVariant>
 
 class QStorageInfo;
 class QNetworkInfo;
@@ -52,8 +53,19 @@ public:
     explicit AboutSettings(QObject *parent = 0);
     virtual ~AboutSettings();
 
+    // Deprecated -- use diskUsageModel() instead
     Q_INVOKABLE qlonglong totalDiskSpace() const;
+    // Deprecated -- use diskUsageModel() instead
     Q_INVOKABLE qlonglong availableDiskSpace() const;
+
+    /**
+     * Returns a list of JS objects with the following keys:
+     *  - storageType: one of "mass" (mass storage), "system" (system storage) or "user" (user storage)
+     *  - path: filesystem path (e.g. "/" or "/home/")
+     *  - available: available bytes on the storage
+     *  - total: total bytes on the storage
+     **/
+    Q_INVOKABLE QVariant diskUsageModel() const;
 
     QString bluetoothAddress() const;
     QString wlanMacAddress() const;

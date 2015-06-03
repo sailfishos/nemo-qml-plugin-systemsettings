@@ -41,6 +41,9 @@
 #include <QRegularExpression>
 #include <QMap>
 #include <QTextStream>
+#include <QVariant>
+
+#include <mntent.h>
 
 
 static QMap<QString, QString> parseReleaseFile(const QString &filename)
@@ -134,6 +137,47 @@ qlonglong AboutSettings::totalDiskSpace() const
 qlonglong AboutSettings::availableDiskSpace() const
 {
     return m_sysinfo->availableDiskSpace("/");
+}
+
+QVariant AboutSettings::diskUsageModel() const
+{
+    QVariantList result;
+
+    // Optional mountpoints that we want to report disk usage for
+    QStringList candidates;
+    candidates << "/home";
+
+    // Always report the rootfs
+    QStringList paths;
+    paths << "/";
+
+    QMap<QString,QString> devices;
+
+    FILE *fsd = setmntent(_PATH_MOUNTED, "r");
+    struct mntent entry;
+    char buffer[PATH_MAX];
+    while ((getmntent_r(fsd, &entry, buffer, sizeof(buffer))) != NULL) {
+        devices[QString::fromLatin1(entry.mnt_dir)] = QString::fromLatin1(entry.mnt_fsname);
+    }
+    endmntent(fsd);
+
+    foreach (const QString &mountpoint, devices.keys()) {
+        // Add a reported mountpoint if it's a candidate and if it's not the same as the rootfs
+        if (candidates.contains(mountpoint) && devices[mountpoint] != devices["/"]) {
+            paths << mountpoint;
+        }
+    }
+
+    foreach (const QString &path, paths) {
+        QVariantMap row;
+        row["storageType"] = (paths.count() == 1) ? QString("mass") : (path == "/") ? QString("system") : QString("user");
+        row["path"] = QString(path);
+        row["available"] = m_sysinfo->availableDiskSpace(path);
+        row["total"] = m_sysinfo->totalDiskSpace(path);
+        result << QVariant(row);
+    }
+
+    return result;
 }
 
 QString AboutSettings::bluetoothAddress() const
