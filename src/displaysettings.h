@@ -55,6 +55,7 @@ class DisplaySettings: public QObject
     Q_PROPERTY(bool ambientLightSensorEnabled READ ambientLightSensorEnabled WRITE setAmbientLightSensorEnabled NOTIFY ambientLightSensorEnabledChanged)
     Q_PROPERTY(int doubleTapMode READ doubleTapMode WRITE setDoubleTapMode NOTIFY doubleTapModeChanged)
     Q_PROPERTY(QVariant orientationLock READ orientationLock WRITE setOrientationLock NOTIFY orientationLockChanged)
+    Q_PROPERTY(bool lidSensorEnabled READ lidSensorEnabled WRITE setLidSensorEnabled NOTIFY lidSensorEnabledChanged)
 
 public:
     enum DoubleTapMode {
@@ -108,6 +109,9 @@ public:
     QVariant orientationLock() const;
     void setOrientationLock(const QVariant &);
 
+    bool lidSensorEnabled() const;
+    void setLidSensorEnabled(bool);
+
 signals:
     void brightnessChanged();
     void dimTimeoutChanged();
@@ -118,6 +122,7 @@ signals:
     void ambientLightSensorEnabledChanged();
     void doubleTapModeChanged();
     void orientationLockChanged();
+    void lidSensorEnabledChanged();
 
 private slots:
     void configChange(const QString &key, const QDBusVariant &value);
@@ -134,6 +139,7 @@ private:
     bool m_lowPowerModeEnabled;
     bool m_ambientLightSensorEnabled;
     bool m_doubleTapMode;
+    bool m_lidSensorEnabled;
 };
 
 QML_DECLARE_TYPE(DisplaySettings)
