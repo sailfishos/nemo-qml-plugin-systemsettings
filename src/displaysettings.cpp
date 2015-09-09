@@ -43,6 +43,7 @@ static const char *MceDisplayInhibitMode = "/system/osso/dsm/display/inhibit_bla
 static const char *MceDisplayUseAdaptiveDimming = "/system/osso/dsm/display/use_adaptive_display_dimming";
 static const char *MceDisplayUseLowPowerMode = "/system/osso/dsm/display/use_low_power_mode";
 static const char *MceDisplayUseAmbientLightSensor = "/system/osso/dsm/display/als_enabled";
+static const char *MceDisplayAutoBrightnessEnabled = "/system/osso/dsm/display/als_autobrightness";
 static const char *MceDoubleTapMode = "/system/osso/dsm/doubletap/mode";
 static const char *MceLidSensorEnabled = "/system/osso/dsm/locks/lid_sensor_enabled";
 
@@ -80,6 +81,10 @@ DisplaySettings::DisplaySettings(QObject *parent)
     result = m_mceIface->get_config(QDBusObjectPath(MceDisplayUseAmbientLightSensor));
     result.waitForFinished();
     m_ambientLightSensorEnabled = result.value().variant().toBool();
+
+    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayAutoBrightnessEnabled));
+    result.waitForFinished();
+    m_autoBrightnessEnabled = result.value().variant().toBool();
 
     result = m_mceIface->get_config(QDBusObjectPath(MceDoubleTapMode));
     result.waitForFinished();
@@ -199,6 +204,20 @@ void DisplaySettings::setAmbientLightSensorEnabled(bool enabled)
     }
 }
 
+bool DisplaySettings::autoBrightnessEnabled() const
+{
+    return m_autoBrightnessEnabled;
+}
+
+void DisplaySettings::setAutoBrightnessEnabled(bool enabled)
+{
+    if (m_autoBrightnessEnabled != enabled) {
+        m_autoBrightnessEnabled = enabled;
+        m_mceIface->set_config(QDBusObjectPath(MceDisplayAutoBrightnessEnabled), QDBusVariant(enabled));
+        emit autoBrightnessEnabledChanged();
+    }
+}
+
 int DisplaySettings::doubleTapMode() const
 {
     return m_doubleTapMode;
@@ -280,6 +299,12 @@ void DisplaySettings::configChange(const QString &key, const QDBusVariant &value
         if (val != m_ambientLightSensorEnabled) {
             m_ambientLightSensorEnabled = val;
             emit ambientLightSensorEnabledChanged();
+        }
+    } else if (key == MceDisplayAutoBrightnessEnabled) {
+        bool val = value.variant().toBool();
+        if (val != m_autoBrightnessEnabled) {
+            m_autoBrightnessEnabled = val;
+            emit autoBrightnessEnabledChanged();
         }
     } else if (key == MceDoubleTapMode) {
         int val = value.variant().toInt();
