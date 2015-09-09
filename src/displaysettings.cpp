@@ -46,6 +46,7 @@ static const char *MceDisplayUseAmbientLightSensor = "/system/osso/dsm/display/a
 static const char *MceDisplayAutoBrightnessEnabled = "/system/osso/dsm/display/als_autobrightness";
 static const char *MceDoubleTapMode = "/system/osso/dsm/doubletap/mode";
 static const char *MceLidSensorEnabled = "/system/osso/dsm/locks/lid_sensor_enabled";
+static const char *MceLidSensorFilteringEnabled = "/system/osso/dsm/locks/filter_lid_with_als";
 
 DisplaySettings::DisplaySettings(QObject *parent)
     : QObject(parent)
@@ -93,6 +94,10 @@ DisplaySettings::DisplaySettings(QObject *parent)
     result = m_mceIface->get_config(QDBusObjectPath(MceLidSensorEnabled));
     result.waitForFinished();
     m_lidSensorEnabled = result.value().variant().toBool();
+
+    result = m_mceIface->get_config(QDBusObjectPath(MceLidSensorFilteringEnabled));
+    result.waitForFinished();
+    m_lidSensorFilteringEnabled = result.value().variant().toBool();
 
     m_mceSignalIface = new ComNokiaMceSignalInterface(MCE_SERVICE, MCE_SIGNAL_PATH, QDBusConnection::systemBus(), this);
     connect(m_mceSignalIface, SIGNAL(config_change_ind(QString,QDBusVariant)), this, SLOT(configChange(QString,QDBusVariant)));
@@ -256,6 +261,20 @@ void DisplaySettings::setLidSensorEnabled(bool enabled)
     }
 }
 
+bool DisplaySettings::lidSensorFilteringEnabled() const
+{
+    return m_lidSensorFilteringEnabled;
+}
+
+void DisplaySettings::setLidSensorFilteringEnabled(bool enabled)
+{
+    if (m_lidSensorFilteringEnabled != enabled) {
+        m_lidSensorFilteringEnabled = enabled;
+        m_mceIface->set_config(QDBusObjectPath(MceLidSensorFilteringEnabled), QDBusVariant(enabled));
+        emit lidSensorFilteringEnabledChanged();
+    }
+}
+
 void DisplaySettings::configChange(const QString &key, const QDBusVariant &value)
 {
     if (key == MceDisplayBrightness) {
@@ -317,6 +336,12 @@ void DisplaySettings::configChange(const QString &key, const QDBusVariant &value
         if (val != m_lidSensorEnabled) {
             m_lidSensorEnabled = val;
             emit lidSensorEnabledChanged();
+        }
+    } else if (key == MceLidSensorFilteringEnabled) {
+        bool val = value.variant().toBool();
+        if (val != m_lidSensorFilteringEnabled) {
+            m_lidSensorFilteringEnabled = val;
+            emit lidSensorFilteringEnabledChanged();
         }
     }
 }
