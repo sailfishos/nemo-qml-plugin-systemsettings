@@ -53,9 +53,11 @@ class DisplaySettings: public QObject
     Q_PROPERTY(bool adaptiveDimmingEnabled READ adaptiveDimmingEnabled WRITE setAdaptiveDimmingEnabled NOTIFY adaptiveDimmingEnabledChanged)
     Q_PROPERTY(bool lowPowerModeEnabled READ lowPowerModeEnabled WRITE setLowPowerModeEnabled NOTIFY lowPowerModeEnabledChanged)
     Q_PROPERTY(bool ambientLightSensorEnabled READ ambientLightSensorEnabled WRITE setAmbientLightSensorEnabled NOTIFY ambientLightSensorEnabledChanged)
+    Q_PROPERTY(bool autoBrightnessEnabled READ autoBrightnessEnabled WRITE setAutoBrightnessEnabled NOTIFY autoBrightnessEnabledChanged)
     Q_PROPERTY(int doubleTapMode READ doubleTapMode WRITE setDoubleTapMode NOTIFY doubleTapModeChanged)
     Q_PROPERTY(QVariant orientationLock READ orientationLock WRITE setOrientationLock NOTIFY orientationLockChanged)
     Q_PROPERTY(bool lidSensorEnabled READ lidSensorEnabled WRITE setLidSensorEnabled NOTIFY lidSensorEnabledChanged)
+    Q_PROPERTY(bool lidSensorFilteringEnabled READ lidSensorFilteringEnabled WRITE setLidSensorFilteringEnabled NOTIFY lidSensorFilteringEnabledChanged)
 
 public:
     enum DoubleTapMode {
@@ -103,6 +105,9 @@ public:
     bool ambientLightSensorEnabled() const;
     void setAmbientLightSensorEnabled(bool);
 
+    bool autoBrightnessEnabled() const;
+    void setAutoBrightnessEnabled(bool);
+
     int doubleTapMode() const;
     void setDoubleTapMode(int);
 
@@ -112,6 +117,9 @@ public:
     bool lidSensorEnabled() const;
     void setLidSensorEnabled(bool);
 
+    bool lidSensorFilteringEnabled() const;
+    void setLidSensorFilteringEnabled(bool);
+
 signals:
     void brightnessChanged();
     void dimTimeoutChanged();
@@ -120,9 +128,11 @@ signals:
     void adaptiveDimmingEnabledChanged();
     void lowPowerModeEnabledChanged();
     void ambientLightSensorEnabledChanged();
+    void autoBrightnessEnabledChanged();
     void doubleTapModeChanged();
     void orientationLockChanged();
     void lidSensorEnabledChanged();
+    void lidSensorFilteringEnabledChanged();
 
 private slots:
     void configChange(const QString &key, const QDBusVariant &value);
@@ -138,8 +148,10 @@ private:
     bool m_adaptiveDimmingEnabled;
     bool m_lowPowerModeEnabled;
     bool m_ambientLightSensorEnabled;
+    bool m_autoBrightnessEnabled;
     bool m_doubleTapMode;
     bool m_lidSensorEnabled;
+    bool m_lidSensorFilteringEnabled;
 };
 
 QML_DECLARE_TYPE(DisplaySettings)
