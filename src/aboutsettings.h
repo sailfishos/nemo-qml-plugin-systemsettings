@@ -49,6 +49,9 @@ class AboutSettings: public QObject
     Q_PROPERTY(QString softwareVersion READ softwareVersion CONSTANT)
     Q_PROPERTY(QString adaptationVersion READ adaptationVersion CONSTANT)
 
+    Q_PROPERTY(QVariant internalStorageUsageModel READ diskUsageModel NOTIFY storageChanged)
+    Q_PROPERTY(QVariant externalStorageUsageModel READ externalStorageUsageModel NOTIFY storageChanged)
+
 public:
     explicit AboutSettings(QObject *parent = 0);
     virtual ~AboutSettings();
@@ -66,6 +69,8 @@ public:
      *  - total: total bytes on the storage
      **/
     Q_INVOKABLE QVariant diskUsageModel() const;
+    QVariant externalStorageUsageModel() const;
+    Q_INVOKABLE void refreshStorageModels();
 
     QString bluetoothAddress() const;
     QString wlanMacAddress() const;
@@ -74,10 +79,16 @@ public:
     QString softwareVersion() const;
     QString adaptationVersion() const;
 
+signals:
+    void storageChanged();
+
 private:
     QStorageInfo *m_sysinfo;
     QNetworkInfo *m_netinfo;
     QDeviceInfo *m_devinfo;
+
+    QVariantList m_internalStorage;
+    QVariantList m_externalStorage;
 };
 
 #endif
