@@ -120,6 +120,7 @@ void ProfileControl::setProfile(const QString &profile)
 {
     if (profile != m_profile) {
         m_profile = profile;
+        emit profileChanged(profile);
         profile_set_profile(profile.toUtf8().constData());
     }
 }
@@ -523,8 +524,10 @@ void ProfileControl::setClockAlarmToneEnabled(bool enabled)
 void ProfileControl::currentProfileChangedCallback(const char *name, ProfileControl *profileControl)
 {
     QString newProfile = QString::fromUtf8(name);
-    profileControl->m_profile = newProfile;
-    emit profileControl->profileChanged(newProfile);
+    if (profileControl->m_profile != newProfile) {
+        profileControl->m_profile = newProfile;
+        emit profileControl->profileChanged(newProfile);
+    }
 }
 
 void ProfileControl::updateStateCallBack(const char *profile, const char *key, const char *val, const char *type)
