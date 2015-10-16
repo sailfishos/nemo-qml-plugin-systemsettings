@@ -46,7 +46,10 @@
 #include <mntent.h>
 
 
-static QMap<QString, QString> parseReleaseFile(const QString &filename)
+namespace
+{
+
+QMap<QString, QString> parseReleaseFile(const QString &filename)
 {
     QMap<QString, QString> result;
 
@@ -115,14 +118,67 @@ static QMap<QString, QString> parseReleaseFile(const QString &filename)
     return result;
 }
 
+struct StorageInfo {
+    StorageInfo()
+    :   partitionSize(0), external(false)
+    { }
+
+    QString mountPath;
+    QString devicePath;
+    QString filesystem;
+    quint64 partitionSize;
+    bool external;
+};
+
+QMap<QString, StorageInfo> parseExternalPartitions()
+{
+    QMap<QString, StorageInfo> devices;
+
+    QFile partitions(QStringLiteral("/proc/partitions"));
+    if (!partitions.open(QIODevice::ReadOnly))
+        return devices;
+
+    // Read file headers
+    partitions.readLine();
+    partitions.readLine();
+
+    while (!partitions.atEnd()) {
+        QByteArray line = partitions.readLine().trimmed();
+
+        int nameIndex = line.lastIndexOf(' ');
+        if (nameIndex <= 0)
+            continue;
+
+        int sizeIndex = line.lastIndexOf(' ', nameIndex - 1);
+        if (sizeIndex == -1)
+            continue;
+
+        QByteArray size = line.mid(sizeIndex+1, nameIndex - sizeIndex - 1);
+        QByteArray name = line.mid(nameIndex+1);
+
+        if (name.startsWith("mmcblk1")) {
+            // If adding a partition remove the whole device.
+            devices.remove(QStringLiteral("/dev/mmcblk1"));
+
+            StorageInfo info;
+            info.devicePath = QStringLiteral("/dev/") + QString::fromLatin1(name);
+            info.partitionSize = size.toULongLong() * 1024;
+            info.external = true;
+
+            devices.insert(info.devicePath, info);
+        }
+    }
+
+    return devices;
+}
+
+}
 
 AboutSettings::AboutSettings(QObject *parent)
-    : QObject(parent),
-      m_sysinfo(new QStorageInfo(this)),
-      m_netinfo(new QNetworkInfo(this)),
-      m_devinfo(new QDeviceInfo(this))
+:   QObject(parent), m_sysinfo(new QStorageInfo(this)), m_netinfo(new QNetworkInfo(this)),
+    m_devinfo(new QDeviceInfo(this))
 {
-    qDebug() << "Drives:" << m_sysinfo->allLogicalDrives();
+    refreshStorageModels();
 }
 
 AboutSettings::~AboutSettings()
@@ -141,43 +197,12 @@ qlonglong AboutSettings::availableDiskSpace() const
 
 QVariant AboutSettings::diskUsageModel() const
 {
-    QVariantList result;
+    return m_internalStorage;
+}
 
-    // Optional mountpoints that we want to report disk usage for
-    QStringList candidates;
-    candidates << "/home";
-
-    // Always report the rootfs
-    QStringList paths;
-    paths << "/";
-
-    QMap<QString,QString> devices;
-
-    FILE *fsd = setmntent(_PATH_MOUNTED, "r");
-    struct mntent entry;
-    char buffer[PATH_MAX];
-    while ((getmntent_r(fsd, &entry, buffer, sizeof(buffer))) != NULL) {
-        devices[QString::fromLatin1(entry.mnt_dir)] = QString::fromLatin1(entry.mnt_fsname);
-    }
-    endmntent(fsd);
-
-    foreach (const QString &mountpoint, devices.keys()) {
-        // Add a reported mountpoint if it's a candidate and if it's not the same as the rootfs
-        if (candidates.contains(mountpoint) && devices[mountpoint] != devices["/"]) {
-            paths << mountpoint;
-        }
-    }
-
-    foreach (const QString &path, paths) {
-        QVariantMap row;
-        row["storageType"] = (paths.count() == 1) ? QString("mass") : (path == "/") ? QString("system") : QString("user");
-        row["path"] = QString(path);
-        row["available"] = m_sysinfo->availableDiskSpace(path);
-        row["total"] = m_sysinfo->totalDiskSpace(path);
-        result << QVariant(row);
-    }
-
-    return result;
+QVariant AboutSettings::externalStorageUsageModel() const
+{
+    return m_externalStorage;
 }
 
 QString AboutSettings::bluetoothAddress() const
@@ -219,4 +244,75 @@ QString AboutSettings::softwareVersion() const
 QString AboutSettings::adaptationVersion() const
 {
     return parseReleaseFile("/etc/hw-release")["VERSION_ID"];
+}
+
+void AboutSettings::refreshStorageModels()
+{
+    // Optional mountpoints that we want to report disk usage for
+    QStringList candidates;
+    candidates << QStringLiteral("/home");
+
+    QMap<QString, StorageInfo> devices = parseExternalPartitions();
+
+    FILE *fsd = setmntent(_PATH_MOUNTED, "r");
+    struct mntent entry;
+    char buffer[3*PATH_MAX];
+    while ((getmntent_r(fsd, &entry, buffer, sizeof(buffer))) != NULL) {
+        StorageInfo info;
+        info.mountPath = QString::fromLatin1(entry.mnt_dir);
+        info.devicePath = QString::fromLatin1(entry.mnt_fsname);
+        info.filesystem = QString::fromLatin1(entry.mnt_type);
+
+        if (info.mountPath == QLatin1String("/") && info.devicePath.startsWith(QLatin1Char('/'))) {
+            // Always report rootfs, replacing other mounts from same device
+            devices.insert(info.devicePath, info);
+        } else if (!devices.contains(info.devicePath) || devices.value(info.devicePath).external) {
+            // Optional candidates and external storage
+            if (candidates.contains(info.mountPath)) {
+                devices.insert(info.devicePath, info);
+            } else if (info.devicePath.startsWith(QLatin1String("/dev/mmcblk1"))) {
+                info.external = true;
+                devices.insert(info.devicePath, info);
+            }
+        }
+    }
+    endmntent(fsd);
+
+    m_internalStorage.clear();
+    m_externalStorage.clear();
+
+    foreach (const StorageInfo &info, devices) {
+        if (!info.external) {
+            QVariantMap row;
+
+            row[QStringLiteral("storageType")] = info.mountPath == QLatin1String("/")
+                                                 ? QStringLiteral("system")
+                                                 : QStringLiteral("user");
+
+            row[QStringLiteral("path")] = info.mountPath;
+            row[QStringLiteral("mounted")] = true;
+            row[QStringLiteral("available")] = m_sysinfo->availableDiskSpace(info.mountPath);
+            row[QStringLiteral("total")] = m_sysinfo->totalDiskSpace(info.mountPath);
+            row[QStringLiteral("filesystem")] = info.filesystem;
+            row[QStringLiteral("devicePath")] = info.devicePath;
+
+            m_internalStorage << QVariant(row);
+        } else {
+            QVariantMap row;
+
+            bool mounted = !info.mountPath.isEmpty();
+
+            row[QStringLiteral("storageType")] = QStringLiteral("card");
+            row[QStringLiteral("mounted")] = mounted;
+            row[QStringLiteral("path")] = info.mountPath;
+            row[QStringLiteral("available")] = mounted ? m_sysinfo->availableDiskSpace(info.mountPath) : 0;
+            row[QStringLiteral("total")] = mounted ? m_sysinfo->totalDiskSpace(info.mountPath) : info.partitionSize;
+            row[QStringLiteral("filesystem")] = info.filesystem;
+            row[QStringLiteral("devicePath")] = info.devicePath;
+
+            m_externalStorage << QVariant(row);
+        }
+    }
+
+    emit storageChanged();
 }

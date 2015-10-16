@@ -2,7 +2,7 @@ TEMPLATE = lib
 TARGET = systemsettings
 
 # TODO: hide_symbols
-CONFIG += qt create_pc create_prl no_install_prl
+CONFIG += qt create_pc create_prl no_install_prl c++11
 QT += qml dbus systeminfo
 QT -= gui
 
