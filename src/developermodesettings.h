@@ -39,8 +39,9 @@
 #include <QDBusConnection>
 #include <QDBusInterface>
 #include <QNetworkInterface>
+#include <MGConfItem>
 
-class DeveloperModeSettingsWorker;
+class SdkToolsInstallWorker;
 
 class DeveloperModeSettings : public QObject
 {
@@ -61,11 +62,12 @@ class DeveloperModeSettings : public QObject
 
     Q_PROPERTY(bool developerModeEnabled
             READ developerModeEnabled
+            WRITE setDeveloperModeEnabled
             NOTIFY developerModeEnabledChanged)
 
-    Q_PROPERTY(bool remoteLoginEnabled
-            READ remoteLoginEnabled
-            NOTIFY remoteLoginEnabledChanged)
+    Q_PROPERTY(bool sdkToolsInstalled
+            READ sdkToolsInstalled
+            NOTIFY sdkToolsInstalledChanged)
 
     Q_PROPERTY(bool workerWorking
             READ workerWorking
@@ -96,66 +98,69 @@ public:
     QString usbIpAddress() const;
     QString username() const;
     bool developerModeEnabled() const;
-    bool remoteLoginEnabled() const;
+    bool sdkToolsInstalled() const;
     bool workerWorking() const;
     enum DeveloperModeSettings::Status workerStatus() const;
     int workerProgress() const;
 
-    Q_INVOKABLE void setDeveloperMode(bool enabled);
-    Q_INVOKABLE void setRemoteLogin(bool enabled);
+    void setDeveloperModeEnabled(bool enabled);
+    Q_INVOKABLE void installSdkTools();
+    Q_INVOKABLE void removeSdkTools();
     Q_INVOKABLE void setUsbIpAddress(const QString &usbIpAddress);
     Q_INVOKABLE void refresh();
 
 signals:
     void wlanIpAddressChanged();
     void usbIpAddressChanged();
+    void sdkToolsInstalledChanged();
     void developerModeEnabledChanged();
-    void remoteLoginEnabledChanged();
     void workerWorkingChanged();
     void workerStatusChanged();
     void workerProgressChanged();
 
     /* For worker */
-    void workerRetrieveDeveloperModeStatus();
-    void workerEnableDeveloperMode();
-    void workerDisableDeveloperMode();
+    void workerRetrieveSdkToolsStatus();
+    void workerInstallSdkTools();
+    void workerRemoveSdkTools();
 
 private slots:
     /* For worker */
     void onWorkerStatusChanged(bool working, enum DeveloperModeSettings::Status status);
-    void onWorkerDeveloperModeEnabledChanged(bool enabled);
+    void onWorkerSdkToolsInstalledChanged(bool enabled);
     void onWorkerProgressChanged(int progress);
+
+    void onDeveloperModeEnabled();
 
 private:
     QThread m_worker_thread;
-    DeveloperModeSettingsWorker *m_worker;
+    SdkToolsInstallWorker *m_worker;
     QDBusInterface m_usbModeDaemon;
 
     QString m_wlanIpAddress;
     QString m_usbInterface;
     QString m_usbIpAddress;
     QString m_username;
-    bool m_developerModeEnabled;
-    bool m_remoteLoginEnabled;
     bool m_workerWorking;
     enum DeveloperModeSettings::Status m_workerStatus;
     int m_workerProgress;
+    bool m_sdkToolsInstalled;
+    MGConfItem m_developerModeEnabled;
 };
 
 Q_DECLARE_METATYPE(DeveloperModeSettings::Status);
 
 
-class DeveloperModeSettingsWorker : public QObject {
+class SdkToolsInstallWorker : public QObject {
     Q_OBJECT
 
 public:
-    DeveloperModeSettingsWorker(QObject *parent = NULL);
+    SdkToolsInstallWorker(QObject *parent = NULL);
 
 public slots:
     /* from Settings object */
-    void retrieveDeveloperModeStatus();
-    void enableDeveloperMode();
-    void disableDeveloperMode();
+    void retrieveSdkToolsStatus();
+    void installSdkTools();
+    void removeSdkTools();
 
     /* from D-Bus */
     void onInstallPackageResult(QString packageName, bool success);
@@ -165,7 +170,7 @@ public slots:
 signals:
     void statusChanged(bool working, enum DeveloperModeSettings::Status status);
     void progressChanged(int progress);
-    void developerModeEnabledChanged(bool enabled);
+    void sdkToolsInstalledChanged(bool enabled);
 
 private:
     bool m_working;

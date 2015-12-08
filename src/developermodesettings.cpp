@@ -48,11 +48,11 @@
 #define WLAN_NETWORK_INTERFACE "wlan0"
 #define WLAN_NETWORK_FALLBACK_INTERFACE "tether"
 
-/* Developer mode package */
-#define DEVELOPER_MODE_PACKAGE "jolla-developer-mode"
+/* Additional developer mode tools package */
+#define SDK_TOOLS_PACKAGE "jolla-developer-mode-sdk-tools"
 
 /* A file that is provided by the developer mode package */
-#define DEVELOPER_MODE_PROVIDED_FILE "/usr/bin/devel-su"
+#define SDK_TOOLS_PROVIDED_FILE "/usr/bin/rsync"
 
 /* D-Bus service */
 #define STORE_CLIENT_SERVICE "com.jolla.jollastore"
@@ -62,6 +62,7 @@
 /* D-Bus method names */
 #define STORE_CLIENT_INSTALL_PACKAGE "installPackage"
 #define STORE_CLIENT_REMOVE_PACKAGE "removePackage"
+#define STORE_CLIENT_REPORT_DEVELOPER_MODE "reportDeveloperMode"
 
 /* D-Bus signal names */
 #define STORE_CLIENT_INSTALL_PACKAGE_RESULT "installPackageResult"
@@ -82,7 +83,7 @@
 #define USB_MODED_CONFIG_INTERFACE "interface"
 
 
-DeveloperModeSettingsWorker::DeveloperModeSettingsWorker(QObject *parent)
+SdkToolsInstallWorker::SdkToolsInstallWorker(QObject *parent)
     : QObject(parent)
     , m_working(false)
     , m_sessionBus(QDBusConnection::sessionBus())
@@ -100,37 +101,35 @@ DeveloperModeSettingsWorker::DeveloperModeSettingsWorker(QObject *parent)
             this, SLOT(onPackageProgressChanged(QString, int)));
 }
 
-void
-DeveloperModeSettingsWorker::retrieveDeveloperModeStatus()
+void SdkToolsInstallWorker::retrieveSdkToolsStatus()
 {
     if (m_working) {
         // Ignore request - something else in progress
-        qWarning() << "Ignoring retrieveDeveloperModeStatus request (m_working is true)";
+        qWarning() << "Ignoring retrieveSdkToolsStatus request (m_working is true)";
         return;
     }
 
     m_working = true;
     emit progressChanged(PROGRESS_INDETERMINATE);
     emit statusChanged(true, DeveloperModeSettings::CheckingStatus);
-    bool enabled = QFile(DEVELOPER_MODE_PROVIDED_FILE).exists();
+    bool installed = QFile(SDK_TOOLS_PROVIDED_FILE).exists();
     emit statusChanged(false, DeveloperModeSettings::Idle);
-    emit developerModeEnabledChanged(enabled);
+    emit sdkToolsInstalledChanged(installed);
     m_working = false;
 }
 
-void
-DeveloperModeSettingsWorker::enableDeveloperMode()
+void SdkToolsInstallWorker::installSdkTools()
 {
     if (m_working) {
         // Ignore request - something else in progress
-        qWarning() << "Ignoring enableDeveloperMode request (m_working is true)";
+        qWarning() << "Ignoring installSdkTools request (m_working is true)";
         return;
     }
 
     m_working = true;
     emit progressChanged(PROGRESS_INDETERMINATE);
     emit statusChanged(true, DeveloperModeSettings::Installing);
-    m_storeClient.call(STORE_CLIENT_INSTALL_PACKAGE, DEVELOPER_MODE_PACKAGE);
+    m_storeClient.call(STORE_CLIENT_INSTALL_PACKAGE, SDK_TOOLS_PACKAGE);
     QDBusError error = m_storeClient.lastError();
     if (error.isValid()) {
         qWarning() << "Could not enable developer mode: " << error.message();
@@ -139,19 +138,18 @@ DeveloperModeSettingsWorker::enableDeveloperMode()
     }
 }
 
-void
-DeveloperModeSettingsWorker::disableDeveloperMode()
+void SdkToolsInstallWorker::removeSdkTools()
 {
     if (m_working) {
         // Ignore request - something else in progress
-        qWarning() << "Ignoring disableDeveloperMode request (m_working is true)";
+        qWarning() << "Ignoring removeSdkTools request (m_working is true)";
         return;
     }
 
     m_working = true;
     emit progressChanged(PROGRESS_INDETERMINATE);
     emit statusChanged(true, DeveloperModeSettings::Removing);
-    m_storeClient.call(STORE_CLIENT_REMOVE_PACKAGE, DEVELOPER_MODE_PACKAGE, true);
+    m_storeClient.call(STORE_CLIENT_REMOVE_PACKAGE, SDK_TOOLS_PACKAGE, true);
     QDBusError error = m_storeClient.lastError();
     if (error.isValid()) {
         qWarning() << "Could not disable developer mode: " << error.message();
@@ -160,43 +158,39 @@ DeveloperModeSettingsWorker::disableDeveloperMode()
     }
 }
 
-void
-DeveloperModeSettingsWorker::onInstallPackageResult(QString packageName, bool success)
+void SdkToolsInstallWorker::onInstallPackageResult(QString packageName, bool success)
 {
     qDebug() << "onInstallPackageResult:" << packageName << success;
-    if (packageName == DEVELOPER_MODE_PACKAGE) {
+    if (packageName == SDK_TOOLS_PACKAGE) {
         emit statusChanged(false, success ? DeveloperModeSettings::Success :
                 DeveloperModeSettings::Failure);
-        emit developerModeEnabledChanged(success);
+        emit sdkToolsInstalledChanged(success);
         m_working = false;
     }
 }
 
-void
-DeveloperModeSettingsWorker::onRemovePackageResult(QString packageName, bool success)
+void SdkToolsInstallWorker::onRemovePackageResult(QString packageName, bool success)
 {
     qDebug() << "onRemovePackageResult:" << packageName << success;
-    if (packageName == DEVELOPER_MODE_PACKAGE) {
+    if (packageName == SDK_TOOLS_PACKAGE) {
         emit statusChanged(false, success ? DeveloperModeSettings::Success :
                 DeveloperModeSettings::Failure);
-        emit developerModeEnabledChanged(!success);
+        emit sdkToolsInstalledChanged(!success);
         m_working = false;
     }
 }
 
-void
-DeveloperModeSettingsWorker::onPackageProgressChanged(QString packageName, int progress)
+void SdkToolsInstallWorker::onPackageProgressChanged(QString packageName, int progress)
 {
     qDebug() << "onPackageProgressChanged:" << packageName << progress;
-    if (packageName == DEVELOPER_MODE_PACKAGE) {
+    if (packageName == SDK_TOOLS_PACKAGE) {
         if (m_working) {
             emit progressChanged(progress);
         }
     }
 }
 
-static QMap<QString,QString>
-enumerate_network_interfaces()
+static QMap<QString,QString> enumerate_network_interfaces()
 {
     QMap<QString,QString> result;
 
@@ -211,8 +205,7 @@ enumerate_network_interfaces()
     return result;
 }
 
-static inline QString
-usb_moded_get_config(QDBusInterface &usb, QString key, QString fallback)
+static inline QString usb_moded_get_config(QDBusInterface &usb, QString key, QString fallback)
 {
     QString value = fallback;
 
@@ -225,28 +218,27 @@ usb_moded_get_config(QDBusInterface &usb, QString key, QString fallback)
     return value;
 }
 
-static inline void
-usb_moded_set_config(QDBusInterface &usb, QString key, QString value)
+static inline void usb_moded_set_config(QDBusInterface &usb, QString key, QString value)
 {
     usb.call(USB_MODED_SET_NET_CONFIG, key, value);
 }
 
-
 DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     : QObject(parent)
     , m_worker_thread()
-    , m_worker(new DeveloperModeSettingsWorker)
+    , m_worker(new SdkToolsInstallWorker)
     , m_usbModeDaemon(USB_MODED_SERVICE, USB_MODED_PATH, USB_MODED_INTERFACE,
             QDBusConnection::systemBus())
     , m_wlanIpAddress("-")
     , m_usbInterface(USB_NETWORK_FALLBACK_INTERFACE)
     , m_usbIpAddress(USB_NETWORK_FALLBACK_IP)
     , m_username("nemo")
-    , m_developerModeEnabled(false)
-    , m_remoteLoginEnabled(false) // TODO: Read (from password manager?)
     , m_workerWorking(false)
     , m_workerStatus(Idle)
     , m_workerProgress(PROGRESS_INDETERMINATE)
+    , m_sdkToolsInstalled(false)
+    , m_developerModeEnabled(QLatin1String("/sailfish/developermode/enabled"))
+
 {
     int uid = getdef_num("UID_MIN", -1);
     struct passwd *pwd;
@@ -259,18 +251,21 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     m_worker->moveToThread(&m_worker_thread);
 
     /* Messages to worker */
-    QObject::connect(this, SIGNAL(workerRetrieveDeveloperModeStatus()),
-            m_worker, SLOT(retrieveDeveloperModeStatus()));
-    QObject::connect(this, SIGNAL(workerEnableDeveloperMode()),
-            m_worker, SLOT(enableDeveloperMode()));
-    QObject::connect(this, SIGNAL(workerDisableDeveloperMode()),
-            m_worker, SLOT(disableDeveloperMode()));
+    QObject::connect(this, SIGNAL(workerRetrieveSdkToolsStatus()),
+            m_worker, SLOT(retrieveSdkToolsStatus()));
+    QObject::connect(this, SIGNAL(workerInstallSdkTools()),
+            m_worker, SLOT(installSdkTools()));
+    QObject::connect(this, SIGNAL(workerRemoveSdkTools()),
+            m_worker, SLOT(removeSdkTools()));
+
+    connect(&m_developerModeEnabled, &MGConfItem::valueChanged, this, &DeveloperModeSettings::developerModeEnabledChanged);
+    connect(this, &DeveloperModeSettings::developerModeEnabledChanged, this, &DeveloperModeSettings::onDeveloperModeEnabled);
 
     /* Messages from worker */
     QObject::connect(m_worker, SIGNAL(statusChanged(bool, enum DeveloperModeSettings::Status)),
             this, SLOT(onWorkerStatusChanged(bool, enum DeveloperModeSettings::Status)));
-    QObject::connect(m_worker, SIGNAL(developerModeEnabledChanged(bool)),
-            this, SLOT(onWorkerDeveloperModeEnabledChanged(bool)));
+    QObject::connect(m_worker, SIGNAL(sdkToolsInstalledChanged(bool)),
+            this, SLOT(onWorkerSdkToolsInstalledChanged(bool)));
     QObject::connect(m_worker, SIGNAL(progressChanged(int)),
             this, SLOT(onWorkerProgressChanged(int)));
 
@@ -278,8 +273,8 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
 
     refresh();
 
-    // Get current developer mode status
-    emit workerRetrieveDeveloperModeStatus();
+    // Get current SDK tools install status
+    emit workerRetrieveSdkToolsStatus();
 
     // TODO: Watch WLAN / USB IP addresses for changes
     // TODO: Watch package manager for changes to developer mode
@@ -293,77 +288,78 @@ DeveloperModeSettings::~DeveloperModeSettings()
     delete m_worker;
 }
 
-QString
-DeveloperModeSettings::wlanIpAddress() const
+QString DeveloperModeSettings::wlanIpAddress() const
 {
     return m_wlanIpAddress;
 }
 
-QString
-DeveloperModeSettings::usbIpAddress() const
+QString DeveloperModeSettings::usbIpAddress() const
 {
     return m_usbIpAddress;
 }
 
-QString
-DeveloperModeSettings::username() const
+QString DeveloperModeSettings::username() const
 {
     return m_username;
 }
 
-bool
-DeveloperModeSettings::developerModeEnabled() const
+bool DeveloperModeSettings::developerModeEnabled() const
 {
-    return m_developerModeEnabled;
+    return m_developerModeEnabled.value(false).toBool();
 }
 
-bool
-DeveloperModeSettings::remoteLoginEnabled() const
+bool DeveloperModeSettings::sdkToolsInstalled() const
 {
-    return m_remoteLoginEnabled;
+    return m_sdkToolsInstalled;
 }
 
-bool
-DeveloperModeSettings::workerWorking() const
+bool DeveloperModeSettings::workerWorking() const
 {
     return m_workerWorking;
 }
 
-enum DeveloperModeSettings::Status
-DeveloperModeSettings::workerStatus() const
+enum DeveloperModeSettings::Status DeveloperModeSettings::workerStatus() const
 {
     return m_workerStatus;
 }
 
-int
-DeveloperModeSettings::workerProgress() const
+int DeveloperModeSettings::workerProgress() const
 {
     return m_workerProgress;
 }
 
-void
-DeveloperModeSettings::setDeveloperMode(bool enabled)
+void DeveloperModeSettings::setDeveloperModeEnabled(bool enabled)
 {
-    if (m_developerModeEnabled != enabled) {
-        if (enabled) {
-            emit workerEnableDeveloperMode();
-        } else {
-            emit workerDisableDeveloperMode();
-        }
+    if (developerModeEnabled() != enabled) {
+        m_developerModeEnabled.set(enabled);
     }
 }
 
-void
-DeveloperModeSettings::setRemoteLogin(bool enabled)
+void DeveloperModeSettings::onDeveloperModeEnabled()
 {
-    if (m_remoteLoginEnabled != enabled) {
-        m_remoteLoginEnabled = enabled;
-        emit remoteLoginEnabledChanged();
+    if (developerModeEnabled()) {
+        QDBusInterface iface(STORE_CLIENT_SERVICE,
+                             STORE_CLIENT_PATH,
+                             STORE_CLIENT_INTERFACE);
+        iface.call(STORE_CLIENT_REPORT_DEVELOPER_MODE);
     }
 }
 
-void
-DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
+void DeveloperModeSettings::installSdkTools()
+{
+    if (!m_sdkToolsInstalled) {
+        emit workerInstallSdkTools();
+    }
+}
+
+void DeveloperModeSettings::removeSdkTools()
+{
+    if (m_sdkToolsInstalled) {
+        emit workerRemoveSdkTools();
+    }
+}
+
+void DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
 {
     if (m_usbIpAddress != usbIpAddress) {
         usb_moded_set_config(m_usbModeDaemon, USB_MODED_CONFIG_IP, usbIpAddress);
@@ -372,8 +368,7 @@ DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
     }
 }
 
-void
-DeveloperModeSettings::refresh()
+void DeveloperModeSettings::refresh()
 {
     /* Retrieve network configuration from usb_moded */
     m_usbInterface = usb_moded_get_config(m_usbModeDaemon,
@@ -420,8 +415,7 @@ DeveloperModeSettings::refresh()
     }
 }
 
-void
-DeveloperModeSettings::onWorkerStatusChanged(bool working, enum DeveloperModeSettings::Status status)
+void DeveloperModeSettings::onWorkerStatusChanged(bool working, enum DeveloperModeSettings::Status status)
 {
     if (m_workerWorking != working) {
         m_workerWorking = working;
@@ -434,8 +428,7 @@ DeveloperModeSettings::onWorkerStatusChanged(bool working, enum DeveloperModeSet
     }
 }
 
-void
-DeveloperModeSettings::onWorkerProgressChanged(int progress)
+void DeveloperModeSettings::onWorkerProgressChanged(int progress)
 {
     if (m_workerProgress != progress) {
         m_workerProgress = progress;
@@ -443,11 +436,10 @@ DeveloperModeSettings::onWorkerProgressChanged(int progress)
     }
 }
 
-void
-DeveloperModeSettings::onWorkerDeveloperModeEnabledChanged(bool enabled)
+void DeveloperModeSettings::onWorkerSdkToolsInstalledChanged(bool installed)
 {
-    if (m_developerModeEnabled != enabled) {
-        m_developerModeEnabled = enabled;
-        emit developerModeEnabledChanged();
+    if (m_sdkToolsInstalled != installed) {
+        m_sdkToolsInstalled = installed;
+        emit sdkToolsInstalledChanged();
     }
 }
