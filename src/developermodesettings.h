@@ -55,6 +55,10 @@ class DeveloperModeSettings : public QObject
             READ usbIpAddress
             NOTIFY usbIpAddressChanged)
 
+    Q_PROPERTY(QString username
+               READ username
+               CONSTANT)
+
     Q_PROPERTY(bool developerModeEnabled
             READ developerModeEnabled
             NOTIFY developerModeEnabledChanged)
@@ -90,6 +94,7 @@ public:
 
     QString wlanIpAddress() const;
     QString usbIpAddress() const;
+    QString username() const;
     bool developerModeEnabled() const;
     bool remoteLoginEnabled() const;
     bool workerWorking() const;
@@ -129,6 +134,7 @@ private:
     QString m_wlanIpAddress;
     QString m_usbInterface;
     QString m_usbIpAddress;
+    QString m_username;
     bool m_developerModeEnabled;
     bool m_remoteLoginEnabled;
     bool m_workerWorking;
