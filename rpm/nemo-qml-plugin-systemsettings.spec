@@ -16,6 +16,7 @@ BuildRequires:  pkgconfig(profile)
 BuildRequires:  pkgconfig(mce)
 BuildRequires:  pkgconfig(mlite5)
 BuildRequires:  pkgconfig(usb-moded-qt5)
+BuildRequires:  pkgconfig(libshadowutils)
 
 %description
 %{summary}.
