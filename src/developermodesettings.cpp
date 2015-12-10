@@ -82,6 +82,13 @@
 #define USB_MODED_CONFIG_IP "ip"
 #define USB_MODED_CONFIG_INTERFACE "interface"
 
+// Uncomment following line to enable debugs
+// #define ENABLE_DEBUGS
+#ifdef ENABLE_DEBUGS
+# define DEBUG qDebug
+#else
+# define DEBUG if (0) qDebug
+#endif
 
 SdkToolsInstallWorker::SdkToolsInstallWorker(QObject *parent)
     : QObject(parent)
@@ -120,6 +127,8 @@ void SdkToolsInstallWorker::retrieveSdkToolsStatus()
 
 void SdkToolsInstallWorker::installSdkTools()
 {
+    DEBUG() << Q_FUNC_INFO << "working" << m_working;
+
     if (m_working) {
         // Ignore request - something else in progress
         qWarning() << "Ignoring installSdkTools request (m_working is true)";
@@ -140,6 +149,7 @@ void SdkToolsInstallWorker::installSdkTools()
 
 void SdkToolsInstallWorker::removeSdkTools()
 {
+    DEBUG() << Q_FUNC_INFO << "working" << m_working;
     if (m_working) {
         // Ignore request - something else in progress
         qWarning() << "Ignoring removeSdkTools request (m_working is true)";
@@ -330,13 +340,17 @@ int DeveloperModeSettings::workerProgress() const
 
 void DeveloperModeSettings::setDeveloperModeEnabled(bool enabled)
 {
-    if (developerModeEnabled() != enabled) {
+    bool oldEnabled = developerModeEnabled();
+    DEBUG() << Q_FUNC_INFO << "from" << oldEnabled << "to" << enabled;
+    if (oldEnabled != enabled) {
         m_developerModeEnabled.set(enabled);
     }
 }
 
 void DeveloperModeSettings::onDeveloperModeEnabled()
 {
+    DEBUG() << Q_FUNC_INFO << "enabled" << developerModeEnabled();
+
     if (developerModeEnabled()) {
         QDBusInterface iface(STORE_CLIENT_SERVICE,
                              STORE_CLIENT_PATH,
@@ -347,6 +361,8 @@ void DeveloperModeSettings::onDeveloperModeEnabled()
 
 void DeveloperModeSettings::installSdkTools()
 {
+    DEBUG() << Q_FUNC_INFO;
+
     if (!m_sdkToolsInstalled) {
         emit workerInstallSdkTools();
     }
@@ -354,6 +370,7 @@ void DeveloperModeSettings::installSdkTools()
 
 void DeveloperModeSettings::removeSdkTools()
 {
+    DEBUG() << Q_FUNC_INFO;
     if (m_sdkToolsInstalled) {
         emit workerRemoveSdkTools();
     }
@@ -410,7 +427,7 @@ void DeveloperModeSettings::refresh()
 
     foreach (const QString &device, entries.keys()) {
         QString ip = entries[device];
-        qDebug() << "Device:" << device
+        DEBUG() << "Device:" << device
                  << "IP:" << ip;
     }
 }
