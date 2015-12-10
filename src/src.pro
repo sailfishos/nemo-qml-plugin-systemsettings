@@ -7,7 +7,7 @@ QT += qml dbus systeminfo
 QT -= gui
 
 CONFIG += link_pkgconfig
-PKGCONFIG += profile mlite5 timed-qt5
+PKGCONFIG += profile mlite5 timed-qt5 libshadowutils
 
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
 

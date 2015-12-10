@@ -36,6 +36,8 @@
 #include <QFile>
 #include <QDir>
 #include <QDBusReply>
+#include <getdef.h>
+#include <pwd.h>
 
 /* Symbolic constants */
 #define PROGRESS_INDETERMINATE (-1)
@@ -239,12 +241,21 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_wlanIpAddress("-")
     , m_usbInterface(USB_NETWORK_FALLBACK_INTERFACE)
     , m_usbIpAddress(USB_NETWORK_FALLBACK_IP)
+    , m_username("nemo")
     , m_developerModeEnabled(false)
     , m_remoteLoginEnabled(false) // TODO: Read (from password manager?)
     , m_workerWorking(false)
     , m_workerStatus(Idle)
     , m_workerProgress(PROGRESS_INDETERMINATE)
 {
+    int uid = getdef_num("UID_MIN", -1);
+    struct passwd *pwd;
+    if ((pwd = getpwuid(uid)) != NULL) {
+        m_username = QString(pwd->pw_name);
+    } else {
+        qWarning() << "Failed to return username using getpwuid()";
+    }
+
     m_worker->moveToThread(&m_worker_thread);
 
     /* Messages to worker */
@@ -292,6 +303,12 @@ QString
 DeveloperModeSettings::usbIpAddress() const
 {
     return m_usbIpAddress;
+}
+
+QString
+DeveloperModeSettings::username() const
+{
+    return m_username;
 }
 
 bool
