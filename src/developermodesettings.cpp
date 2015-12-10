@@ -52,7 +52,7 @@
 #define SDK_TOOLS_PACKAGE "jolla-developer-mode-sdk-tools"
 
 /* A file that is provided by the developer mode package */
-#define SDK_TOOLS_PROVIDED_FILE "/usr/bin/rsync"
+#define SDK_TOOLS_PROVIDED_FILE "/usr/share/jolla-developer-mode/.sdk-tools-installed"
 
 /* D-Bus service */
 #define STORE_CLIENT_SERVICE "com.jolla.jollastore"
