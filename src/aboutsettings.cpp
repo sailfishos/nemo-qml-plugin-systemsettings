@@ -49,9 +49,11 @@
 namespace
 {
 
-QMap<QString, QString> parseReleaseFile(const QString &filename)
+void parseReleaseFile(const QString &filename, QMap<QString, QString> *result)
 {
-    QMap<QString, QString> result;
+    if (!result->isEmpty()) {
+        return;
+    }
 
     // Specification of the format:
     // http://www.freedesktop.org/software/systemd/man/os-release.html
@@ -109,13 +111,11 @@ QMap<QString, QString> parseReleaseFile(const QString &filename)
             // following shell style."
             value = value.replace(QRegularExpression("\\\\(.)"), "\\1");
 
-            result[key] = value;
+            (*result)[key] = value;
         }
 
         release.close();
     }
-
-    return result;
 }
 
 struct StorageInfo {
@@ -238,12 +238,23 @@ QString AboutSettings::serial() const
 
 QString AboutSettings::softwareVersion() const
 {
-    return parseReleaseFile("/etc/os-release")["VERSION"];
+    parseReleaseFile(QStringLiteral("/etc/os-release"), &m_osRelease);
+
+    return m_osRelease["VERSION"];
+}
+
+QString AboutSettings::softwareVersionId() const
+{
+    parseReleaseFile(QStringLiteral("/etc/os-release"), &m_osRelease);
+
+    return m_osRelease["VERSION_ID"];
 }
 
 QString AboutSettings::adaptationVersion() const
 {
-    return parseReleaseFile("/etc/hw-release")["VERSION_ID"];
+    parseReleaseFile(QStringLiteral("/etc/hw-release"), &m_hardwareRelease);
+
+    return m_hardwareRelease["VERSION_ID"];
 }
 
 void AboutSettings::refreshStorageModels()
