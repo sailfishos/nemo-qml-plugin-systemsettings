@@ -120,15 +120,23 @@ void parseReleaseFile(const QString &filename, QMap<QString, QString> *result)
 
 struct StorageInfo {
     StorageInfo()
-    :   partitionSize(0), external(false)
+    : partitionSize(0)
+    , availableDiskSpace(0)
+    , totalDiskSpace(0)
+    , external(false)
+    , mounted(false)
     { }
 
     QString mountPath;
     QString devicePath;
     QString filesystem;
     quint64 partitionSize;
+    qlonglong availableDiskSpace;
+    qlonglong totalDiskSpace;
     bool external;
+    bool mounted;
 };
+
 
 QMap<QString, StorageInfo> parseExternalPartitions()
 {
@@ -274,15 +282,47 @@ void AboutSettings::refreshStorageModels()
         info.devicePath = QString::fromLatin1(entry.mnt_fsname);
         info.filesystem = QString::fromLatin1(entry.mnt_type);
 
+        bool addInfo = false;
         if (info.mountPath == QLatin1String("/") && info.devicePath.startsWith(QLatin1Char('/'))) {
             // Always report rootfs, replacing other mounts from same device
-            devices.insert(info.devicePath, info);
+            addInfo = true;
         } else if (!devices.contains(info.devicePath) || devices.value(info.devicePath).external) {
             // Optional candidates and external storage
             if (candidates.contains(info.mountPath)) {
-                devices.insert(info.devicePath, info);
+                addInfo = true;
             } else if (info.devicePath.startsWith(QLatin1String("/dev/mmcblk1"))) {
                 info.external = true;
+                addInfo = true;
+            }
+        }
+
+        if (addInfo) {
+            info.mounted = !info.external || !info.mountPath.isEmpty();
+            info.availableDiskSpace = info.mounted ? m_sysinfo->availableDiskSpace(info.mountPath) : 0;
+            info.totalDiskSpace = info.mounted ? m_sysinfo->totalDiskSpace(info.mountPath) : info.partitionSize;
+
+            bool ignoreDuplicateEntry = false;
+            if (info.external) {
+                for (QMap<QString, StorageInfo>::Iterator it = devices.begin(); it != devices.end(); it++) {
+                    const StorageInfo &currInfo = it.value();
+                    if (info.external && info.totalDiskSpace == currInfo.totalDiskSpace) {
+                        const QString &currMountPath = currInfo.mountPath;
+
+                        // it appears the same device has been mounted under multiple paths, so ignore
+                        // the one with the longer device path, assuming it's the extraneous entry
+                        if (currMountPath.indexOf(info.mountPath) >= 0) {
+                            // remove the duplicate and keep this entry
+                            devices.erase(it);
+                            break;
+                        } else if (info.mountPath.indexOf(currMountPath) >= 0) {
+                            // ignore this entry
+                            ignoreDuplicateEntry = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (!ignoreDuplicateEntry) {
                 devices.insert(info.devicePath, info);
             }
         }
@@ -301,9 +341,9 @@ void AboutSettings::refreshStorageModels()
                                                  : QStringLiteral("user");
 
             row[QStringLiteral("path")] = info.mountPath;
-            row[QStringLiteral("mounted")] = true;
-            row[QStringLiteral("available")] = m_sysinfo->availableDiskSpace(info.mountPath);
-            row[QStringLiteral("total")] = m_sysinfo->totalDiskSpace(info.mountPath);
+            row[QStringLiteral("mounted")] = info.mounted;
+            row[QStringLiteral("available")] = info.availableDiskSpace;
+            row[QStringLiteral("total")] = info.totalDiskSpace;
             row[QStringLiteral("filesystem")] = info.filesystem;
             row[QStringLiteral("devicePath")] = info.devicePath;
 
@@ -311,13 +351,11 @@ void AboutSettings::refreshStorageModels()
         } else {
             QVariantMap row;
 
-            bool mounted = !info.mountPath.isEmpty();
-
             row[QStringLiteral("storageType")] = QStringLiteral("card");
-            row[QStringLiteral("mounted")] = mounted;
+            row[QStringLiteral("mounted")] = info.mounted;
             row[QStringLiteral("path")] = info.mountPath;
-            row[QStringLiteral("available")] = mounted ? m_sysinfo->availableDiskSpace(info.mountPath) : 0;
-            row[QStringLiteral("total")] = mounted ? m_sysinfo->totalDiskSpace(info.mountPath) : info.partitionSize;
+            row[QStringLiteral("available")] = info.availableDiskSpace;
+            row[QStringLiteral("total")] = info.totalDiskSpace;
             row[QStringLiteral("filesystem")] = info.filesystem;
             row[QStringLiteral("devicePath")] = info.devicePath;
 
