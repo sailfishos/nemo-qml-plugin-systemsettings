@@ -111,7 +111,12 @@ void DeviceLockInterface::refresh()
     }
 }
 
-bool DeviceLockInterface::clearDevice(const QString &code)
+bool DeviceLockInterface::clearDevice(const QString &code, ResetMode mode)
 {
-    return runPlugin(QStringList() << "--clear-device" << code);
+    QStringList parameters;
+    parameters << "--clear-device" << code;
+    if (mode == DeviceLockInterface::Reboot) {
+        parameters << "--reboot";
+    }
+    return runPlugin(parameters);
 }

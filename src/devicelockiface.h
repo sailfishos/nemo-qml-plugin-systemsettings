@@ -39,9 +39,15 @@
 class DeviceLockInterface : public QObject
 {
     Q_OBJECT
+    Q_ENUMS(ResetMode)
     Q_PROPERTY(bool isSet READ isSet NOTIFY isSetChanged)
 
 public:
+    enum ResetMode {
+        Shutdown,
+        Reboot
+    };
+
     explicit DeviceLockInterface(QObject *parent = 0);
     virtual ~DeviceLockInterface();
 
@@ -50,7 +56,7 @@ public:
     Q_INVOKABLE bool clearCode(const QString &currentCode);
     Q_INVOKABLE bool isSet();
     Q_INVOKABLE void refresh();
-    Q_INVOKABLE bool clearDevice(const QString &code);
+    Q_INVOKABLE bool clearDevice(const QString &code, ResetMode mode = Shutdown);
 
 signals:
     void isSetChanged();
