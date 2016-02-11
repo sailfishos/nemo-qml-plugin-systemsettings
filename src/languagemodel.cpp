@@ -222,7 +222,7 @@ QList<Language> LanguageModel::supportedLanguages()
         QString region = settings.value("Region").toString();
         //% "Region: %1"
         QString regionLabel = settings.value("RegionLabel", qtTrId("settings_system-la-region")).toString();
-        if (name.isEmpty() || localeCode.isEmpty() || region.isEmpty()) {
+        if (name.isEmpty() || localeCode.isEmpty()) {
             continue;
         }
         Language newLanguage(name, localeCode, region, regionLabel);
