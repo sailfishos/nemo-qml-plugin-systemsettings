@@ -332,32 +332,31 @@ void AboutSettings::refreshStorageModels()
     m_internalStorage.clear();
     m_externalStorage.clear();
 
+    int internalPartitionCount = 0;
     foreach (const StorageInfo &info, devices) {
         if (!info.external) {
-            QVariantMap row;
+            internalPartitionCount++;
+        }
+    }
 
-            row[QStringLiteral("storageType")] = info.mountPath == QLatin1String("/")
-                                                 ? QStringLiteral("system")
-                                                 : QStringLiteral("user");
+    foreach (const StorageInfo &info, devices) {
+        QVariantMap row;
+        row[QStringLiteral("mounted")] = info.mounted;
+        row[QStringLiteral("path")] = info.mountPath;
+        row[QStringLiteral("available")] = info.availableDiskSpace;
+        row[QStringLiteral("total")] = info.totalDiskSpace;
+        row[QStringLiteral("filesystem")] = info.filesystem;
+        row[QStringLiteral("devicePath")] = info.devicePath;
 
-            row[QStringLiteral("path")] = info.mountPath;
-            row[QStringLiteral("mounted")] = info.mounted;
-            row[QStringLiteral("available")] = info.availableDiskSpace;
-            row[QStringLiteral("total")] = info.totalDiskSpace;
-            row[QStringLiteral("filesystem")] = info.filesystem;
-            row[QStringLiteral("devicePath")] = info.devicePath;
+        if (!info.external) {
+            row[QStringLiteral("storageType")] = internalPartitionCount == 1 ? QStringLiteral("mass")
+               : info.mountPath == QLatin1String("/") ? QStringLiteral("system")
+                                                      : QStringLiteral("user");
+
 
             m_internalStorage << QVariant(row);
         } else {
-            QVariantMap row;
-
             row[QStringLiteral("storageType")] = QStringLiteral("card");
-            row[QStringLiteral("mounted")] = info.mounted;
-            row[QStringLiteral("path")] = info.mountPath;
-            row[QStringLiteral("available")] = info.availableDiskSpace;
-            row[QStringLiteral("total")] = info.totalDiskSpace;
-            row[QStringLiteral("filesystem")] = info.filesystem;
-            row[QStringLiteral("devicePath")] = info.devicePath;
 
             m_externalStorage << QVariant(row);
         }
