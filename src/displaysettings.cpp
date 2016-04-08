@@ -47,6 +47,7 @@ static const char *MceDisplayAutoBrightnessEnabled = "/system/osso/dsm/display/a
 static const char *MceDoubleTapMode = "/system/osso/dsm/doubletap/mode";
 static const char *MceLidSensorEnabled = "/system/osso/dsm/locks/lid_sensor_enabled";
 static const char *MceLidSensorFilteringEnabled = "/system/osso/dsm/locks/filter_lid_with_als";
+static const char *MceFlipOverGestureEnabled = "/system/osso/dsm/display/flipover_gesture_enabled";
 
 DisplaySettings::DisplaySettings(QObject *parent)
     : QObject(parent)
@@ -98,6 +99,10 @@ DisplaySettings::DisplaySettings(QObject *parent)
     result = m_mceIface->get_config(QDBusObjectPath(MceLidSensorFilteringEnabled));
     result.waitForFinished();
     m_lidSensorFilteringEnabled = result.value().variant().toBool();
+
+    result = m_mceIface->get_config(QDBusObjectPath(MceFlipOverGestureEnabled));
+    result.waitForFinished();
+    m_flipoverGestureEnabled = result.value().variant().toBool();
 
     m_mceSignalIface = new ComNokiaMceSignalInterface(MCE_SERVICE, MCE_SIGNAL_PATH, QDBusConnection::systemBus(), this);
     connect(m_mceSignalIface, SIGNAL(config_change_ind(QString,QDBusVariant)), this, SLOT(configChange(QString,QDBusVariant)));
@@ -274,6 +279,19 @@ void DisplaySettings::setLidSensorFilteringEnabled(bool enabled)
         emit lidSensorFilteringEnabledChanged();
     }
 }
+bool DisplaySettings::flipoverGestureEnabled() const
+{
+    return m_flipoverGestureEnabled;
+}
+
+void DisplaySettings::setFlipoverGestureEnabled(bool enabled)
+{
+    if (m_flipoverGestureEnabled != enabled) {
+        m_flipoverGestureEnabled = enabled;
+        m_mceIface->set_config(QDBusObjectPath(MceFlipOverGestureEnabled), QDBusVariant(enabled));
+        emit flipoverGestureEnabledChanged();
+    }
+}
 
 void DisplaySettings::configChange(const QString &key, const QDBusVariant &value)
 {
@@ -342,6 +360,12 @@ void DisplaySettings::configChange(const QString &key, const QDBusVariant &value
         if (val != m_lidSensorFilteringEnabled) {
             m_lidSensorFilteringEnabled = val;
             emit lidSensorFilteringEnabledChanged();
+        }
+    } else if (key == MceFlipOverGestureEnabled) {
+        bool val = value.variant().toBool();
+        if (val != m_flipoverGestureEnabled) {
+            m_flipoverGestureEnabled = val;
+            emit flipoverGestureEnabledChanged();
         }
     }
 }
