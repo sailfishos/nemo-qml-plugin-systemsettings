@@ -42,7 +42,6 @@
 #include "alarmtonemodel.h"
 #include "displaysettings.h"
 #include "aboutsettings.h"
-#include "devicelockiface.h"
 #include "developermodesettings.h"
 #include "diskusage.h"
 #include "partitionmodel.h"
@@ -71,7 +70,6 @@ public:
         qmlRegisterType<QUsbModed>(uri, 1, 0, "USBSettings");
         qmlRegisterType<AboutSettings>(uri, 1, 0, "AboutSettings");
         qmlRegisterType<PartitionModel>(uri, 1, 0, "PartitionModel");
-        qmlRegisterType<DeviceLockInterface>(uri, 1, 0, "DeviceLockInterface");
         qmlRegisterType<DeveloperModeSettings>(uri, 1, 0, "DeveloperModeSettings");
         qmlRegisterType<CertificateModel>(uri, 1, 0, "CertificateModel");
         qRegisterMetaType<DeveloperModeSettings::Status>("DeveloperModeSettings::Status");

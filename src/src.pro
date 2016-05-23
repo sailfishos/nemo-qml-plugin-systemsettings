@@ -19,7 +19,6 @@ SOURCES += \
     displaysettings.cpp \
     aboutsettings.cpp \
     certificatemodel.cpp \
-    devicelockiface.cpp \
     developermodesettings.cpp \
     diskusage.cpp \
     diskusage_impl.cpp \
@@ -36,7 +35,6 @@ PUBLIC_HEADERS = \
     displaysettings.h \
     aboutsettings.h \
     certificatemodel.h \
-    devicelockiface.h \
     developermodesettings.h \
     diskusage.h \
     partition.h \
