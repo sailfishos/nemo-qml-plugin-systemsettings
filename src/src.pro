@@ -19,7 +19,6 @@ SOURCES += \
     mceiface.cpp \
     displaysettings.cpp \
     aboutsettings.cpp \
-    devicelockiface.cpp \
     developermodesettings.cpp \
     diskusage.cpp \
     diskusage_impl.cpp
@@ -32,7 +31,6 @@ HEADERS += \
     mceiface.h \
     displaysettings.h \
     aboutsettings.h \
-    devicelockiface.h \
     developermodesettings.h \
     diskusage.h \
     diskusage_p.h
