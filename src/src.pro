@@ -36,7 +36,6 @@ PUBLIC_HEADERS = \
     displaysettings.h \
     aboutsettings.h \
     certificatemodel.h \
-    devicelockiface.h \
     developermodesettings.h \
     diskusage.h \
     partition.h \
