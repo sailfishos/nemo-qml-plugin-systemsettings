@@ -18,7 +18,6 @@ SOURCES += \
     mceiface.cpp \
     displaysettings.cpp \
     aboutsettings.cpp \
-    devicelockiface.cpp \
     developermodesettings.cpp \
     diskusage.cpp \
     diskusage_impl.cpp \
@@ -34,7 +33,6 @@ PUBLIC_HEADERS = \
     mceiface.h \
     displaysettings.h \
     aboutsettings.h \
-    devicelockiface.h \
     developermodesettings.h \
     diskusage.h \
     partition.h \
