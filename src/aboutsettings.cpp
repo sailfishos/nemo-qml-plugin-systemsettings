@@ -42,6 +42,7 @@
 #include <QMap>
 #include <QTextStream>
 #include <QVariant>
+#include <QSettings>
 
 #include <mntent.h>
 
@@ -186,6 +187,10 @@ AboutSettings::AboutSettings(QObject *parent)
 :   QObject(parent), m_sysinfo(new QStorageInfo(this)), m_netinfo(new QNetworkInfo(this)),
     m_devinfo(new QDeviceInfo(this))
 {
+    QSettings settings(QStringLiteral("/mnt/vendor_data/vendor-data.ini"), QSettings::IniFormat);
+    m_vendorName = settings.value(QStringLiteral("Name")).toString();
+    m_vendorVersion = settings.value(QStringLiteral("Version")).toString();
+
     refreshStorageModels();
 }
 
@@ -263,6 +268,16 @@ QString AboutSettings::adaptationVersion() const
     parseReleaseFile(QStringLiteral("/etc/hw-release"), &m_hardwareRelease);
 
     return m_hardwareRelease["VERSION_ID"];
+}
+
+QString AboutSettings::vendorName() const
+{
+    return m_vendorName;
+}
+
+QString AboutSettings::vendorVersion() const
+{
+    return m_vendorVersion;
 }
 
 void AboutSettings::refreshStorageModels()

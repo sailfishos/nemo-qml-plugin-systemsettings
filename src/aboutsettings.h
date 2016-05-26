@@ -49,6 +49,8 @@ class AboutSettings: public QObject
     Q_PROPERTY(QString softwareVersion READ softwareVersion CONSTANT)
     Q_PROPERTY(QString softwareVersionId READ softwareVersionId CONSTANT)
     Q_PROPERTY(QString adaptationVersion READ adaptationVersion CONSTANT)
+    Q_PROPERTY(QString vendorName READ vendorName CONSTANT)
+    Q_PROPERTY(QString vendorVersion READ vendorVersion CONSTANT)
 
     Q_PROPERTY(QVariant internalStorageUsageModel READ diskUsageModel NOTIFY storageChanged)
     Q_PROPERTY(QVariant externalStorageUsageModel READ externalStorageUsageModel NOTIFY storageChanged)
@@ -81,6 +83,9 @@ public:
     QString softwareVersionId() const;
     QString adaptationVersion() const;
 
+    QString vendorName() const;
+    QString vendorVersion() const;
+
 signals:
     void storageChanged();
 
@@ -93,6 +98,9 @@ private:
     QVariantList m_externalStorage;
     mutable QMap<QString, QString> m_osRelease;
     mutable QMap<QString, QString> m_hardwareRelease;
+
+    QString m_vendorName;
+    QString m_vendorVersion;
 };
 
 #endif
