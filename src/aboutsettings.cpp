@@ -33,7 +33,7 @@
 
 #include <QDebug>
 #include <QStringList>
-#include <QStorageInfo>
+#include <QtSystemInfo/QStorageInfo>
 #include <QNetworkInfo>
 #include <QDeviceInfo>
 #include <QFile>
