@@ -35,10 +35,12 @@
 #include <QObject>
 #include <QVariant>
 
-class QStorageInfo;
+#include <systemsettingsglobal.h>
+#include <partitionmanager.h>
+
 class QNetworkInfo;
 class QDeviceInfo;
-class AboutSettings: public QObject
+class SYSTEMSETTINGS_EXPORT AboutSettings: public QObject
 {
     Q_OBJECT
 
@@ -90,12 +92,13 @@ signals:
     void storageChanged();
 
 private:
-    QStorageInfo *m_sysinfo;
     QNetworkInfo *m_netinfo;
     QDeviceInfo *m_devinfo;
 
     QVariantList m_internalStorage;
     QVariantList m_externalStorage;
+    PartitionManager m_partitionManager;
+
     mutable QMap<QString, QString> m_osRelease;
     mutable QMap<QString, QString> m_hardwareRelease;
 

@@ -40,7 +40,9 @@ class ComNokiaMceSignalInterface;
 class QDBusVariant;
 class MGConfItem;
 
-class DisplaySettings: public QObject
+#include <systemsettingsglobal.h>
+
+class SYSTEMSETTINGS_EXPORT DisplaySettings: public QObject
 {
     Q_OBJECT
 

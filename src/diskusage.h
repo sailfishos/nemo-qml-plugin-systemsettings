@@ -38,9 +38,11 @@
 #include <QJSValue>
 #include <QScopedPointer>
 
+#include <systemsettingsglobal.h>
+
 class DiskUsagePrivate;
 
-class DiskUsage : public QObject
+class SYSTEMSETTINGS_EXPORT DiskUsage : public QObject
 {
     Q_OBJECT
     Q_DECLARE_PRIVATE(DiskUsage)

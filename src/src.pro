@@ -1,13 +1,12 @@
 TEMPLATE = lib
 TARGET = systemsettings
 
-# TODO: hide_symbols
 CONFIG += qt create_pc create_prl no_install_prl c++11
 QT += qml dbus systeminfo
 QT -= gui
 
-CONFIG += link_pkgconfig
-PKGCONFIG += profile mlite5 timed-qt5 libshadowutils
+CONFIG += c++11 hide_symbols link_pkgconfig
+PKGCONFIG += profile mlite5 timed-qt5 libshadowutils blkid
 
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
 
@@ -22,9 +21,12 @@ SOURCES += \
     devicelockiface.cpp \
     developermodesettings.cpp \
     diskusage.cpp \
-    diskusage_impl.cpp
+    diskusage_impl.cpp \
+    partition.cpp \
+    partitionmanager.cpp \
+    partitionmodel.cpp
 
-HEADERS += \
+PUBLIC_HEADERS = \
     languagemodel.h \
     datetimesettings.h \
     profilecontrol.h \
@@ -35,10 +37,22 @@ HEADERS += \
     devicelockiface.h \
     developermodesettings.h \
     diskusage.h \
-    diskusage_p.h
+    partition.h \
+    partitionmanager.h \
+    partitionmodel.h \
+    systemsettingsglobal.h
+
+HEADERS += \
+    $$PUBLIC_HEADERS \
+    diskusage_p.h \
+    partition_p.h \
+    partitionmanager_p.h
+
+DEFINES += \
+    SYSTEMSETTINGS_BUILD_LIBRARY
 
 develheaders.path = /usr/include/systemsettings
-develheaders.files = $$HEADERS
+develheaders.files = $$PUBLIC_HEADERS
 
 target.path = $$[QT_INSTALL_LIBS]
 pkgconfig.files = $$PWD/pkgconfig/systemsettings.pc

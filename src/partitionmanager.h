@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Jolla Ltd. <pekka.vuorela@jollamobile.com>
+ * Copyright (C) 2016 Jolla Ltd. <andrew.den.exter@jolla.com>
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -29,43 +29,34 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#ifndef ALARMTONEMODEL_H
-#define ALARMTONEMODEL_H
+#ifndef PARTITIONMANAGER_H
+#define PARTITIONMANAGER_H
 
-#include <QAbstractListModel>
-#include <QFileInfo>
-#include <QJSValue>
+#include <QObject>
 
-#include <systemsettingsglobal.h>
+#include <partition.h>
 
-class SYSTEMSETTINGS_EXPORT AlarmToneModel
-        : public QAbstractListModel
+class PartitionManagerPrivate;
+
+class SYSTEMSETTINGS_EXPORT PartitionManager : public QObject
 {
     Q_OBJECT
-    Q_PROPERTY(int count READ rowCount CONSTANT)
 public:
-    enum ApplicationRoles {
-        FilenameRole = Qt::UserRole + 1,
-        TitleRole
-    };
+    explicit PartitionManager(QObject *parent = 0);
+    ~PartitionManager();
 
-    explicit AlarmToneModel(QObject *parent = 0);
-    virtual ~AlarmToneModel();
+    Partition root() const;
+    QVector<Partition> partitions(Partition::StorageTypes types = Partition::Any | Partition::ExcludeParents) const;
 
-    virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
-    virtual QVariant data(const QModelIndex &index, int role) const;
-
-    Q_INVOKABLE QJSValue get(int index) const;
+    void refresh();
 
 signals:
-    void selectedFileChanged();
-    void currentIndexChanged();
-
-protected:
-    QHash<int, QByteArray> roleNames() const;
+    void partitionChanged(const Partition &partition);
+    void partitionAdded(const Partition &partition);
+    void partitionRemoved(const Partition &partition);
 
 private:
-    QFileInfoList m_fileInfoList;
+    QExplicitlySharedDataPointer<PartitionManagerPrivate> d;
 };
 
 #endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Jolla Ltd. <pekka.vuorela@jollamobile.com>
+ * Copyright (C) 2016 Jolla Ltd. <andrew.den.exter@jolla.com>
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -29,43 +29,49 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#ifndef ALARMTONEMODEL_H
-#define ALARMTONEMODEL_H
+#ifndef PARTITIONMANAGER_P_H
+#define PARTITIONMANAGER_P_H
 
-#include <QAbstractListModel>
-#include <QFileInfo>
-#include <QJSValue>
+#include <partitionmanager.h>
+#include <partition_p.h>
 
-#include <systemsettingsglobal.h>
+#include <QVector>
 
-class SYSTEMSETTINGS_EXPORT AlarmToneModel
-        : public QAbstractListModel
+class PartitionManagerPrivate : public QObject, public QSharedData
 {
     Q_OBJECT
-    Q_PROPERTY(int count READ rowCount CONSTANT)
 public:
-    enum ApplicationRoles {
-        FilenameRole = Qt::UserRole + 1,
-        TitleRole
-    };
+    typedef QVector<QExplicitlySharedDataPointer<PartitionPrivate>> Partitions;
 
-    explicit AlarmToneModel(QObject *parent = 0);
-    virtual ~AlarmToneModel();
+    PartitionManagerPrivate();
+    ~PartitionManagerPrivate();
 
-    virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
-    virtual QVariant data(const QModelIndex &index, int role) const;
+    static PartitionManagerPrivate *instance();
 
-    Q_INVOKABLE QJSValue get(int index) const;
+    Partition root() const;
+    QVector<Partition> partitions(Partition::StorageTypes types) const;
+
+    void refresh();
+    void refresh(PartitionPrivate *partition);
+    void refresh(const Partitions &partitions);
 
 signals:
-    void selectedFileChanged();
-    void currentIndexChanged();
+    void partitionChanged(const Partition &partition);
+    void partitionAdded(const Partition &partition);
+    void partitionRemoved(const Partition &partition);
 
-protected:
-    QHash<int, QByteArray> roleNames() const;
+private slots:
+    void newUnit(const QString &serviceName, const QDBusObjectPath &path);
+    void removedUnit(const QString &serviceName, const QDBusObjectPath &path);
 
 private:
-    QFileInfoList m_fileInfoList;
+    static PartitionManagerPrivate *sharedInstance;
+
+    Partitions m_partitions;
+    Partition m_root;
+
 };
 
+
 #endif
+

@@ -36,7 +36,9 @@
 #include <QString>
 #include <QStringList>
 
-class ProfileControl: public QObject
+#include <systemsettingsglobal.h>
+
+class SYSTEMSETTINGS_EXPORT ProfileControl: public QObject
 {
     Q_OBJECT
     Q_ENUMS(VibraMode)
