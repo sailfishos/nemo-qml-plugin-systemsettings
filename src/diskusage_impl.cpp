@@ -43,11 +43,17 @@
 #include <sys/statvfs.h>
 
 
-quint64 DiskUsageWorker::calculateSize(QString directory, QString *expandedPath)
+quint64 DiskUsageWorker::calculateSize(QString directory, QString *expandedPath, bool androidHomeExists)
 {
+
     // In lieu of wordexp(3) support in Qt, fake it
     if (directory.startsWith("~/")) {
         directory = QDir::homePath() + '/' + directory.mid(2);
+    }
+
+    QString androidHome = QString("/home/.android");
+    if (!androidHomeExists && directory.startsWith(androidHome)) {
+        directory = directory.mid(androidHome.length());
     }
 
     if (expandedPath) {
@@ -69,21 +75,13 @@ quint64 DiskUsageWorker::calculateSize(QString directory, QString *expandedPath)
         return fsSize - freeSpace;
     }
 
-    // "/data/media/" is mounted in "/home/nemo/android_storage/" with read
-    // access for the "nemo" user ("/data/media/" itself isn't readable);
-    // Mounted via FUSE and /system/bin/sdcard, see here:
-    // https://source.android.com/devices/storage/config.html
-    if (directory == "/data/media/") {
-        directory = "/home/nemo/android_storage/";
-    }
-
     QDir d(directory);
     if (!d.exists() || !d.isReadable()) {
         return 0L;
     }
 
     QProcess du;
-    du.start("du", QStringList() << "-sxb" << directory, QIODevice::ReadOnly);
+    du.start("du", QStringList() << "-sb" << directory, QIODevice::ReadOnly);
     du.waitForFinished();
     if (du.exitStatus() != QProcess::NormalExit) {
         qWarning() << "Could not determine size of:" << directory;
