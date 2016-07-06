@@ -35,7 +35,10 @@
 #include <QAbstractListModel>
 #include <QList>
 
-class Language {
+
+#include <systemsettingsglobal.h>
+
+class SYSTEMSETTINGS_EXPORT Language {
 public:
     Language(QString name, QString localeCode, QString region, QString regionLabel);
     QString name() const;
@@ -50,7 +53,7 @@ private:
     QString m_regionLabel;
 };
 
-class LanguageModel: public QAbstractListModel
+class SYSTEMSETTINGS_EXPORT LanguageModel: public QAbstractListModel
 {
     Q_OBJECT
     Q_PROPERTY(int currentIndex READ currentIndex NOTIFY currentIndexChanged)

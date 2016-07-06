@@ -36,7 +36,9 @@
 #include <QProcess>
 #include <QDebug>
 
-class DeviceLockInterface : public QObject
+#include <systemsettingsglobal.h>
+
+class SYSTEMSETTINGS_EXPORT DeviceLockInterface : public QObject
 {
     Q_OBJECT
     Q_ENUMS(ResetMode)

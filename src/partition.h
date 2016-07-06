@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Jolla Ltd. <pekka.vuorela@jollamobile.com>
+ * Copyright (C) 2016 Jolla Ltd. <andrew.den.exter@jolla.com>
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -29,43 +29,77 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#ifndef ALARMTONEMODEL_H
-#define ALARMTONEMODEL_H
+#ifndef PARTITION_H
+#define PARTITION_H
 
-#include <QAbstractListModel>
-#include <QFileInfo>
-#include <QJSValue>
+#include <QSharedData>
 
 #include <systemsettingsglobal.h>
 
-class SYSTEMSETTINGS_EXPORT AlarmToneModel
-        : public QAbstractListModel
+class PartitionPrivate;
+
+class SYSTEMSETTINGS_EXPORT Partition
 {
-    Q_OBJECT
-    Q_PROPERTY(int count READ rowCount CONSTANT)
 public:
-    enum ApplicationRoles {
-        FilenameRole = Qt::UserRole + 1,
-        TitleRole
+    enum StorageType
+    {
+        Invalid     = 0x00,
+        System      = 0x01,
+        User        = 0x02,
+        Mass        = 0x04,
+        External    = 0x08,
+
+        ExcludeParents = 0x1000,
+
+        Internal = System | User | Mass,
+        Any = System | User | Mass | External
     };
 
-    explicit AlarmToneModel(QObject *parent = 0);
-    virtual ~AlarmToneModel();
+    enum Status {
+        Unmounted,
+        Mounting,
+        Mounted,
+        Unmounting
+    };
 
-    virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
-    virtual QVariant data(const QModelIndex &index, int role) const;
+    Q_DECLARE_FLAGS(StorageTypes, StorageType)
 
-    Q_INVOKABLE QJSValue get(int index) const;
+    Partition();
+    Partition(const Partition &partition);
+    Partition &operator =(const Partition &partition);
+    ~Partition();
 
-signals:
-    void selectedFileChanged();
-    void currentIndexChanged();
+    bool operator ==(const Partition &partition) const;
+    bool operator !=(const Partition &partition) const;
 
-protected:
-    QHash<int, QByteArray> roleNames() const;
+    bool isReadOnly() const;
+
+    Status status() const;
+
+    bool canMount() const;
+    bool mountFailed() const;
+
+    StorageType storageType() const;
+
+    QString devicePath() const;
+    QString mountPath() const;
+
+    QString filesystemType() const;
+
+    qint64 bytesAvailable() const;
+    qint64 bytesTotal() const;
+    qint64 bytesFree() const;
+
+    void refresh();
 
 private:
-    QFileInfoList m_fileInfoList;
+    friend class PartitionManagerPrivate;
+
+    explicit Partition(const QExplicitlySharedDataPointer<PartitionPrivate> &d);
+
+    QExplicitlySharedDataPointer<PartitionPrivate> d;
 };
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(Partition::StorageTypes)
 
 #endif

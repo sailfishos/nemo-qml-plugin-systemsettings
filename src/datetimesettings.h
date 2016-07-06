@@ -38,7 +38,9 @@
 #include <timed-qt5/interface>
 #include <timed-qt5/wallclock>
 
-class DateTimeSettings: public QObject
+#include <systemsettingsglobal.h>
+
+class SYSTEMSETTINGS_EXPORT DateTimeSettings: public QObject
 {
     Q_OBJECT
 

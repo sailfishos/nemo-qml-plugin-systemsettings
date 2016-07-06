@@ -40,9 +40,11 @@
 #include <QDBusInterface>
 #include <QNetworkInterface>
 
+#include <systemsettingsglobal.h>
+
 class DeveloperModeSettingsWorker;
 
-class DeveloperModeSettings : public QObject
+class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
 {
     Q_OBJECT
     Q_ENUMS(Status)
