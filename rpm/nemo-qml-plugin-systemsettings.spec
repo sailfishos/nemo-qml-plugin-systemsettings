@@ -1,10 +1,10 @@
 Name:       nemo-qml-plugin-systemsettings
 Summary:    System settings plugin for Nemo Mobile
-Version:    0.2.11
+Version:    0.2.14
 Release:    1
 Group:      System/Libraries
 License:    BSD
-URL:        https://github.com/nemomobile/nemo-qml-plugin-systemsettings
+URL:        https://git.merproject.org/mer-core/nemo-qml-plugin-systemsettings
 Source0:    %{name}-%{version}.tar.bz2
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
