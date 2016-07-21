@@ -36,6 +36,7 @@
 #include <QThread>
 #include <QDebug>
 #include <QJSEngine>
+#include <QDir>
 
 
 DiskUsageWorker::DiskUsageWorker(QObject *parent)
@@ -56,10 +57,16 @@ void DiskUsageWorker::submit(QStringList paths, QJSValue *callback)
 QVariantMap DiskUsageWorker::calculate(QStringList paths)
 {
     QVariantMap usage;
+    // expanded Path places the object in the tree so parents can have it subtracted from its total
     QMap<QString, QString> expandedPaths; // input path -> expanded path
     QMap<QString, QString> originalPaths; // expanded path -> input path
 
+    // Older adaptations (e.g. Jolla 1) don't have /home/.android/. Android home is in the root.
+    QString androidHome = QString("/home/.android");
+    bool androidHomeExists = QDir(androidHome).exists();
+
     foreach (const QString &path, paths) {
+        QString expandedPath;
         // Pseudo-path for querying RPM database for file sizes
         // ----------------------------------------------------
         // Example path with package name: ":rpm:python3-base"
@@ -67,18 +74,22 @@ QVariantMap DiskUsageWorker::calculate(QStringList paths)
         if (path.startsWith(":rpm:")) {
             QString glob = path.mid(5);
             usage[path] = calculateRpmSize(glob);
+            expandedPath = "/usr/" + path;
         } else if (path.startsWith(":apkd:")) {
             // Pseudo-path for querying Android apps' data usage
             QString rest = path.mid(6);
             usage[path] = calculateApkdSize(rest);
+            expandedPath = (androidHomeExists ? androidHome : "") + "/data/data";
         } else {
-            QString expandedPath;
-            quint64 size = calculateSize(path, &expandedPath);
-            expandedPaths[path] = expandedPath;
-            originalPaths[expandedPath] = path;
+            quint64 size = calculateSize(path, &expandedPath, androidHomeExists);
+            if (expandedPath.startsWith(androidHome) && !androidHomeExists) {
+                expandedPath = expandedPath.mid(androidHome.length());
+            }
             usage[path] = size;
         }
 
+        expandedPaths[path] = expandedPath;
+        originalPaths[expandedPath] = path;
         if (m_quit) {
             break;
         }

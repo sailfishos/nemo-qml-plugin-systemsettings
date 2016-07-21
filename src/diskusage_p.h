@@ -55,7 +55,7 @@ signals:
 
 private:
     QVariantMap calculate(QStringList paths);
-    quint64 calculateSize(QString directory, QString *expandedPath);
+    quint64 calculateSize(QString directory, QString *expandedPath, bool androidHomeExists);
     quint64 calculateRpmSize(const QString &glob);
     quint64 calculateApkdSize(const QString &rest);
 
