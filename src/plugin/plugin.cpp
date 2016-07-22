@@ -46,6 +46,7 @@
 #include "developermodesettings.h"
 #include "diskusage.h"
 #include "partitionmodel.h"
+#include "certificatemodel.h"
 
 class SystemSettingsPlugin : public QQmlExtensionPlugin
 {
@@ -72,6 +73,7 @@ public:
         qmlRegisterType<PartitionModel>(uri, 1, 0, "PartitionModel");
         qmlRegisterType<DeviceLockInterface>(uri, 1, 0, "DeviceLockInterface");
         qmlRegisterType<DeveloperModeSettings>(uri, 1, 0, "DeveloperModeSettings");
+        qmlRegisterType<CertificateModel>(uri, 1, 0, "CertificateModel");
         qRegisterMetaType<DeveloperModeSettings::Status>("DeveloperModeSettings::Status");
         qmlRegisterType<DiskUsage>(uri, 1, 0, "DiskUsage");
     }

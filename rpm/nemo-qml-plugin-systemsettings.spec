@@ -18,6 +18,7 @@ BuildRequires:  pkgconfig(mlite5)
 BuildRequires:  pkgconfig(usb-moded-qt5)
 BuildRequires:  pkgconfig(libshadowutils)
 BuildRequires:  pkgconfig(blkid)
+BuildRequires:  pkgconfig(libcrypto)
 
 %description
 %{summary}.

@@ -6,7 +6,7 @@ QT += qml dbus systeminfo
 QT -= gui
 
 CONFIG += c++11 hide_symbols link_pkgconfig
-PKGCONFIG += profile mlite5 timed-qt5 libshadowutils blkid
+PKGCONFIG += profile mlite5 timed-qt5 libshadowutils blkid libcrypto
 
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
 
@@ -18,6 +18,7 @@ SOURCES += \
     mceiface.cpp \
     displaysettings.cpp \
     aboutsettings.cpp \
+    certificatemodel.cpp \
     devicelockiface.cpp \
     developermodesettings.cpp \
     diskusage.cpp \
@@ -34,6 +35,7 @@ PUBLIC_HEADERS = \
     mceiface.h \
     displaysettings.h \
     aboutsettings.h \
+    certificatemodel.h \
     devicelockiface.h \
     developermodesettings.h \
     diskusage.h \
