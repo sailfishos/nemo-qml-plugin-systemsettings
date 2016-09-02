@@ -6,9 +6,11 @@ QT += qml dbus systeminfo
 QT -= gui
 
 CONFIG += c++11 hide_symbols link_pkgconfig
-PKGCONFIG += profile mlite5 timed-qt5 libshadowutils blkid libcrypto
+PKGCONFIG += profile mlite5 timed-qt5 libshadowutils blkid libcrypto nemomodels-qt5
 
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
+system(qdbusxml2cpp -c ConnmanVpnProxy -p connmanvpnproxy ../dbus/net.connman.vpn.xml -i qdbusxml2cpp_dbus_types.h)
+system(qdbusxml2cpp -c ConnmanVpnConnectionProxy -p connmanvpnconnectionproxy ../dbus/net.connman.vpn.Connection.xml -i qdbusxml2cpp_dbus_types.h)
 
 SOURCES += \
     languagemodel.cpp \
@@ -19,6 +21,9 @@ SOURCES += \
     displaysettings.cpp \
     aboutsettings.cpp \
     certificatemodel.cpp \
+    vpnmodel.cpp \
+    connmanvpnproxy.cpp \
+    connmanvpnconnectionproxy.cpp \
     developermodesettings.cpp \
     diskusage.cpp \
     diskusage_impl.cpp \
@@ -35,6 +40,9 @@ PUBLIC_HEADERS = \
     displaysettings.h \
     aboutsettings.h \
     certificatemodel.h \
+    vpnmodel.h \
+    connmanvpnproxy.h \
+    connmanvpnconnectionproxy.h \
     developermodesettings.h \
     diskusage.h \
     partition.h \
@@ -44,6 +52,7 @@ PUBLIC_HEADERS = \
 
 HEADERS += \
     $$PUBLIC_HEADERS \
+    qdbusxml2cpp_dbus_types.h \
     diskusage_p.h \
     partition_p.h \
     partitionmanager_p.h
