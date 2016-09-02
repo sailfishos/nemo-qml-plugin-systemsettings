@@ -46,6 +46,12 @@
 #include "diskusage.h"
 #include "partitionmodel.h"
 #include "certificatemodel.h"
+#include "vpnmodel.h"
+
+static QObject *vpnmodel_api_factory(QQmlEngine *, QJSEngine *)
+{
+    return new VpnModel;
+}
 
 class SystemSettingsPlugin : public QQmlExtensionPlugin
 {
@@ -72,6 +78,7 @@ public:
         qmlRegisterType<PartitionModel>(uri, 1, 0, "PartitionModel");
         qmlRegisterType<DeveloperModeSettings>(uri, 1, 0, "DeveloperModeSettings");
         qmlRegisterType<CertificateModel>(uri, 1, 0, "CertificateModel");
+        qmlRegisterSingletonType<VpnModel>(uri, 1, 0, "VpnModel", vpnmodel_api_factory);
         qRegisterMetaType<DeveloperModeSettings::Status>("DeveloperModeSettings::Status");
         qmlRegisterType<DiskUsage>(uri, 1, 0, "DiskUsage");
     }
