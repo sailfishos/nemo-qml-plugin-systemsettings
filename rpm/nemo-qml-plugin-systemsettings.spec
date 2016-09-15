@@ -8,6 +8,10 @@ URL:        https://git.merproject.org/mer-core/nemo-qml-plugin-systemsettings
 Source0:    %{name}-%{version}.tar.bz2
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
+Requires:       connman
+Requires:       openvpn
+Requires:       openconnect
+Requires:       vpnc
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5SystemInfo)
 BuildRequires:  pkgconfig(Qt5Test)
