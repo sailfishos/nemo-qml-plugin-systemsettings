@@ -44,7 +44,6 @@ class SYSTEMSETTINGS_EXPORT AboutSettings: public QObject
 {
     Q_OBJECT
 
-    Q_PROPERTY(QString bluetoothAddress READ bluetoothAddress CONSTANT)
     Q_PROPERTY(QString wlanMacAddress READ wlanMacAddress CONSTANT)
     Q_PROPERTY(QString imei READ imei CONSTANT)
     Q_PROPERTY(QString serial READ serial CONSTANT)
@@ -77,7 +76,6 @@ public:
     QVariant externalStorageUsageModel() const;
     Q_INVOKABLE void refreshStorageModels();
 
-    QString bluetoothAddress() const;
     QString wlanMacAddress() const;
     QString imei() const;
     QString serial() const;

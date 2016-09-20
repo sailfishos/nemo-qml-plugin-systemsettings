@@ -152,11 +152,6 @@ QVariant AboutSettings::externalStorageUsageModel() const
     return m_externalStorage;
 }
 
-QString AboutSettings::bluetoothAddress() const
-{
-    return m_netinfo->macAddress(QNetworkInfo::BluetoothMode, 0);
-}
-
 QString AboutSettings::wlanMacAddress() const
 {
     return m_netinfo->macAddress(QNetworkInfo::WlanMode, 0);
