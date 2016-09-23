@@ -40,6 +40,7 @@
 
 #include <objectlistmodel.h>
 
+#include <QDir>
 #include <QVariantMap>
 
 
@@ -87,8 +88,28 @@ private:
     VpnConnection *newConnection(const QString &path);
     void updateConnection(VpnConnection *conn, const QVariantMap &properties);
 
+    class TokenFileRepository
+    {
+    public:
+        TokenFileRepository(const QString &path);
+
+        static QString tokenForObjectPath(const QString &path);
+
+        bool tokenExists(const QString &token) const;
+
+        void ensureToken(const QString &token);
+        void removeToken(const QString &token);
+
+        void removeUnknownTokens(const QStringList &knownConnections);
+
+    private:
+        QDir baseDir_;
+        QStringList tokens_;
+    };
+
     ConnmanVpnProxy connmanVpn_;
     QHash<QString, ConnmanVpnConnectionProxy *> connections_;
+    TokenFileRepository tokenFiles_;
 };
 
 class SYSTEMSETTINGS_EXPORT VpnConnection : public QObject
@@ -99,6 +120,7 @@ class SYSTEMSETTINGS_EXPORT VpnConnection : public QObject
     Q_PROPERTY(QString host READ host WRITE setHost NOTIFY hostChanged)
     Q_PROPERTY(QString domain READ domain WRITE setDomain NOTIFY domainChanged)
     Q_PROPERTY(QString networks READ networks WRITE setNetworks NOTIFY networksChanged)
+    Q_PROPERTY(bool automaticUpDown READ automaticUpDown WRITE setAutomaticUpDown NOTIFY automaticUpDownChanged)
     Q_PROPERTY(int state READ state WRITE setState NOTIFY stateChanged)
     Q_PROPERTY(int type READ type WRITE setType NOTIFY typeChanged)
     Q_PROPERTY(bool immutable READ immutable WRITE setImmutable NOTIFY immutableChanged)
@@ -126,6 +148,9 @@ public:
 
     QString networks() const { return networks_; }
     void setNetworks(const QString &networks) { updateMember(&VpnConnection::networks_, networks, &VpnConnection::networksChanged); }
+
+    bool automaticUpDown() const { return automaticUpDown_; }
+    void setAutomaticUpDown(bool automaticUpDown) { updateMember(&VpnConnection::automaticUpDown_, automaticUpDown, &VpnConnection::automaticUpDownChanged); }
 
     int state() const { return state_; }
     void setState(int state) { updateMember(&VpnConnection::state_, state, &VpnConnection::stateChanged); }
@@ -164,6 +189,7 @@ signals:
     void hostChanged();
     void domainChanged();
     void networksChanged();
+    void automaticUpDownChanged();
     void immutableChanged();
     void indexChanged();
     void iPv4Changed();
@@ -191,6 +217,7 @@ private:
     QString host_;
     QString domain_;
     QString networks_;
+    bool automaticUpDown_;
     bool immutable_;
     int index_;
     QVariantMap ipv4_;
