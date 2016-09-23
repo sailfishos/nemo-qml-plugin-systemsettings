@@ -179,9 +179,83 @@ QVariantMap propertiesToQml(const QVariantMap &fromDBus)
 
 }
 
+
+VpnModel::TokenFileRepository::TokenFileRepository(const QString &path)
+    : baseDir_(path)
+{
+    if (!baseDir_.exists() && !baseDir_.mkpath(path)) {
+        qWarning() << "Unable to create base directory for VPN token files:" << path;
+    } else {
+        foreach (const QFileInfo &info, baseDir_.entryInfoList()) {
+            if (info.isFile() && info.size() == 0) {
+                // This is a token file
+                tokens_.append(info.fileName());
+            }
+        }
+    }
+}
+
+QString VpnModel::TokenFileRepository::tokenForObjectPath(const QString &path)
+{
+    int index = path.lastIndexOf(QChar('/'));
+    if (index != -1) {
+        return path.mid(index + 1);
+    }
+
+    return QString();
+}
+
+bool VpnModel::TokenFileRepository::tokenExists(const QString &token) const
+{
+    return tokens_.contains(token);
+}
+
+void VpnModel::TokenFileRepository::ensureToken(const QString &token)
+{
+    if (!tokens_.contains(token)) {
+        QFile tokenFile(baseDir_.absoluteFilePath(token));
+        if (!tokenFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+            qWarning() << "Unable to write token file:" << tokenFile.fileName();
+        } else {
+            tokenFile.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadOther | QFileDevice::WriteOther);
+            tokenFile.close();
+            tokens_.append(token);
+        }
+    }
+}
+
+void VpnModel::TokenFileRepository::removeToken(const QString &token)
+{
+    QStringList::iterator it = std::find(tokens_.begin(), tokens_.end(), token);
+    if (it != tokens_.end()) {
+        if (!baseDir_.remove(token)) {
+            qWarning() << "Unable to delete token file:" << token;
+        } else {
+            tokens_.erase(it);
+        }
+    }
+}
+
+void VpnModel::TokenFileRepository::removeUnknownTokens(const QStringList &knownConnections)
+{
+    for (QStringList::iterator it = tokens_.begin(); it != tokens_.end(); ) {
+        const QString &token(*it);
+        if (knownConnections.contains(token)) {
+            // This token pertains to an extant connection
+            ++it;
+        } else {
+            // Remove this token
+            baseDir_.remove(token);
+            it = tokens_.erase(it);
+        }
+    }
+}
+
+
 VpnModel::VpnModel(QObject *parent)
     : ObjectListModel(parent, true, false)
     , connmanVpn_("net.connman.vpn", "/", QDBusConnection::systemBus(), this)
+    , tokenFiles_("/home/nemo/.local/share/system/vpn")
 {
     qDBusRegisterMetaType<PathProperties>();
     qDBusRegisterMetaType<PathPropertiesArray>();
@@ -193,7 +267,10 @@ VpnModel::VpnModel(QObject *parent)
             qWarning() << "Adding connection:" << path;
             conn = newConnection(path);
         }
-        updateConnection(conn, propertiesToQml(properties));
+
+        QVariantMap qmlProperties(propertiesToQml(properties));
+        qmlProperties.insert(QStringLiteral("automaticUpDown"), tokenFiles_.tokenExists(TokenFileRepository::tokenForObjectPath(path)));
+        updateConnection(conn, qmlProperties);
     });
 
     connect(&connmanVpn_, &ConnmanVpnProxy::ConnectionRemoved, [this](const QDBusObjectPath &objectPath) {
@@ -243,8 +320,9 @@ void VpnModel::createConnection(const QVariantMap &properties)
     if (path.isEmpty()) {
         const QString host(properties.value(QString("host")).toString());
         const QString name(properties.value(QString("name")).toString());
+        const QString domain(properties.value(QString("domain")).toString());
 
-        if (!host.isEmpty() && !name.isEmpty()) {
+        if (!host.isEmpty() && !name.isEmpty() && !domain.isEmpty()) {
             QDBusPendingCall call = connmanVpn_.Create(propertiesToDBus(properties));
 
             QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
@@ -260,7 +338,7 @@ void VpnModel::createConnection(const QVariantMap &properties)
                 }
             });
         } else {
-            qWarning() << "Unable to create VPN connection without host and name properties";
+            qWarning() << "Unable to create VPN connection without domain, host and name properties";
         }
     } else {
         qWarning() << "Unable to create VPN connection with pre-existing path:" << path;
@@ -277,16 +355,22 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
         qWarning() << "Removing VPN connection for modification:" << conn->path();
         deleteConnection(conn->path());
 
+        // Remove properties that connman doesn't know about
         QVariantMap updatedProperties(properties);
         updatedProperties.remove(QString("path"));
         updatedProperties.remove(QString("state"));
         updatedProperties.remove(QString("index"));
         updatedProperties.remove(QString("immutable"));
+        updatedProperties.remove(QString("automaticUpDown"));
+
+        const QString token(TokenFileRepository::tokenForObjectPath(path));
+        const bool wasAutomatic(tokenFiles_.tokenExists(token));
+        const bool automatic(properties.value(QString("automaticUpDown")).toBool());
 
         QDBusPendingCall call = connmanVpn_.Create(propertiesToDBus(updatedProperties));
 
         QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
-        connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, conn](QDBusPendingCallWatcher *watcher) {
+        connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, conn, token, automatic, wasAutomatic](QDBusPendingCallWatcher *watcher) {
             QDBusPendingReply<QDBusObjectPath> reply = *watcher;
             watcher->deleteLater();
 
@@ -295,6 +379,14 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
             } else {
                 const QDBusObjectPath &objectPath(reply.value());
                 qWarning() << "Modified VPN connection:" << objectPath.path();
+
+                if (automatic != wasAutomatic) {
+                    if (automatic) {
+                        tokenFiles_.ensureToken(token);
+                    } else {
+                        tokenFiles_.removeToken(token);
+                    }
+                }
             }
         });
     } else {
@@ -391,13 +483,22 @@ void VpnModel::fetchVpnList()
             qWarning() << "Unable to fetch Connman VPN connections:" << reply.error().message();
         } else {
             const PathPropertiesArray &connections(reply.value());
+
+            QStringList tokens;
             for (const PathProperties &connection : connections) {
                 const QString &path(connection.first.path());
                 const QVariantMap &properties(connection.second);
 
+                QVariantMap qmlProperties(propertiesToQml(properties));
+                qmlProperties.insert(QStringLiteral("automaticUpDown"), tokenFiles_.tokenExists(TokenFileRepository::tokenForObjectPath(path)));
+
                 VpnConnection *conn = newConnection(path);
-                updateConnection(conn, propertiesToQml(properties));
+                updateConnection(conn, qmlProperties);
+
+                tokens.append(TokenFileRepository::tokenForObjectPath(path));
             }
+
+            tokenFiles_.removeUnknownTokens(tokens);
         }
 
         setPopulated(true);

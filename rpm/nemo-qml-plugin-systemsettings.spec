@@ -53,6 +53,7 @@ make %{?jobs:-j%jobs}
 %install
 rm -rf %{buildroot}
 %qmake5_install
+chmod +x %{buildroot}/%{_bindir}/vpn-updown.sh
 
 %post -p /sbin/ldconfig
 
@@ -63,6 +64,8 @@ rm -rf %{buildroot}
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/libnemosystemsettings.so
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/qmldir
 %{_libdir}/libsystemsettings.so.*
+%{_libdir}/systemd/user/vpn-updown.service
+%{_bindir}/vpn-updown.sh
 
 %files devel
 %defattr(-,root,root,-)
