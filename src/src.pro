@@ -67,6 +67,12 @@ target.path = $$[QT_INSTALL_LIBS]
 pkgconfig.files = $$PWD/pkgconfig/systemsettings.pc
 pkgconfig.path = $$target.path/pkgconfig
 
+scripts.path = /usr/bin/
+scripts.files = vpn-updown.sh
+
+servicefiles.path = /usr/lib/systemd/user/
+servicefiles.files = vpn-updown.service
+
 QMAKE_PKGCONFIG_NAME = lib$$TARGET
 QMAKE_PKGCONFIG_DESCRIPTION = System settings application development files
 QMAKE_PKGCONFIG_LIBDIR = $$target.path
@@ -74,4 +80,4 @@ QMAKE_PKGCONFIG_INCDIR = $$develheaders.path
 QMAKE_PKGCONFIG_DESTDIR = pkgconfig
 QMAKE_PKGCONFIG_REQUIRES = Qt5Core Qt5DBus profile
 
-INSTALLS += target develheaders pkgconfig
+INSTALLS += target develheaders pkgconfig scripts servicefiles
