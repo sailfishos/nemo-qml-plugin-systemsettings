@@ -81,12 +81,16 @@ public:
 
     Q_INVOKABLE QVariantMap connectionSettings(const QString &path);
 
+    Q_INVOKABLE QVariantMap processProvisioningFile(const QString &path, ConnectionType type);
+
 private:
     void fetchVpnList();
 
     VpnConnection *connection(const QString &path) const;
     VpnConnection *newConnection(const QString &path);
     void updateConnection(VpnConnection *conn, const QVariantMap &properties);
+
+    QVariantMap processOpenVpnProvisioningFile(QFile &provisioningFile);
 
     class TokenFileRepository
     {
