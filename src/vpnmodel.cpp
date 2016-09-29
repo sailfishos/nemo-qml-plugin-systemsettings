@@ -32,8 +32,10 @@
 
 #include "vpnmodel.h"
 
+#include <QCryptographicHash>
 #include <QDBusPendingCallWatcher>
 #include <QDBusServiceWatcher>
+#include <QRegularExpression>
 #include <QDebug>
 
 
@@ -470,6 +472,24 @@ QVariantMap VpnModel::connectionSettings(const QString &path)
     return rv;
 }
 
+QVariantMap VpnModel::processProvisioningFile(const QString &path, ConnectionType type)
+{
+    QVariantMap rv;
+
+    QFile provisioningFile(path);
+    if (provisioningFile.open(QIODevice::ReadOnly)) {
+        if (type == OpenVPN) {
+            rv = processOpenVpnProvisioningFile(provisioningFile);
+        } else {
+            qWarning() << "Provisioning not currently supported for VPN type:" << type;
+        }
+    } else {
+        qWarning() << "Unable to open provisioning file:" << path;
+    }
+
+    return rv;
+}
+
 void VpnModel::fetchVpnList()
 {
     QDBusPendingCall call = connmanVpn_.GetConnections();
@@ -571,6 +591,220 @@ void VpnModel::updateConnection(VpnConnection *conn, const QVariantMap &updatePr
             }
         }
     }
+}
+
+QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
+{
+    QVariantMap rv;
+
+    QString embeddedMarker;
+    QString embeddedContent;
+    QStringList extraOptions;
+
+    const QRegularExpression commentLeader(QStringLiteral("^\\s*(?:\\#|\\;)"));
+    const QRegularExpression embeddedLeader(QStringLiteral("^\\s*<([^\\/>]+)>"));
+    const QRegularExpression embeddedTrailer(QStringLiteral("^\\s*<\\/([^\\/>]+)>"));
+    const QRegularExpression whitespace(QStringLiteral("\\s"));
+
+    const QString outputPath("/home/nemo/.local/share/system/vpn-provisioning");
+
+    QTextStream is(&provisioningFile);
+    while (!is.atEnd()) {
+        QString line(is.readLine());
+
+        QRegularExpressionMatch match;
+        if (line.contains(commentLeader)) {
+            // Skip
+        } else if (line.contains(embeddedLeader, &match)) {
+            embeddedMarker = match.captured(1);
+            if (embeddedMarker.isEmpty()) {
+                qWarning() << "Invalid embedded content";
+            }
+        } else if (line.contains(embeddedTrailer, &match)) {
+            const QString marker = match.captured(1);
+            if (marker != embeddedMarker) {
+                qWarning() << "Invalid embedded content:" << marker << "!=" << embeddedMarker;
+            } else {
+                if (embeddedContent.isEmpty()) {
+                    qWarning() << "Ignoring empty embedded content:" << embeddedMarker;
+                } else {
+                    if (embeddedMarker == QStringLiteral("connection")) {
+                        // Special case: not embedded content, but a <connection> structure - pass through as an extra option
+                        extraOptions.append(QStringLiteral("<connection>\n") + embeddedContent + QStringLiteral("</connection>"));
+                    } else {
+                        // Embedded content
+                        QDir outputDir(outputPath);
+                        if (!outputDir.exists() && !outputDir.mkpath(outputPath)) {
+                            qWarning() << "Unable to create base directory for VPN provisioning content:" << outputPath;
+                        } else {
+                            // Name the file according to content
+                            QCryptographicHash hash(QCryptographicHash::Sha1);
+                            hash.addData(embeddedContent.toUtf8());
+
+                            const QString outputFileName(QString(hash.result().toHex()) + QChar('.') + embeddedMarker);
+                            QFile outputFile(outputDir.absoluteFilePath(outputFileName));
+                            if (!outputFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                                qWarning() << "Unable to write VPN provisioning content file:" << outputFile.fileName();
+                            } else {
+                                QTextStream os(&outputFile);
+                                os << embeddedContent;
+
+                                // Add the file to the configuration
+                                if (embeddedMarker == QStringLiteral("ca")) {
+                                    rv.insert(QStringLiteral("OpenVPN.CACert"), outputFile.fileName());
+                                } else if (embeddedMarker == QStringLiteral("cert")) {
+                                    rv.insert(QStringLiteral("OpenVPN.Cert"), outputFile.fileName());
+                                } else if (embeddedMarker == QStringLiteral("key")) {
+                                    rv.insert(QStringLiteral("OpenVPN.Key"), outputFile.fileName());
+                                } else {
+                                    // Assume that the marker corresponds to the openvpn option, (such as 'tls-auth')
+                                    extraOptions.append(embeddedMarker + QChar(' ') + outputFile.fileName());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            embeddedMarker.clear();
+            embeddedContent.clear();
+        } else if (!embeddedMarker.isEmpty()) {
+            embeddedContent.append(line + QStringLiteral("\n"));
+        } else {
+            QStringList tokens(line.split(whitespace, QString::SkipEmptyParts));
+            if (!tokens.isEmpty()) {
+                // Find directives that become part of the connman configuration
+                const QString& directive(tokens.front());
+                const QStringList arguments(tokens.count() > 1 ? tokens.mid(1) : QStringList());
+
+                if (directive == QStringLiteral("remote")) {
+                    // Connman supports a single remote host - if we get further instances, pass them through the config file
+                    if (!rv.contains(QStringLiteral("Host"))) {
+                        if (arguments.count() > 0) {
+                            rv.insert(QStringLiteral("Host"), arguments.at(0));
+                        }
+                        if (arguments.count() > 1) {
+                            rv.insert(QStringLiteral("OpenVPN.Port"), arguments.at(1));
+                        }
+                        if (arguments.count() > 2) {
+                            rv.insert(QStringLiteral("OpenVPN.Proto"), arguments.at(2));
+                        }
+                    } else {
+                        extraOptions.append(line);
+                    }
+                } else if (directive == QStringLiteral("ca") ||
+                           directive == QStringLiteral("cert") ||
+                           directive == QStringLiteral("key") ||
+                           directive == QStringLiteral("auth-user-pass")) {
+                    if (!arguments.isEmpty()) {
+                        // If these file paths are not absolute, assume they are in the same directory as the provisioning file
+                        QString file(arguments.at(1));
+                        if (!file.startsWith(QChar('/'))) {
+                            const QFileInfo info(provisioningFile.fileName());
+                            file = info.dir().absoluteFilePath(file);
+                        }
+                        if (directive == QStringLiteral("ca")) {
+                            rv.insert(QStringLiteral("OpenVPN.CACert"), file);
+                        } else if (directive == QStringLiteral("cert")) {
+                            rv.insert(QStringLiteral("OpenVPN.Cert"), file);
+                        } else if (directive == QStringLiteral("key")) {
+                            rv.insert(QStringLiteral("OpenVPN.Key"), file);
+                        } else if (directive == QStringLiteral("auth-user-pass")) {
+                            rv.insert(QStringLiteral("OpenVPN.AuthUserPass"), file);
+                        }
+                    } else if (directive == QStringLiteral("auth-user-pass")) {
+                        // Preserve this option to mean ask for credentials
+                        rv.insert(QStringLiteral("OpenVPN.AuthUserPass"), QStringLiteral("-"));
+                    }
+                } else if (directive == QStringLiteral("mtu") ||
+                           directive == QStringLiteral("tun-mtu")) {
+                    // Connman appears to use a long obsolete form of this option...
+                    if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.MTU"), arguments.join(QChar(' ')));
+                    }
+                } else if (directive == QStringLiteral("ns-cert-type")) {
+                    if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.NSCertType"), arguments.join(QChar(' ')));
+                    }
+                } else if (directive == QStringLiteral("proto")) {
+                    if (!arguments.isEmpty()) {
+                        // All values from a 'remote' directive to take precedence
+                        if (!rv.contains(QStringLiteral("OpenVPN.Proto"))) {
+                            rv.insert(QStringLiteral("OpenVPN.Proto"), arguments.join(QChar(' ')));
+                        }
+                    }
+                } else if (directive == QStringLiteral("port")) {
+                    // All values from a 'remote' directive to take precedence
+                    if (!rv.contains(QStringLiteral("OpenVPN.Port"))) {
+                        if (!arguments.isEmpty()) {
+                            rv.insert(QStringLiteral("OpenVPN.Port"), arguments.join(QChar(' ')));
+                        }
+                    }
+                } else if (directive == QStringLiteral("askpass")) {
+                    if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.AskPass"), arguments.join(QChar(' ')));
+                    } else {
+                        rv.insert(QStringLiteral("OpenVPN.AskPass"), QString());
+                    }
+                } else if (directive == QStringLiteral("auth-nocache")) {
+                    rv.insert(QStringLiteral("OpenVPN.AuthNoCache"), QStringLiteral("true"));
+                } else if (directive == QStringLiteral("tls-remote")) {
+                    if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.TLSRemote"), arguments.join(QChar(' ')));
+                    }
+                } else if (directive == QStringLiteral("cipher")) {
+                    if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.Cipher"), arguments.join(QChar(' ')));
+                    }
+                } else if (directive == QStringLiteral("auth")) {
+                    if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.Auth"), arguments.join(QChar(' ')));
+                    }
+                } else if (directive == QStringLiteral("comp-lzo")) {
+                    if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.CompLZO"), arguments.join(QChar(' ')));
+                    } else {
+                        rv.insert(QStringLiteral("OpenVPN.CompLZO"), QStringLiteral("adaptive"));
+                    }
+                } else if (directive == QStringLiteral("remote-cert-tls")) {
+                    if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.RemoteCertTls"), arguments.join(QChar(' ')));
+                    }
+                } else {
+                    // A directive that connman does not care about - pass through to the config file
+                    extraOptions.append(line);
+                }
+            }
+        }
+    }
+
+    if (!extraOptions.isEmpty()) {
+        // Write a config file to contain the extra options
+        QDir outputDir(outputPath);
+        if (!outputDir.exists() && !outputDir.mkpath(outputPath)) {
+            qWarning() << "Unable to create base directory for VPN provisioning content:" << outputPath;
+        } else {
+            // Name the file according to content
+            QCryptographicHash hash(QCryptographicHash::Sha1);
+            foreach (const QString &line, extraOptions) {
+                hash.addData(line.toUtf8());
+            }
+
+            const QString outputFileName(QString(hash.result().toHex()) + QStringLiteral(".conf"));
+            QFile outputFile(outputDir.absoluteFilePath(outputFileName));
+            if (!outputFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+                qWarning() << "Unable to write VPN provisioning configuration file:" << outputFile.fileName();
+            } else {
+                QTextStream os(&outputFile);
+                foreach (const QString &line, extraOptions) {
+                    os << line << endl;
+                }
+
+                rv.insert(QStringLiteral("OpenVPN.ConfigFile"), outputFile.fileName());
+            }
+        }
+    }
+
+    return rv;
 }
 
 
