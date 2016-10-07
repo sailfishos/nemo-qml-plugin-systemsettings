@@ -48,9 +48,9 @@ class SYSTEMSETTINGS_EXPORT DiskUsage : public QObject
     Q_DECLARE_PRIVATE(DiskUsage)
 
     // True while calculation takes place
-    Q_PROPERTY(bool working
-            READ working
-            NOTIFY workingChanged)
+    Q_PROPERTY(bool working READ working NOTIFY workingChanged)
+
+    Q_PROPERTY(QVariantMap result READ result NOTIFY resultChanged)
 
 public:
     explicit DiskUsage(QObject *parent=0);
@@ -60,8 +60,11 @@ public:
     // callback with a QVariantMap (mapping paths to usages in bytes)
     Q_INVOKABLE void calculate(const QStringList &paths, QJSValue callback);
 
+    QVariantMap result() const;
+
 signals:
     void workingChanged();
+    void resultChanged();
 
 signals:
     void submit(QStringList paths, QJSValue *callback);
@@ -81,6 +84,7 @@ private:
 
 private:
     QScopedPointer<DiskUsagePrivate> const d_ptr;
+    QVariantMap m_result;
     bool m_working;
 };
 

@@ -217,5 +217,14 @@ void DiskUsage::finished(QVariantMap usage, QJSValue *callback)
         delete callback;
     }
 
+    // the result has been set, so emit resultChanged() even if result was not valid
+    m_result = usage;
+    emit resultChanged();
+
     setWorking(false);
+}
+
+QVariantMap DiskUsage::result() const
+{
+    return m_result;
 }
