@@ -259,46 +259,6 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
         // but as far as I can tell, the only way to cause Connman to store the configuration to
         // disk is to create a new connection...  Work around this by removing the existing
         // connection and recreating it with the updated properties.
-#if 0
-        auto it = connections_.find(path);
-        if (it != connections_.end()) {
-            ConnmanVpnConnectionProxy *proxy(*it);
-
-            QVariantMap updateProperties;
-
-            // Compare the new properties to the existing values
-            const QVariantMap oldProperties(itemRoles(conn));
-            for (auto pit = properties.cbegin(), pend = properties.cend(); pit != pend; ++pit) {
-                auto oit = oldProperties.find(pit.key());
-                if (oit == oldProperties.end() || (oit.value() != pit.value())) {
-                    updateProperties.insert(pit.key(), pit.value());
-                }
-            }
-
-            if (!updateProperties.isEmpty()) {
-                updateProperties = propertiesToDBus(updateProperties);
-
-                for (auto uit = updateProperties.cbegin(), uend = updateProperties.cend(); uit != uend; ++uit) {
-                    const QString &name(uit.key());
-                    const QVariant &value(uit.value());
-
-                    QDBusPendingCall call(value.isValid() ? proxy->SetProperty(name, QDBusVariant(value)) : proxy->ClearProperty(name));
-
-                    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
-                    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
-                        QDBusPendingReply<void> reply = *watcher;
-                        watcher->deleteLater();
-
-                        if (reply.isError()) {
-                            qWarning() << "Unable to update Connman VPN connection:" << path << ":" << reply.error().message();
-                        }
-                    });
-                }
-            }
-        } else {
-            qWarning() << "Unable to update VPN connection without proxy:" << path;
-        }
-#else
         qWarning() << "Removing VPN connection for modification:" << conn->path();
         deleteConnection(conn->path());
 
@@ -322,7 +282,6 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
                 qWarning() << "Modified VPN connection:" << objectPath.path();
             }
         });
-#endif
     } else {
         qWarning() << "Unable to update unknown VPN connection:" << path;
     }
