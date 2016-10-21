@@ -83,6 +83,13 @@ PartitionManagerPrivate::PartitionManagerPrivate()
         ++it;
     }
 
+    // Check that /home is not actually the same device as /
+    if (home->status == Partition::Mounted && root->status == Partition::Mounted &&
+        home->devicePath == root->devicePath) {
+        m_partitions.erase(m_partitions.begin() + 1);
+        --internalPartitionCount;
+    }
+
     if (internalPartitionCount == 1) {
         root->storageType = Partition::Mass;
     }
