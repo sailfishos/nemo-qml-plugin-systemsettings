@@ -79,6 +79,8 @@ public:
     Q_INVOKABLE void activateConnection(const QString &path);
     Q_INVOKABLE void deactivateConnection(const QString &path);
 
+    Q_INVOKABLE void setAutomaticConnection(const QString &path, bool enabled);
+
     Q_INVOKABLE QVariantMap connectionSettings(const QString &path);
 
     Q_INVOKABLE QVariantMap processProvisioningFile(const QString &path, ConnectionType type);
