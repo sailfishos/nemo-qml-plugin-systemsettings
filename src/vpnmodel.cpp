@@ -33,6 +33,7 @@
 #include "vpnmodel.h"
 
 #include <QDBusPendingCallWatcher>
+#include <QDBusServiceWatcher>
 #include <QDebug>
 
 
@@ -212,6 +213,20 @@ VpnModel::VpnModel(QObject *parent)
             connections_.erase(it);
             delete proxy;
         }
+    });
+
+    // If connman-vpn restarts, we need to discard and re-read the state
+    QDBusServiceWatcher *watcher = new QDBusServiceWatcher("net.connman.vpn", QDBusConnection::systemBus(), QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this);
+    connect(watcher, &QDBusServiceWatcher::serviceUnregistered, this, [this](const QString &) {
+        for (int i = 0, n = count(); i < n; ++i) {
+            get(i)->deleteLater();
+        }
+        clear();
+        setPopulated(false);
+        qDeleteAll(connections_);
+    });
+    connect(watcher, &QDBusServiceWatcher::serviceRegistered, this, [this](const QString &) {
+        fetchVpnList();
     });
 
     fetchVpnList();
