@@ -453,6 +453,26 @@ void VpnModel::deactivateConnection(const QString &path)
     }
 }
 
+void VpnModel::setAutomaticConnection(const QString &path, bool enabled)
+{
+    if (VpnConnection *conn = connection(path)) {
+        const QString token(TokenFileRepository::tokenForObjectPath(path));
+        const bool wasEnabled(tokenFiles_.tokenExists(token));
+        if (enabled != wasEnabled) {
+            if (enabled) {
+                tokenFiles_.ensureToken(token);
+            } else {
+                tokenFiles_.removeToken(token);
+            }
+
+            conn->setAutomaticUpDown(enabled);
+            itemChanged(conn);
+        }
+    } else {
+        qWarning() << "Unable to set automatic connection for unknown VPN connection:" << path;
+    }
+}
+
 QVariantMap VpnModel::connectionSettings(const QString &path)
 {
     QVariantMap rv;
