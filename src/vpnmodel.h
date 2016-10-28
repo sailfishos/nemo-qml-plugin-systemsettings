@@ -52,6 +52,8 @@ class SYSTEMSETTINGS_EXPORT VpnModel : public ObjectListModel
     Q_ENUMS(ConnectionState)
     Q_ENUMS(ConnectionType)
 
+    Q_PROPERTY(int bestState READ bestState NOTIFY bestStateChanged)
+
 public:
     enum ConnectionState {
         Idle,
@@ -72,6 +74,8 @@ public:
     explicit VpnModel(QObject *parent = 0);
     virtual ~VpnModel();
 
+    int bestState() const;
+
     Q_INVOKABLE void createConnection(const QVariantMap &properties);
     Q_INVOKABLE void modifyConnection(const QString &path, const QVariantMap &properties);
     Q_INVOKABLE void deleteConnection(const QString &path);
@@ -84,6 +88,10 @@ public:
     Q_INVOKABLE QVariantMap connectionSettings(const QString &path);
 
     Q_INVOKABLE QVariantMap processProvisioningFile(const QString &path, ConnectionType type);
+
+signals:
+    void bestStateChanged();
+    void connectionStateChanged(const QString &path, int state);
 
 private:
     void fetchVpnList();
@@ -116,6 +124,7 @@ private:
     ConnmanVpnProxy connmanVpn_;
     QHash<QString, ConnmanVpnConnectionProxy *> connections_;
     TokenFileRepository tokenFiles_;
+    ConnectionState bestState_;
 };
 
 class SYSTEMSETTINGS_EXPORT VpnConnection : public QObject

@@ -181,6 +181,11 @@ QVariantMap propertiesToQml(const QVariantMap &fromDBus)
     return rv;
 }
 
+int numericValue(VpnModel::ConnectionState state)
+{
+    return (state == VpnModel::Ready ? 3 : (state == VpnModel::Configuration ? 2 : (state == VpnModel::Failure ? 1 : 0)));
+}
+
 }
 
 
@@ -260,6 +265,7 @@ VpnModel::VpnModel(QObject *parent)
     : ObjectListModel(parent, true, false)
     , connmanVpn_("net.connman.vpn", "/", QDBusConnection::systemBus(), this)
     , tokenFiles_("/home/nemo/.local/share/system/vpn")
+    , bestState_(VpnModel::Idle)
 {
     qDBusRegisterMetaType<PathProperties>();
     qDBusRegisterMetaType<PathPropertiesArray>();
@@ -316,6 +322,11 @@ VpnModel::VpnModel(QObject *parent)
 VpnModel::~VpnModel()
 {
     deleteAll();
+}
+
+int VpnModel::bestState() const
+{
+    return static_cast<int>(bestState_);
 }
 
 void VpnModel::createConnection(const QVariantMap &createProperties)
@@ -612,10 +623,30 @@ void VpnModel::updateConnection(VpnConnection *conn, const QVariantMap &updatePr
         }
     }
 
+    int oldState(conn->state());
+
     if (updateItem(conn, properties)) {
         itemChanged(conn);
 
         const int itemCount(count());
+
+        if (conn->state() != oldState) {
+            emit connectionStateChanged(conn->path(), static_cast<int>(conn->state()));
+
+            // Check to see if the best state has changed
+            ConnectionState maxState = Idle;
+            for (int i = 0; i < itemCount; ++i) {
+                ConnectionState state(static_cast<ConnectionState>(get<VpnConnection>(i)->state()));
+                if (numericValue(state) > numericValue(maxState)) {
+                    maxState = state;
+                }
+            }
+            if (bestState_ != maxState) {
+                bestState_ = maxState;
+                emit bestStateChanged();
+            }
+        }
+
         if (itemCount > 1) {
             // Keep the items sorted by name
             int index = 0;
@@ -851,7 +882,7 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
 VpnConnection::VpnConnection(const QString &path)
     : QObject(0)
     , path_(path)
-    , state_(static_cast<int>(VpnModel::Idle))
+    , state_(static_cast<int>(VpnModel::Disconnect))
     , type_(static_cast<int>(VpnModel::OpenVPN))
 {
 }
