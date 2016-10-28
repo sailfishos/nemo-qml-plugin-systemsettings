@@ -41,6 +41,8 @@
 
 namespace {
 
+const QString defaultDomain(QStringLiteral("merproject.org"));
+
 // Conversion to/from DBus/QML
 QHash<QString, QList<QPair<QVariant, QVariant> > > propertyConversions()
 {
@@ -316,15 +318,21 @@ VpnModel::~VpnModel()
     deleteAll();
 }
 
-void VpnModel::createConnection(const QVariantMap &properties)
+void VpnModel::createConnection(const QVariantMap &createProperties)
 {
-    const QString path(properties.value(QString("path")).toString());
+    const QString path(createProperties.value(QString("path")).toString());
     if (path.isEmpty()) {
-        const QString host(properties.value(QString("host")).toString());
-        const QString name(properties.value(QString("name")).toString());
-        const QString domain(properties.value(QString("domain")).toString());
+        const QString host(createProperties.value(QString("host")).toString());
+        const QString name(createProperties.value(QString("name")).toString());
 
-        if (!host.isEmpty() && !name.isEmpty() && !domain.isEmpty()) {
+        if (!host.isEmpty() && !name.isEmpty()) {
+            // Connman requires a domain value, but doesn't seem to use it...
+            QVariantMap properties(createProperties);
+            const QString domain(properties.value(QString("domain")).toString());
+            if (domain.isEmpty()) {
+                properties.insert(QString("domain"), QVariant::fromValue(defaultDomain));
+            }
+
             QDBusPendingCall call = connmanVpn_.Create(propertiesToDBus(properties));
 
             QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
@@ -364,6 +372,11 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
         updatedProperties.remove(QString("index"));
         updatedProperties.remove(QString("immutable"));
         updatedProperties.remove(QString("automaticUpDown"));
+
+        const QString domain(updatedProperties.value(QString("domain")).toString());
+        if (domain.isEmpty()) {
+            updatedProperties.insert(QString("domain"), QVariant::fromValue(defaultDomain));
+        }
 
         const QString token(TokenFileRepository::tokenForObjectPath(path));
         const bool wasAutomatic(tokenFiles_.tokenExists(token));
@@ -590,6 +603,13 @@ void VpnModel::updateConnection(VpnConnection *conn, const QVariantMap &updatePr
         }
 
         *ppit = QVariant::fromValue(existingProperties);
+    }
+
+    ppit = properties.find(QStringLiteral("domain"));
+    if (ppit != properties.end()) {
+        if ((*ppit).value<QString>() == defaultDomain) {
+            properties.erase(ppit);
+        }
     }
 
     if (updateItem(conn, properties)) {
