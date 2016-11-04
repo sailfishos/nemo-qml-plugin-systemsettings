@@ -8,6 +8,10 @@ URL:        https://git.merproject.org/mer-core/nemo-qml-plugin-systemsettings
 Source0:    %{name}-%{version}.tar.bz2
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
+Requires:       connman
+Requires:       openvpn
+Requires:       openconnect
+Requires:       vpnc
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5SystemInfo)
 BuildRequires:  pkgconfig(Qt5Test)
@@ -19,6 +23,7 @@ BuildRequires:  pkgconfig(usb-moded-qt5)
 BuildRequires:  pkgconfig(libshadowutils)
 BuildRequires:  pkgconfig(blkid)
 BuildRequires:  pkgconfig(libcrypto)
+BuildRequires:  pkgconfig(nemomodels-qt5)
 
 %description
 %{summary}.
@@ -48,6 +53,7 @@ make %{?jobs:-j%jobs}
 %install
 rm -rf %{buildroot}
 %qmake5_install
+chmod +x %{buildroot}/%{_bindir}/vpn-updown.sh
 
 %post -p /sbin/ldconfig
 
@@ -58,6 +64,8 @@ rm -rf %{buildroot}
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/libnemosystemsettings.so
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/qmldir
 %{_libdir}/libsystemsettings.so.*
+%{_libdir}/systemd/user/vpn-updown.service
+%{_bindir}/vpn-updown.sh
 
 %files devel
 %defattr(-,root,root,-)
