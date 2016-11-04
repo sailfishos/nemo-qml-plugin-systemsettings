@@ -261,10 +261,131 @@ void VpnModel::TokenFileRepository::removeUnknownTokens(const QStringList &known
 }
 
 
+VpnModel::CredentialsRepository::CredentialsRepository(const QString &path)
+    : baseDir_(path)
+{
+    if (!baseDir_.exists() && !baseDir_.mkpath(path)) {
+        qWarning() << "Unable to create base directory for VPN credentials:" << path;
+    }
+}
+
+QString VpnModel::CredentialsRepository::locationForObjectPath(const QString &path)
+{
+    int index = path.lastIndexOf(QChar('/'));
+    if (index != -1) {
+        return path.mid(index + 1);
+    }
+
+    return QString();
+}
+
+bool VpnModel::CredentialsRepository::credentialsExist(const QString &location) const
+{
+    // Test the FS, as another process may store/remove the credentials
+    return baseDir_.exists(location);
+}
+
+bool VpnModel::CredentialsRepository::storeCredentials(const QString &location, const QVariantMap &credentials)
+{
+    QFile credentialsFile(baseDir_.absoluteFilePath(location));
+    if (!credentialsFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        qWarning() << "Unable to write credentials file:" << credentialsFile.fileName();
+        return false;
+    } else {
+        credentialsFile.write(encodeCredentials(credentials));
+        credentialsFile.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadOther | QFileDevice::WriteOther);
+        credentialsFile.close();
+    }
+
+    return true;
+}
+
+bool VpnModel::CredentialsRepository::removeCredentials(const QString &location)
+{
+    if (baseDir_.exists(location)) {
+        if (!baseDir_.remove(location)) {
+            qWarning() << "Unable to delete credentials file:" << location;
+            return false;
+        }
+    }
+
+    return true;
+}
+
+QVariantMap VpnModel::CredentialsRepository::credentials(const QString &location) const
+{
+    QVariantMap rv;
+
+    QFile credentialsFile(baseDir_.absoluteFilePath(location));
+    if (!credentialsFile.open(QIODevice::ReadOnly)) {
+        qWarning() << "Unable to read credentials file:" << credentialsFile.fileName();
+    } else {
+        const QByteArray encoded = credentialsFile.readAll();
+        credentialsFile.close();
+
+        rv = decodeCredentials(encoded);
+    }
+
+    return rv;
+}
+
+QByteArray VpnModel::CredentialsRepository::encodeCredentials(const QVariantMap &credentials)
+{
+    // We can't store these values securely, but we may as well encode them to protect from grep, at least...
+    QByteArray encoded;
+
+    QDataStream os(&encoded, QIODevice::WriteOnly);
+    os.setVersion(QDataStream::Qt_5_6);
+
+    const quint32 version = 1u;
+    os << version;
+
+    const quint32 items = credentials.size();
+    os << items;
+
+    for (auto it = credentials.cbegin(), end = credentials.cend(); it != end; ++it) {
+        os << it.key();
+        os << it.value().toString();
+    }
+
+    return encoded.toBase64();
+}
+
+QVariantMap VpnModel::CredentialsRepository::decodeCredentials(const QByteArray &encoded)
+{
+    QVariantMap rv;
+
+    QByteArray decoded(QByteArray::fromBase64(encoded));
+
+    QDataStream is(decoded);
+    is.setVersion(QDataStream::Qt_5_6);
+
+    quint32 version;
+    is >> version;
+
+    if (version != 1u) {
+        qWarning() << "Invalid version for stored credentials:" << version;
+    } else {
+        quint32 items;
+        is >> items;
+
+        for (quint32 i = 0; i < items; ++i) {
+            QString key, value;
+            is >> key;
+            is >> value;
+            rv.insert(key, QVariant::fromValue(value));
+        }
+    }
+
+    return rv;
+}
+
+
 VpnModel::VpnModel(QObject *parent)
     : ObjectListModel(parent, true, false)
     , connmanVpn_("net.connman.vpn", "/", QDBusConnection::systemBus(), this)
     , tokenFiles_("/home/nemo/.local/share/system/vpn")
+    , credentials_("/home/nemo/.local/share/system/vpn-data")
     , bestState_(VpnModel::Idle)
 {
     qDBusRegisterMetaType<PathProperties>();
@@ -280,6 +401,7 @@ VpnModel::VpnModel(QObject *parent)
 
         QVariantMap qmlProperties(propertiesToQml(properties));
         qmlProperties.insert(QStringLiteral("automaticUpDown"), tokenFiles_.tokenExists(TokenFileRepository::tokenForObjectPath(path)));
+        qmlProperties.insert(QStringLiteral("storeCredentials"), credentials_.credentialsExist(CredentialsRepository::locationForObjectPath(path)));
         updateConnection(conn, qmlProperties);
     });
 
@@ -383,6 +505,7 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
         updatedProperties.remove(QString("index"));
         updatedProperties.remove(QString("immutable"));
         updatedProperties.remove(QString("automaticUpDown"));
+        updatedProperties.remove(QString("storeCredentials"));
 
         const QString domain(updatedProperties.value(QString("domain")).toString());
         if (domain.isEmpty()) {
@@ -393,10 +516,14 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
         const bool wasAutomatic(tokenFiles_.tokenExists(token));
         const bool automatic(properties.value(QString("automaticUpDown")).toBool());
 
+        const QString location(CredentialsRepository::locationForObjectPath(path));
+        const bool couldStoreCredentials(credentials_.credentialsExist(location));
+        const bool canStoreCredentials(properties.value(QString("storeCredentials")).toBool());
+
         QDBusPendingCall call = connmanVpn_.Create(propertiesToDBus(updatedProperties));
 
         QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
-        connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, conn, token, automatic, wasAutomatic](QDBusPendingCallWatcher *watcher) {
+        connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, conn, token, automatic, wasAutomatic, location, canStoreCredentials, couldStoreCredentials](QDBusPendingCallWatcher *watcher) {
             QDBusPendingReply<QDBusObjectPath> reply = *watcher;
             watcher->deleteLater();
 
@@ -411,6 +538,14 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
                         tokenFiles_.ensureToken(token);
                     } else {
                         tokenFiles_.removeToken(token);
+                    }
+                }
+
+                if (canStoreCredentials != couldStoreCredentials) {
+                    if (canStoreCredentials ) {
+                        credentials_.storeCredentials(location, QVariantMap());
+                    } else {
+                        credentials_.removeCredentials(location);
                     }
                 }
             }
@@ -507,10 +642,92 @@ void VpnModel::setAutomaticConnection(const QString &path, bool enabled)
     }
 }
 
+QVariantMap VpnModel::connectionCredentials(const QString &path)
+{
+    QVariantMap rv;
+
+    if (VpnConnection *conn = connection(path)) {
+        const QString location(CredentialsRepository::locationForObjectPath(path));
+        const bool enabled(credentials_.credentialsExist(location));
+
+        if (enabled) {
+            rv = credentials_.credentials(location);
+        } else {
+            qWarning() << "VPN does not permit credentials storage:" << path;
+        }
+
+        if (conn->storeCredentials() != enabled) {
+            conn->setStoreCredentials(enabled);
+            itemChanged(conn);
+        }
+    } else {
+        qWarning() << "Unable to return credentials for unknown VPN connection:" << path;
+    }
+
+    return rv;
+}
+
+void VpnModel::setConnectionCredentials(const QString &path, const QVariantMap &credentials)
+{
+    if (VpnConnection *conn = connection(path)) {
+        credentials_.storeCredentials(CredentialsRepository::locationForObjectPath(path), credentials);
+
+        if (!conn->storeCredentials()) {
+            conn->setStoreCredentials(true);
+        }
+        itemChanged(conn);
+    } else {
+        qWarning() << "Unable to set credentials for unknown VPN connection:" << path;
+    }
+}
+
+bool VpnModel::connectionCredentialsEnabled(const QString &path)
+{
+    if (VpnConnection *conn = connection(path)) {
+        const QString location(CredentialsRepository::locationForObjectPath(path));
+        const bool enabled(credentials_.credentialsExist(location));
+
+        if (conn->storeCredentials() != enabled) {
+            conn->setStoreCredentials(enabled);
+            itemChanged(conn);
+        }
+        return enabled;
+    } else {
+        qWarning() << "Unable to test credentials storage for unknown VPN connection:" << path;
+    }
+
+    return false;
+}
+
+void VpnModel::disableConnectionCredentials(const QString &path)
+{
+    if (VpnConnection *conn = connection(path)) {
+        const QString location(CredentialsRepository::locationForObjectPath(path));
+        if (credentials_.credentialsExist(location)) {
+            credentials_.removeCredentials(location);
+        }
+
+        if (conn->storeCredentials()) {
+            conn->setStoreCredentials(false);
+        }
+        itemChanged(conn);
+    } else {
+        qWarning() << "Unable to set automatic connection for unknown VPN connection:" << path;
+    }
+}
+
 QVariantMap VpnModel::connectionSettings(const QString &path)
 {
     QVariantMap rv;
     if (VpnConnection *conn = connection(path)) {
+        // Check if the credentials storage has been changed
+        const QString location(CredentialsRepository::locationForObjectPath(path));
+        const bool enabled(credentials_.credentialsExist(location));
+        if (conn->storeCredentials() != enabled) {
+            conn->setStoreCredentials(enabled);
+            itemChanged(conn);
+        }
+
         rv = itemRoles(conn);
     }
     return rv;
@@ -555,6 +772,7 @@ void VpnModel::fetchVpnList()
 
                 QVariantMap qmlProperties(propertiesToQml(properties));
                 qmlProperties.insert(QStringLiteral("automaticUpDown"), tokenFiles_.tokenExists(TokenFileRepository::tokenForObjectPath(path)));
+                qmlProperties.insert(QStringLiteral("storeCredentials"), credentials_.credentialsExist(CredentialsRepository::locationForObjectPath(path)));
 
                 VpnConnection *conn = newConnection(path);
                 updateConnection(conn, qmlProperties);

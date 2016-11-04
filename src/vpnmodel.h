@@ -85,9 +85,17 @@ public:
 
     Q_INVOKABLE void setAutomaticConnection(const QString &path, bool enabled);
 
+    Q_INVOKABLE QVariantMap connectionCredentials(const QString &path);
+    Q_INVOKABLE void setConnectionCredentials(const QString &path, const QVariantMap &credentials);
+
+    Q_INVOKABLE bool connectionCredentialsEnabled(const QString &path);
+    Q_INVOKABLE void disableConnectionCredentials(const QString &path);
+
     Q_INVOKABLE QVariantMap connectionSettings(const QString &path);
 
     Q_INVOKABLE QVariantMap processProvisioningFile(const QString &path, ConnectionType type);
+
+    VpnConnection *connection(const QString &path) const;
 
 signals:
     void bestStateChanged();
@@ -96,7 +104,6 @@ signals:
 private:
     void fetchVpnList();
 
-    VpnConnection *connection(const QString &path) const;
     VpnConnection *newConnection(const QString &path);
     void updateConnection(VpnConnection *conn, const QVariantMap &properties);
 
@@ -121,9 +128,31 @@ private:
         QStringList tokens_;
     };
 
+    class CredentialsRepository
+    {
+    public:
+        CredentialsRepository(const QString &path);
+
+        static QString locationForObjectPath(const QString &path);
+
+        bool credentialsExist(const QString &location) const;
+
+        bool storeCredentials(const QString &location, const QVariantMap &credentials);
+        bool removeCredentials(const QString &location);
+
+        QVariantMap credentials(const QString &location) const;
+
+        static QByteArray encodeCredentials(const QVariantMap &credentials);
+        static QVariantMap decodeCredentials(const QByteArray &encoded);
+
+    private:
+        QDir baseDir_;
+    };
+
     ConnmanVpnProxy connmanVpn_;
     QHash<QString, ConnmanVpnConnectionProxy *> connections_;
     TokenFileRepository tokenFiles_;
+    CredentialsRepository credentials_;
     ConnectionState bestState_;
 };
 
@@ -136,6 +165,7 @@ class SYSTEMSETTINGS_EXPORT VpnConnection : public QObject
     Q_PROPERTY(QString domain READ domain WRITE setDomain NOTIFY domainChanged)
     Q_PROPERTY(QString networks READ networks WRITE setNetworks NOTIFY networksChanged)
     Q_PROPERTY(bool automaticUpDown READ automaticUpDown WRITE setAutomaticUpDown NOTIFY automaticUpDownChanged)
+    Q_PROPERTY(bool storeCredentials READ storeCredentials WRITE setStoreCredentials NOTIFY storeCredentialsChanged)
     Q_PROPERTY(int state READ state WRITE setState NOTIFY stateChanged)
     Q_PROPERTY(int type READ type WRITE setType NOTIFY typeChanged)
     Q_PROPERTY(bool immutable READ immutable WRITE setImmutable NOTIFY immutableChanged)
@@ -166,6 +196,9 @@ public:
 
     bool automaticUpDown() const { return automaticUpDown_; }
     void setAutomaticUpDown(bool automaticUpDown) { updateMember(&VpnConnection::automaticUpDown_, automaticUpDown, &VpnConnection::automaticUpDownChanged); }
+
+    bool storeCredentials() const { return storeCredentials_; }
+    void setStoreCredentials(bool storeCredentials) { updateMember(&VpnConnection::storeCredentials_, storeCredentials, &VpnConnection::storeCredentialsChanged); }
 
     int state() const { return state_; }
     void setState(int state) { updateMember(&VpnConnection::state_, state, &VpnConnection::stateChanged); }
@@ -205,6 +238,7 @@ signals:
     void domainChanged();
     void networksChanged();
     void automaticUpDownChanged();
+    void storeCredentialsChanged();
     void immutableChanged();
     void indexChanged();
     void iPv4Changed();
@@ -233,6 +267,7 @@ private:
     QString domain_;
     QString networks_;
     bool automaticUpDown_;
+    bool storeCredentials_;
     bool immutable_;
     int index_;
     QVariantMap ipv4_;
