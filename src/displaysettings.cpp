@@ -55,57 +55,48 @@ DisplaySettings::DisplaySettings(QObject *parent)
     m_orientationLock = new MGConfItem("/lipstick/orientationLock", this);
     connect(m_orientationLock, SIGNAL(valueChanged()), SIGNAL(orientationLockChanged()));
 
-    m_mceIface = new ComNokiaMceRequestInterface(MCE_SERVICE, MCE_REQUEST_PATH, QDBusConnection::systemBus(), this);
-    QDBusPendingReply<QDBusVariant> result = m_mceIface->get_config(QDBusObjectPath(MceDisplayBrightness));
-    result.waitForFinished();
-    m_brightness = result.value().variant().toInt();
+    /* Initialize to defaults */
+    m_autoBrightnessEnabled     = true;
+    m_ambientLightSensorEnabled = true;
+    m_blankTimeout              = 3;
+    m_brightness                = 60;
+    m_dimTimeout                = 30;
+    m_flipoverGestureEnabled    = true;
+    m_inhibitMode               = InhibitOff;
+    m_adaptiveDimmingEnabled    = true;
+    m_lowPowerModeEnabled       = false;
+    m_doubleTapMode             = true;
+    m_lidSensorFilteringEnabled = true;
+    m_lidSensorEnabled          = true;
 
-    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayDimTimeout));
-    result.waitForFinished();
-    m_dimTimeout = result.value().variant().toInt();
-
-    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayBlankTimeout));
-    result.waitForFinished();
-    m_blankTimeout = result.value().variant().toInt();
-
-    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayInhibitMode));
-    result.waitForFinished();
-    m_inhibitMode = static_cast<InhibitMode>(result.value().variant().toInt());
-
-    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayUseAdaptiveDimming));
-    result.waitForFinished();
-    m_adaptiveDimmingEnabled = result.value().variant().toBool();
-
-    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayUseLowPowerMode));
-    result.waitForFinished();
-    m_lowPowerModeEnabled = result.value().variant().toBool();
-
-    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayUseAmbientLightSensor));
-    result.waitForFinished();
-    m_ambientLightSensorEnabled = result.value().variant().toBool();
-
-    result = m_mceIface->get_config(QDBusObjectPath(MceDisplayAutoBrightnessEnabled));
-    result.waitForFinished();
-    m_autoBrightnessEnabled = result.value().variant().toBool();
-
-    result = m_mceIface->get_config(QDBusObjectPath(MceDoubleTapMode));
-    result.waitForFinished();
-    m_doubleTapMode = result.value().variant().toInt();
-
-    result = m_mceIface->get_config(QDBusObjectPath(MceLidSensorEnabled));
-    result.waitForFinished();
-    m_lidSensorEnabled = result.value().variant().toBool();
-
-    result = m_mceIface->get_config(QDBusObjectPath(MceLidSensorFilteringEnabled));
-    result.waitForFinished();
-    m_lidSensorFilteringEnabled = result.value().variant().toBool();
-
-    result = m_mceIface->get_config(QDBusObjectPath(MceFlipOverGestureEnabled));
-    result.waitForFinished();
-    m_flipoverGestureEnabled = result.value().variant().toBool();
-
+    /* Setup change listener & get current values via async query */
     m_mceSignalIface = new ComNokiaMceSignalInterface(MCE_SERVICE, MCE_SIGNAL_PATH, QDBusConnection::systemBus(), this);
     connect(m_mceSignalIface, SIGNAL(config_change_ind(QString,QDBusVariant)), this, SLOT(configChange(QString,QDBusVariant)));
+
+    m_mceIface = new ComNokiaMceRequestInterface(MCE_SERVICE, MCE_REQUEST_PATH, QDBusConnection::systemBus(), this);
+    QDBusPendingReply<QVariantMap> call = m_mceIface->get_config_all();
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
+    QObject::connect(watcher, SIGNAL(finished(QDBusPendingCallWatcher *)),
+                     this, SLOT(configReply(QDBusPendingCallWatcher *)));
+}
+
+void DisplaySettings::configReply(QDBusPendingCallWatcher *watcher)
+{
+    QDBusPendingReply<QVariantMap> reply =  *watcher;
+
+    if (reply.isError()) {
+        qWarning("Could not retrieve mce settings: '%s'",
+                 reply.error().message().toStdString().c_str());
+    } else {
+        QVariantMap map = reply.value();
+        QMapIterator<QString, QVariant> i(map);
+        while (i.hasNext()) {
+            i.next();
+            updateConfig(i.key(), i.value());
+        }
+    }
+
+    watcher->deleteLater();
 }
 
 int DisplaySettings::brightness() const
@@ -295,74 +286,79 @@ void DisplaySettings::setFlipoverGestureEnabled(bool enabled)
 
 void DisplaySettings::configChange(const QString &key, const QDBusVariant &value)
 {
+    updateConfig(key, value.variant());
+}
+
+void DisplaySettings::updateConfig(const QString &key, const QVariant &value)
+{
     if (key == MceDisplayBrightness) {
-        int val = value.variant().toInt();
+        int val = value.toInt();
         if (val != m_brightness) {
             m_brightness = val;
             emit brightnessChanged();
         }
     } else if (key == MceDisplayDimTimeout) {
-        int val = value.variant().toInt();
+        int val = value.toInt();
         if (val != m_dimTimeout) {
             m_dimTimeout = val;
             emit dimTimeoutChanged();
         }
     } else if (key == MceDisplayBlankTimeout) {
-        int val = value.variant().toInt();
+        int val = value.toInt();
         if (val != m_blankTimeout) {
             m_blankTimeout = val;
             emit blankTimeoutChanged();
         }
     } else if (key == MceDisplayInhibitMode) {
-        InhibitMode val = static_cast<InhibitMode>(value.variant().toInt());
+        InhibitMode val = static_cast<InhibitMode>(value.toInt());
         if (val != m_inhibitMode) {
             m_inhibitMode = val;
             emit inhibitModeChanged();
         }
     } else if (key == MceDisplayUseAdaptiveDimming) {
-        bool val = value.variant().toBool();
+        bool val = value.toBool();
         if (val != m_adaptiveDimmingEnabled) {
             m_adaptiveDimmingEnabled = val;
             emit adaptiveDimmingEnabledChanged();
         }
     } else if (key == MceDisplayUseLowPowerMode) {
-        bool val = value.variant().toBool();
+        bool val = value.toBool();
         if (val != m_lowPowerModeEnabled) {
             m_lowPowerModeEnabled = val;
             emit lowPowerModeEnabledChanged();
         }
     } else if (key == MceDisplayUseAmbientLightSensor) {
-        bool val = value.variant().toBool();
+        bool val = value.toBool();
         if (val != m_ambientLightSensorEnabled) {
             m_ambientLightSensorEnabled = val;
             emit ambientLightSensorEnabledChanged();
         }
     } else if (key == MceDisplayAutoBrightnessEnabled) {
-        bool val = value.variant().toBool();
+        bool val = value.toBool();
         if (val != m_autoBrightnessEnabled) {
             m_autoBrightnessEnabled = val;
             emit autoBrightnessEnabledChanged();
         }
     } else if (key == MceDoubleTapMode) {
-        int val = value.variant().toInt();
+        int val = value.toInt();
         if (val != m_doubleTapMode) {
             m_doubleTapMode = val;
             emit doubleTapModeChanged();
         }
     } else if (key == MceLidSensorEnabled) {
-        bool val = value.variant().toBool();
+        bool val = value.toBool();
         if (val != m_lidSensorEnabled) {
             m_lidSensorEnabled = val;
             emit lidSensorEnabledChanged();
         }
     } else if (key == MceLidSensorFilteringEnabled) {
-        bool val = value.variant().toBool();
+        bool val = value.toBool();
         if (val != m_lidSensorFilteringEnabled) {
             m_lidSensorFilteringEnabled = val;
             emit lidSensorFilteringEnabledChanged();
         }
     } else if (key == MceFlipOverGestureEnabled) {
-        bool val = value.variant().toBool();
+        bool val = value.toBool();
         if (val != m_flipoverGestureEnabled) {
             m_flipoverGestureEnabled = val;
             emit flipoverGestureEnabledChanged();

@@ -34,6 +34,7 @@
 
 #include <QObject>
 #include <QtQml>
+#include <QDBusPendingCallWatcher>
 
 class ComNokiaMceRequestInterface;
 class ComNokiaMceSignalInterface;
@@ -143,8 +144,11 @@ signals:
 
 private slots:
     void configChange(const QString &key, const QDBusVariant &value);
+    void configReply(QDBusPendingCallWatcher *watcher);
+
 
 private:
+    void updateConfig(const QString &key, const QVariant &value);
     ComNokiaMceRequestInterface *m_mceIface;
     ComNokiaMceSignalInterface *m_mceSignalIface;
     MGConfItem *m_orientationLock;
