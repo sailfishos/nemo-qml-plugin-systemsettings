@@ -18,6 +18,10 @@
             <arg name="value" direction="in" type="v"/>
             <arg direction="out" type="b"/>
         </method>
+        <method name="get_config_all">
+            <arg direction="out" name="values" type="a{sv}"/>
+            <annotation name="org.qtproject.QtDBus.QtTypeName.Out0" value="QVariantMap"/>
+        </method>
     </interface>
     <interface name="com.nokia.mce.signal">
         <signal name="radio_states_ind">
