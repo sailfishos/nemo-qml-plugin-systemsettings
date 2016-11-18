@@ -897,6 +897,14 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
 
     const QString outputPath("/home/nemo/.local/share/system/vpn-provisioning");
 
+    auto normaliseProtocol = [](const QString &proto) {
+        if (proto == QStringLiteral("tcp")) {
+            // 'tcp' is an undocumented option, which is interpreted by openvpn as 'tcp-client'
+            return QStringLiteral("tcp-client");
+        }
+        return proto;
+    };
+
     QTextStream is(&provisioningFile);
     while (!is.atEnd()) {
         QString line(is.readLine());
@@ -975,7 +983,7 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
                             rv.insert(QStringLiteral("OpenVPN.Port"), arguments.at(1));
                         }
                         if (arguments.count() > 2) {
-                            rv.insert(QStringLiteral("OpenVPN.Proto"), arguments.at(2));
+                            rv.insert(QStringLiteral("OpenVPN.Proto"), normaliseProtocol(arguments.at(2)));
                         }
                     } else {
                         extraOptions.append(line);
@@ -1018,7 +1026,7 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
                     if (!arguments.isEmpty()) {
                         // All values from a 'remote' directive to take precedence
                         if (!rv.contains(QStringLiteral("OpenVPN.Proto"))) {
-                            rv.insert(QStringLiteral("OpenVPN.Proto"), arguments.join(QChar(' ')));
+                            rv.insert(QStringLiteral("OpenVPN.Proto"), normaliseProtocol(arguments.join(QChar(' '))));
                         }
                     }
                 } else if (directive == QStringLiteral("port")) {
