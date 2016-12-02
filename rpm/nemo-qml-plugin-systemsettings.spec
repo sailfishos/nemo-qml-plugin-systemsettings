@@ -12,6 +12,8 @@ Requires:       connman
 Requires:       openvpn
 Requires:       openconnect
 Requires:       vpnc
+Requires:       pptp
+Requires:       xl2tpd
 Requires:       mce >= 1.83.0
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5SystemInfo)
