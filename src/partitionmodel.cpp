@@ -131,7 +131,8 @@ QHash<int, QByteArray> PartitionModel::roleNames() const
         { MountPathRole, "mountPath" },
         { BytesAvailableRole, "bytesAvailable" },
         { BytesTotalRole, "bytesTotal" },
-        { BytesFreeRole, "bytesFree" }
+        { BytesFreeRole, "bytesFree" },
+        { PartitionModelRole, "partitionModel" }
     };
 
     return roleNames;
@@ -172,6 +173,8 @@ QVariant PartitionModel::data(const QModelIndex &index, int role) const
             return partition.bytesTotal();
         case BytesFreeRole:
             return partition.bytesFree();
+        case PartitionModelRole:
+            return QVariant::fromValue(static_cast<QObject*>(const_cast<PartitionModel*>((this))));
         default:
             return QVariant();
         }
