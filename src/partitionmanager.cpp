@@ -229,7 +229,7 @@ void PartitionManagerPrivate::refresh()
     const auto removedPartitions = m_partitions.mid(index);
     m_partitions.resize(index);
 
-    refresh(m_partitions);
+    refresh(m_partitions, changedPartitions);
 
     for (const auto partition : removedPartitions) {
         emit partitionRemoved(Partition(partition));
@@ -249,12 +249,12 @@ void PartitionManagerPrivate::refresh()
 
 void PartitionManagerPrivate::refresh(PartitionPrivate *partition)
 {
-    refresh(Partitions() << QExplicitlySharedDataPointer<PartitionPrivate>(partition));
+    refresh(Partitions() << QExplicitlySharedDataPointer<PartitionPrivate>(partition), Partitions() << QExplicitlySharedDataPointer<PartitionPrivate>(partition));
 
     emit partitionChanged(Partition(QExplicitlySharedDataPointer<PartitionPrivate>(partition)));
 }
 
-void PartitionManagerPrivate::refresh(const Partitions &partitions)
+void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &changedPartitions)
 {
     for (auto partition : partitions) {
         // Reset properties to the unmounted defaults.  If the partition is mounted these will be restored
@@ -311,11 +311,20 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions)
         if (partition->status == Partition::Mounted) {
             struct statvfs64 stat;
 
+
             if (::statvfs64(partition->mountPath.toUtf8().constData(), &stat) == 0) {
                 partition->bytesTotal = stat.f_blocks * stat.f_frsize;
-                partition->bytesFree = stat.f_bfree * stat.f_frsize;
-                partition->bytesAvailable = stat.f_bavail * stat.f_frsize;
+                qint64 bytesFree = stat.f_bfree * stat.f_frsize;
+                qint64 bytesAvailable = stat.f_bavail * stat.f_frsize;
                 partition->readOnly = (stat.f_flag & ST_RDONLY) != 0;
+
+                if (partition->bytesFree != bytesFree || partition->bytesAvailable != bytesAvailable) {
+                    if (!changedPartitions.contains(partition)) {
+                        changedPartitions.append(partition);
+                    }
+                }
+                partition->bytesFree = bytesFree;
+                partition->bytesAvailable = bytesAvailable;
             }
         } else if (partition->storageType == Partition::External) {
             // Presume the file system can be mounted, unless we can confirm otherwise.
