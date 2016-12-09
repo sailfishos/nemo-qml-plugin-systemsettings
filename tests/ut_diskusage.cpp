@@ -52,7 +52,7 @@ static QVariantMap g_mocked_apkd_size;
 
 
 /* Mocked implementations of size calculation functions */
-quint64 DiskUsageWorker::calculateSize(QString directory, QString *expandedPath, bool androidHomeExists)
+quint64 DiskUsageWorker::calculateSize(QString directory, QString *expandedPath, bool)
 {
     if (expandedPath) {
         *expandedPath = directory;

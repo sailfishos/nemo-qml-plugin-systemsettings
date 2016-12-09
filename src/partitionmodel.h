@@ -57,6 +57,7 @@ public:
         BytesAvailableRole,
         BytesTotalRole,
         BytesFreeRole,
+        PartitionModelRole
     };
 
     enum Status {

@@ -53,7 +53,7 @@ public:
 
     void refresh();
     void refresh(PartitionPrivate *partition);
-    void refresh(const Partitions &partitions);
+    void refresh(const Partitions &partitions, Partitions &changedPartitions);
 
 signals:
     void partitionChanged(const Partition &partition);
