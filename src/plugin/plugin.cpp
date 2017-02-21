@@ -43,6 +43,7 @@
 #include "displaysettings.h"
 #include "aboutsettings.h"
 #include "developermodesettings.h"
+#include "batterystatus.h"
 #include "diskusage.h"
 #include "partitionmodel.h"
 #include "certificatemodel.h"
@@ -80,6 +81,7 @@ public:
         qmlRegisterType<CertificateModel>(uri, 1, 0, "CertificateModel");
         qmlRegisterSingletonType<VpnModel>(uri, 1, 0, "VpnModel", vpnmodel_api_factory);
         qRegisterMetaType<DeveloperModeSettings::Status>("DeveloperModeSettings::Status");
+        qmlRegisterType<BatteryStatus>(uri, 1, 0, "BatteryStatus");
         qmlRegisterType<DiskUsage>(uri, 1, 0, "DiskUsage");
     }
 };
