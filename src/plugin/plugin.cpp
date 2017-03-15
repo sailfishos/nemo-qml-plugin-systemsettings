@@ -48,6 +48,7 @@
 #include "partitionmodel.h"
 #include "certificatemodel.h"
 #include "vpnmodel.h"
+#include "locationsettings.h"
 
 static QObject *vpnmodel_api_factory(QQmlEngine *, QJSEngine *)
 {
@@ -83,6 +84,7 @@ public:
         qRegisterMetaType<DeveloperModeSettings::Status>("DeveloperModeSettings::Status");
         qmlRegisterType<BatteryStatus>(uri, 1, 0, "BatteryStatus");
         qmlRegisterType<DiskUsage>(uri, 1, 0, "DiskUsage");
+        qmlRegisterType<LocationSettings>(uri, 1, 0, "LocationSettings");
     }
 };
 
