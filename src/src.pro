@@ -6,7 +6,7 @@ QT += qml dbus systeminfo
 QT -= gui
 
 CONFIG += c++11 hide_symbols link_pkgconfig
-PKGCONFIG += profile mlite5 mce timed-qt5 libshadowutils blkid libcrypto nemomodels-qt5
+PKGCONFIG += profile mlite5 mce timed-qt5 libshadowutils blkid libcrypto nemomodels-qt5 libsailfishkeyprovider
 
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
 system(qdbusxml2cpp -c ConnmanVpnProxy -p connmanvpnproxy ../dbus/net.connman.vpn.xml -i qdbusxml2cpp_dbus_types.h)
@@ -30,7 +30,8 @@ SOURCES += \
     diskusage_impl.cpp \
     partition.cpp \
     partitionmanager.cpp \
-    partitionmodel.cpp
+    partitionmodel.cpp \
+    locationsettings.cpp
 
 PUBLIC_HEADERS = \
     languagemodel.h \
@@ -50,7 +51,8 @@ PUBLIC_HEADERS = \
     partition.h \
     partitionmanager.h \
     partitionmodel.h \
-    systemsettingsglobal.h
+    systemsettingsglobal.h \
+    locationsettings.h
 
 HEADERS += \
     $$PUBLIC_HEADERS \
@@ -70,6 +72,9 @@ target.path = $$[QT_INSTALL_LIBS]
 pkgconfig.files = $$PWD/pkgconfig/systemsettings.pc
 pkgconfig.path = $$target.path/pkgconfig
 
+locationconfig.files = $$PWD/location.conf
+locationconfig.path = /etc/location
+
 scripts.path = /usr/bin/
 scripts.files = vpn-updown.sh
 
@@ -81,6 +86,6 @@ QMAKE_PKGCONFIG_DESCRIPTION = System settings application development files
 QMAKE_PKGCONFIG_LIBDIR = $$target.path
 QMAKE_PKGCONFIG_INCDIR = $$develheaders.path
 QMAKE_PKGCONFIG_DESTDIR = pkgconfig
-QMAKE_PKGCONFIG_REQUIRES = Qt5Core Qt5DBus profile nemomodels-qt5
+QMAKE_PKGCONFIG_REQUIRES = Qt5Core Qt5DBus profile nemomodels-qt5 libsailfishkeyprovider
 
-INSTALLS += target develheaders pkgconfig scripts servicefiles
+INSTALLS += target develheaders pkgconfig scripts servicefiles locationconfig

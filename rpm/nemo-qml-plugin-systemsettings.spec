@@ -22,6 +22,7 @@ BuildRequires:  pkgconfig(libshadowutils)
 BuildRequires:  pkgconfig(blkid)
 BuildRequires:  pkgconfig(libcrypto)
 BuildRequires:  pkgconfig(nemomodels-qt5)
+BuildRequires:  pkgconfig(libsailfishkeyprovider)
 
 %description
 %{summary}.
@@ -64,6 +65,8 @@ chmod +x %{buildroot}/%{_bindir}/vpn-updown.sh
 %{_libdir}/libsystemsettings.so.*
 %{_libdir}/systemd/user/vpn-updown.service
 %{_bindir}/vpn-updown.sh
+%dir %attr(0775, root, privileged) /etc/location
+%config %attr(0664, root, privileged) /etc/location/location.conf
 
 %files devel
 %defattr(-,root,root,-)
