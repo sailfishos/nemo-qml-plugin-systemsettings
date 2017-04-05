@@ -318,9 +318,9 @@ void LocationSettings::writeSettings()
     locationSettingsValues.append(";");
     locationSettingsValues.append(boolToString(m_mlsEnabled));
     locationSettingsValues.append(";");
-    locationSettingsValues.append(boolToString(m_mlsOnlineState));
+    locationSettingsValues.append(boolToString(m_mlsOnlineState != OnlineAGpsAgreementNotAccepted));
     locationSettingsValues.append(";");
-    locationSettingsValues.append(boolToString(m_mlsOnlineState));
+    locationSettingsValues.append(boolToString(m_mlsOnlineState == OnlineAGpsEnabled));
     locationSettingsValues.append(";");
     locationSettingsValues.append(boolToString(m_hereState == OnlineAGpsEnabled));
     locationSettingsValues.append(";");
