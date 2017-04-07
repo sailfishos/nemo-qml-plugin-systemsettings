@@ -31,6 +31,7 @@
 
 #include "partitionmanager_p.h"
 
+#include <QDBusInterface>
 #include <QFile>
 #include <QRegularExpression>
 
@@ -95,6 +96,13 @@ PartitionManagerPrivate::PartitionManagerPrivate()
     }
 
     QDBusConnection systemBus = QDBusConnection::systemBus();
+
+    QDBusInterface systemd(systemdService,
+                           systemdPath,
+                           managerInterface,
+                           systemBus);
+    // Subscribe to systemd signals.
+    systemd.call(QDBus::NoBlock, QStringLiteral("Subscribe"));
 
     if (!systemBus.connect(
                 systemdService,
@@ -355,41 +363,41 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
     }
 }
 
-static const QString deviceNameFromSystemdService(const QString &serviceName)
+static const QString mountPathFromSystemdService(const QString &serviceName)
 {
-    // strip mount-sd@ (9) from the front, and .service (8) from the back to get the device name.
-    return serviceName.mid(9, serviceName.length() - 17);
+    // Format is like media-sdcard-3630\\x2d3563.mount
+    QString mountPath = serviceName;
+
+    mountPath.replace("-", "/");
+    mountPath.replace("\\x2d", "-");
+    mountPath.insert(0, "/");
+
+    // .mount (6) from the back
+    return mountPath.mid(0, mountPath.length() - 6);
 }
 
 void PartitionManagerPrivate::newUnit(const QString &serviceName, const QDBusObjectPath &)
 {
-    if (!serviceName.startsWith(QStringLiteral("mount-sd@"))) {
+    if (!serviceName.startsWith(QStringLiteral("media-sdcard"))) {
         return;
     }
 
-    const QString deviceName = deviceNameFromSystemdService(serviceName);
-
-    for (auto partition : m_partitions) {
-        if (partition->deviceName == deviceName) {
-            return;
-        }
-    }
-
+    // Always refresh when an sdcard got mounted.
     refresh();
 }
 
 void PartitionManagerPrivate::removedUnit(const QString &serviceName, const QDBusObjectPath &)
 {
-    if (!serviceName.startsWith(QStringLiteral("mount-sd@"))) {
+    if (!serviceName.startsWith(QStringLiteral("media-sdcard"))) {
         return;
     }
 
-    const QString deviceName = deviceNameFromSystemdService(serviceName);
+    const QString mountPath = mountPathFromSystemdService(serviceName);
 
     for (Partitions::iterator it = m_partitions.begin(); it != m_partitions.end(); ++it) {
         const auto partition = *it;
 
-        if (partition->deviceName == deviceName) {
+        if (partition->mountPath == mountPath) {
             refresh();
 
             return;
