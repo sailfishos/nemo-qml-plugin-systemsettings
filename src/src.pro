@@ -59,6 +59,7 @@ HEADERS += \
     qdbusxml2cpp_dbus_types.h \
     batterystatus_p.h \
     diskusage_p.h \
+    locationsettings_p.h \
     partition_p.h \
     partitionmanager_p.h
 
