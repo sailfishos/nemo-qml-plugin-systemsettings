@@ -55,6 +55,9 @@ class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
     Q_PROPERTY(bool gpsFlightMode READ gpsFlightMode WRITE setGpsFlightMode NOTIFY gpsFlightModeChanged)
     Q_PROPERTY(bool gpsAvailable READ gpsAvailable CONSTANT)
 
+    Q_PROPERTY(bool anyAGpsAvailable READ anyAGpsAvailable CONSTANT)
+    Q_PROPERTY(bool anyAGpsEnabled READ anyAGpsEnabled NOTIFY anyAGpsEnabledChanged)
+
     Q_PROPERTY(OnlineAGpsState hereState READ hereState WRITE setHereState NOTIFY hereStateChanged)
     Q_PROPERTY(bool hereAvailable READ hereAvailable CONSTANT)
 
@@ -76,6 +79,9 @@ public:
     bool gpsFlightMode() const;
     void setGpsFlightMode(bool flightMode);
     bool gpsAvailable() const;
+
+    bool anyAGpsAvailable() const;
+    bool anyAGpsEnabled() const;
 
     enum OnlineAGpsState {
         OnlineAGpsAgreementNotAccepted,
@@ -100,6 +106,7 @@ signals:
     void gpsFlightModeChanged();
     void mlsEnabledChanged();
     void mlsOnlineStateChanged();
+    void anyAGpsEnabledChanged();
 
 private slots:
     void readSettings();

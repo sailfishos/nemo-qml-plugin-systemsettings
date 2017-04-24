@@ -163,6 +163,16 @@ bool LocationSettings::gpsAvailable() const
     return QFile::exists(QStringLiteral("/usr/libexec/geoclue-hybris"));
 }
 
+bool LocationSettings::anyAGpsAvailable() const
+{
+    return mlsAvailable() || hereAvailable();
+}
+
+bool LocationSettings::anyAGpsEnabled() const
+{
+    return mlsEnabled() || (hereState() == LocationSettings::OnlineAGpsEnabled);
+}
+
 bool LocationSettings::mlsEnabled() const
 {
     return m_mlsEnabled;
@@ -174,6 +184,7 @@ void LocationSettings::setMlsEnabled(bool enabled)
         m_mlsEnabled = enabled;
         writeSettings();
         emit mlsEnabledChanged();
+        emit anyAGpsEnabledChanged();
     }
 }
 
@@ -210,6 +221,7 @@ void LocationSettings::setHereState(LocationSettings::OnlineAGpsState state)
     m_hereState = state;
     writeSettings();
     emit hereStateChanged();
+    emit anyAGpsEnabledChanged();
 }
 
 bool LocationSettings::hereAvailable() const
@@ -275,11 +287,13 @@ void LocationSettings::readSettings()
     if (m_hereState != hereState) {
         m_hereState = hereState;
         emit hereStateChanged();
+        emit anyAGpsEnabledChanged();
     }
 
     if (m_mlsEnabled != mlsEnabled) {
         m_mlsEnabled = mlsEnabled;
         emit mlsEnabledChanged();
+        emit anyAGpsEnabledChanged();
     }
 
     OnlineAGpsState mlsOnlineState = mlsAgreementAccepted
@@ -288,6 +302,7 @@ void LocationSettings::readSettings()
     if (m_mlsOnlineState != mlsOnlineState) {
         m_mlsOnlineState = mlsOnlineState;
         emit mlsOnlineStateChanged();
+        emit anyAGpsEnabledChanged();
     }
 }
 
