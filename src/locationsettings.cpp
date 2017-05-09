@@ -31,6 +31,7 @@
  */
 
 #include "locationsettings.h"
+#include "locationsettings_p.h"
 
 #include <QFile>
 #include <QSettings>
@@ -62,18 +63,27 @@ const QString LocationSettingsKeys = QStringLiteral(
                                         "cell_id_positioning_enabled" ";"
                                         "here_agreement_accepted"     ";"
                                         "agreement_accepted");
+const QString PoweredPropertyName = QStringLiteral("Powered");
 }
 
-LocationSettings::LocationSettings(QObject *parent)
-    :   QObject(parent)
+LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, LocationSettings *settings)
+    : QObject(settings)
+    , q(settings)
     , m_locationEnabled(false)
     , m_gpsEnabled(false)
     , m_mlsEnabled(true)
-    , m_mlsOnlineState(OnlineAGpsAgreementNotAccepted)
-    , m_hereState(OnlineAGpsAgreementNotAccepted)
+    , m_mlsOnlineState(LocationSettings::OnlineAGpsAgreementNotAccepted)
+    , m_hereState(LocationSettings::OnlineAGpsAgreementNotAccepted)
     , m_connMan(Q_NULLPTR)
     , m_gpsTech(Q_NULLPTR)
+    , m_gpsTechInterface(mode == LocationSettings::AsynchronousMode
+                         ? Q_NULLPTR
+                         : new QDBusInterface("net.connman",
+                                              "/net/connman/technology/gps",
+                                              "net.connman.Technology",
+                                              QDBusConnection::systemBus()))
 {
+
     connect(&m_watcher, SIGNAL(fileChanged(QString)), this, SLOT(readSettings()));
     connect(&m_watcher, SIGNAL(directoryChanged(QString)), this, SLOT(readSettings()));
 
@@ -84,77 +94,138 @@ LocationSettings::LocationSettings(QObject *parent)
         qWarning() << "Unable to follow location configuration file changes";
     }
 
-    m_connMan = NetworkManagerFactory::createInstance();
-    connect(m_connMan, &NetworkManager::technologiesChanged,
-            this, &LocationSettings::findGpsTech);
-    connect(m_connMan, &NetworkManager::availabilityChanged,
-            this, &LocationSettings::findGpsTech);
-
-    findGpsTech();
-}
-
-LocationSettings::~LocationSettings()
-{
-    if (m_gpsTech) {
-        disconnect(m_gpsTech, 0, this, 0);
-        m_gpsTech = 0;
+    if (m_gpsTechInterface) {
+        QDBusConnection::systemBus().connect("net.connman",
+                                             "/net/connman/technology/gps",
+                                             "net.connman.Technology",
+                                             "PropertyChanged",
+                                             this, SLOT(gpsTechPropertyChanged(QString,QVariant)));
+    } else {
+        m_connMan = NetworkManagerFactory::createInstance();
+        connect(m_connMan, &NetworkManager::technologiesChanged,
+                this, &LocationSettingsPrivate::findGpsTech);
+        connect(m_connMan, &NetworkManager::availabilityChanged,
+                this, &LocationSettingsPrivate::findGpsTech);
+        findGpsTech();
     }
 }
 
-void LocationSettings::findGpsTech()
+LocationSettingsPrivate::~LocationSettingsPrivate()
+{
+    if (m_gpsTech) {
+        disconnect(m_gpsTech, 0, q, 0);
+        m_gpsTech = 0;
+    }
+    if (m_gpsTechInterface) {
+        delete m_gpsTechInterface;
+        m_gpsTechInterface = 0;
+    }
+}
+
+void LocationSettingsPrivate::gpsTechPropertyChanged(const QString &propertyName, const QVariant &)
+{
+    if (propertyName == PoweredPropertyName) {
+        emit q->gpsFlightModeChanged();
+    }
+}
+
+void LocationSettingsPrivate::findGpsTech()
 {
     NetworkTechnology *newGpsTech = m_connMan->getTechnology(QStringLiteral("gps"));
     if (newGpsTech == m_gpsTech) {
         return; // no change.
     }
     if (m_gpsTech) {
-        disconnect(m_gpsTech, 0, this, 0);
+        disconnect(m_gpsTech, 0, q, 0);
     }
     m_gpsTech = newGpsTech;
     if (m_gpsTech) {
         connect(m_gpsTech, &NetworkTechnology::poweredChanged,
-                this, &LocationSettings::gpsFlightModeChanged);
+                q, &LocationSettings::gpsFlightModeChanged);
     }
-    emit gpsFlightModeChanged();
+    emit q->gpsFlightModeChanged();
+}
+
+LocationSettings::LocationSettings(QObject *parent)
+    : QObject(parent)
+    , d_ptr(new LocationSettingsPrivate(LocationSettings::AsynchronousMode, this))
+{
+}
+
+LocationSettings::LocationSettings(LocationSettings::Mode mode, QObject *parent)
+    : QObject(parent)
+    , d_ptr(new LocationSettingsPrivate(mode, this))
+{
+}
+
+LocationSettings::~LocationSettings()
+{
 }
 
 bool LocationSettings::locationEnabled() const
 {
-    return m_locationEnabled;
+    Q_D(const LocationSettings);
+    return d->m_locationEnabled;
 }
 
 void LocationSettings::setLocationEnabled(bool enabled)
 {
-    if (enabled != m_locationEnabled) {
-        m_locationEnabled = enabled;
-        writeSettings();
+    Q_D(LocationSettings);
+    if (enabled != d->m_locationEnabled) {
+        d->m_locationEnabled = enabled;
+        d->writeSettings();
         emit locationEnabledChanged();
     }
 }
 
 bool LocationSettings::gpsEnabled() const
 {
-    return m_gpsEnabled;
+    Q_D(const LocationSettings);
+    return d->m_gpsEnabled;
 }
 
 void LocationSettings::setGpsEnabled(bool enabled)
 {
-    if (enabled != m_gpsEnabled) {
-        m_gpsEnabled = enabled;
-        writeSettings();
+    Q_D(LocationSettings);
+    if (enabled != d->m_gpsEnabled) {
+        d->m_gpsEnabled = enabled;
+        d->writeSettings();
         emit gpsEnabledChanged();
     }
 }
 
 bool LocationSettings::gpsFlightMode() const
 {
-    return m_gpsTech == Q_NULLPTR ? false : !(m_gpsTech->powered());
+    Q_D(const LocationSettings);
+    if (d->m_gpsTechInterface) {
+        QDBusReply<QVariantMap> reply = d->m_gpsTechInterface->call("GetProperties");
+        if (reply.error().isValid()) {
+            qWarning() << reply.error().message();
+        } else {
+            QVariantMap props = reply.value();
+            if (props.contains(PoweredPropertyName)) {
+                return !props.value(PoweredPropertyName).toBool();
+            } else {
+                qWarning() << "Powered property not returned for GPS technology!";
+            }
+        }
+        return false;
+    }
+    return d->m_gpsTech == Q_NULLPTR ? false : !(d->m_gpsTech->powered());
 }
 
 void LocationSettings::setGpsFlightMode(bool flightMode)
 {
-    if (m_gpsTech && m_gpsTech->powered() == flightMode) {
-        m_gpsTech->setPowered(!flightMode);
+    Q_D(LocationSettings);
+    if (d->m_gpsTechInterface) {
+        QDBusReply<void> reply = d->m_gpsTechInterface->call("SetProperty",
+                                                             PoweredPropertyName,
+                                                             QVariant::fromValue<QDBusVariant>(QDBusVariant(QVariant::fromValue<bool>(!flightMode))));
+        if (reply.error().isValid()) {
+            qWarning() << reply.error().message();
+        }
+    } else if (d->m_gpsTech && d->m_gpsTech->powered() == flightMode) {
+        d->m_gpsTech->setPowered(!flightMode);
     }
 }
 
@@ -165,30 +236,34 @@ bool LocationSettings::gpsAvailable() const
 
 bool LocationSettings::mlsEnabled() const
 {
-    return m_mlsEnabled;
+    Q_D(const LocationSettings);
+    return d->m_mlsEnabled;
 }
 
 void LocationSettings::setMlsEnabled(bool enabled)
 {
-    if (enabled != m_mlsEnabled) {
-        m_mlsEnabled = enabled;
-        writeSettings();
+    Q_D(LocationSettings);
+    if (enabled != d->m_mlsEnabled) {
+        d->m_mlsEnabled = enabled;
+        d->writeSettings();
         emit mlsEnabledChanged();
     }
 }
 
 LocationSettings::OnlineAGpsState LocationSettings::mlsOnlineState() const
 {
-    return m_mlsOnlineState;
+    Q_D(const LocationSettings);
+    return d->m_mlsOnlineState;
 }
 
 void LocationSettings::setMlsOnlineState(LocationSettings::OnlineAGpsState state)
 {
-    if (state == m_mlsOnlineState)
+    Q_D(LocationSettings);
+    if (state == d->m_mlsOnlineState)
         return;
 
-    m_mlsOnlineState = state;
-    writeSettings();
+    d->m_mlsOnlineState = state;
+    d->writeSettings();
     emit mlsOnlineStateChanged();
 }
 
@@ -199,16 +274,18 @@ bool LocationSettings::mlsAvailable() const
 
 LocationSettings::OnlineAGpsState LocationSettings::hereState() const
 {
-    return m_hereState;
+    Q_D(const LocationSettings);
+    return d->m_hereState;
 }
 
 void LocationSettings::setHereState(LocationSettings::OnlineAGpsState state)
 {
-    if (state == m_hereState)
+    Q_D(LocationSettings);
+    if (state == d->m_hereState)
         return;
 
-    m_hereState = state;
-    writeSettings();
+    d->m_hereState = state;
+    d->writeSettings();
     emit hereStateChanged();
 }
 
@@ -217,7 +294,7 @@ bool LocationSettings::hereAvailable() const
     return QFile::exists(QStringLiteral("/usr/libexec/geoclue-here"));
 }
 
-void LocationSettings::readSettings()
+void LocationSettingsPrivate::readSettings()
 {
     if (!m_processMutex) {
         m_processMutex.reset(new Sailfish::KeyProvider::ProcessMutex(LocationSettingsFile.toLatin1().constData()));
@@ -261,37 +338,37 @@ void LocationSettings::readSettings()
 
     if (m_locationEnabled != locationEnabled) {
         m_locationEnabled = locationEnabled;
-        emit locationEnabledChanged();
+        emit q->locationEnabledChanged();
     }
 
     if (m_gpsEnabled != gpsEnabled) {
         m_gpsEnabled = gpsEnabled;
-        emit gpsEnabledChanged();
+        emit q->gpsEnabledChanged();
     }
 
-    OnlineAGpsState hereState = hereAgreementAccepted
-            ? (hereEnabled ? OnlineAGpsEnabled : OnlineAGpsDisabled)
-            : OnlineAGpsAgreementNotAccepted;
+    LocationSettings::OnlineAGpsState hereState = hereAgreementAccepted
+            ? (hereEnabled ? LocationSettings::OnlineAGpsEnabled : LocationSettings::OnlineAGpsDisabled)
+            : LocationSettings::OnlineAGpsAgreementNotAccepted;
     if (m_hereState != hereState) {
         m_hereState = hereState;
-        emit hereStateChanged();
+        emit q->hereStateChanged();
     }
 
     if (m_mlsEnabled != mlsEnabled) {
         m_mlsEnabled = mlsEnabled;
-        emit mlsEnabledChanged();
+        emit q->mlsEnabledChanged();
     }
 
-    OnlineAGpsState mlsOnlineState = mlsAgreementAccepted
-            ? ((mlsOnlineEnabled && m_mlsEnabled) ? OnlineAGpsEnabled : OnlineAGpsDisabled)
-            : OnlineAGpsAgreementNotAccepted;
+    LocationSettings::OnlineAGpsState mlsOnlineState = mlsAgreementAccepted
+            ? ((mlsOnlineEnabled && m_mlsEnabled) ? LocationSettings::OnlineAGpsEnabled : LocationSettings::OnlineAGpsDisabled)
+            : LocationSettings::OnlineAGpsAgreementNotAccepted;
     if (m_mlsOnlineState != mlsOnlineState) {
         m_mlsOnlineState = mlsOnlineState;
-        emit mlsOnlineStateChanged();
+        emit q->mlsOnlineStateChanged();
     }
 }
 
-void LocationSettings::writeSettings()
+void LocationSettingsPrivate::writeSettings()
 {
     // new file would be owned by creating process uid. we cannot allow this since the access is handled with group
     if (!QFile(LocationSettingsFile).exists()) {
@@ -301,11 +378,11 @@ void LocationSettings::writeSettings()
 
     // set the aGPS providers key based upon the available providers
     QString agps_providers;
-    if (m_mlsEnabled && m_hereState == OnlineAGpsEnabled) {
+    if (m_mlsEnabled && m_hereState == LocationSettings::OnlineAGpsEnabled) {
         agps_providers = QStringLiteral("\"mls,here\"");
     } else if (m_mlsEnabled) {
         agps_providers = QStringLiteral("\"mls\"");
-    } else if (m_hereState == OnlineAGpsEnabled) {
+    } else if (m_hereState == LocationSettings::OnlineAGpsEnabled) {
         agps_providers = QStringLiteral("\"here\"");
     }
 
@@ -318,22 +395,22 @@ void LocationSettings::writeSettings()
     locationSettingsValues.append(";");
     locationSettingsValues.append(boolToString(m_mlsEnabled));
     locationSettingsValues.append(";");
-    locationSettingsValues.append(boolToString(m_mlsOnlineState != OnlineAGpsAgreementNotAccepted));
+    locationSettingsValues.append(boolToString(m_mlsOnlineState != LocationSettings::OnlineAGpsAgreementNotAccepted));
     locationSettingsValues.append(";");
-    locationSettingsValues.append(boolToString(m_mlsOnlineState == OnlineAGpsEnabled));
+    locationSettingsValues.append(boolToString(m_mlsOnlineState == LocationSettings::OnlineAGpsEnabled));
     locationSettingsValues.append(";");
-    locationSettingsValues.append(boolToString(m_hereState == OnlineAGpsEnabled));
+    locationSettingsValues.append(boolToString(m_hereState == LocationSettings::OnlineAGpsEnabled));
     locationSettingsValues.append(";");
-    locationSettingsValues.append(boolToString(m_hereState != OnlineAGpsAgreementNotAccepted));
+    locationSettingsValues.append(boolToString(m_hereState != LocationSettings::OnlineAGpsAgreementNotAccepted));
     locationSettingsValues.append(";");
-    locationSettingsValues.append(boolToString(m_hereState == OnlineAGpsEnabled));
+    locationSettingsValues.append(boolToString(m_hereState == LocationSettings::OnlineAGpsEnabled));
     // and the deprecated keys values...
     locationSettingsValues.append(";");
     locationSettingsValues.append(boolToString(m_mlsEnabled));
     locationSettingsValues.append(";");
-    locationSettingsValues.append(boolToString(m_hereState == OnlineAGpsEnabled));
+    locationSettingsValues.append(boolToString(m_hereState == LocationSettings::OnlineAGpsEnabled));
     locationSettingsValues.append(";");
-    locationSettingsValues.append(boolToString(m_hereState != OnlineAGpsAgreementNotAccepted));
+    locationSettingsValues.append(boolToString(m_hereState != LocationSettings::OnlineAGpsAgreementNotAccepted));
 
     if (!m_processMutex) {
         m_processMutex.reset(new Sailfish::KeyProvider::ProcessMutex(LocationSettingsFile.toLatin1().constData()));

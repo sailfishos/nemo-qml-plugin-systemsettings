@@ -36,15 +36,9 @@
 #include <systemsettingsglobal.h>
 
 #include <QObject>
-#include <QFileSystemWatcher>
-#include <QScopedPointer>
 #include <QString>
 
-#include <sailfishkeyprovider_processmutex.h>
-
-class NetworkManager;
-class NetworkTechnology;
-
+class LocationSettingsPrivate;
 class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
 {
     Q_OBJECT
@@ -65,8 +59,14 @@ class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
     Q_ENUMS(OnlineAGpsState)
 
 public:
+    enum Mode {
+        AsynchronousMode,
+        SynchronousMode
+    };
+
     explicit LocationSettings(QObject *parent = 0);
-    ~LocationSettings();
+    explicit LocationSettings(Mode mode, QObject *parent = 0);
+    virtual ~LocationSettings();
 
     bool locationEnabled() const;
     void setLocationEnabled(bool enabled);
@@ -101,22 +101,10 @@ signals:
     void mlsEnabledChanged();
     void mlsOnlineStateChanged();
 
-private slots:
-    void readSettings();
-    void findGpsTech();
-
 private:
-    void writeSettings();
-
-    QFileSystemWatcher m_watcher;
-    bool m_locationEnabled;
-    bool m_gpsEnabled;
-    bool m_mlsEnabled;
-    OnlineAGpsState m_mlsOnlineState;
-    OnlineAGpsState m_hereState;
-    NetworkManager *m_connMan;
-    NetworkTechnology *m_gpsTech;
-    mutable QScopedPointer<Sailfish::KeyProvider::ProcessMutex> m_processMutex;
+    LocationSettingsPrivate *d_ptr;
+    Q_DISABLE_COPY(LocationSettings)
+    Q_DECLARE_PRIVATE(LocationSettings)
 };
 
 #endif // LOCATIONSETTINGS_H
