@@ -60,6 +60,10 @@ class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
                READ username
                CONSTANT)
 
+    Q_PROPERTY(bool developerModeAvailable
+            READ developerModeAvailable
+            NOTIFY developerModeAvailableChanged)
+
     Q_PROPERTY(bool developerModeEnabled
             READ developerModeEnabled
             NOTIFY developerModeEnabledChanged)
@@ -96,6 +100,7 @@ public:
     QString wlanIpAddress() const;
     QString usbIpAddress() const;
     QString username() const;
+    bool developerModeAvailable() const;
     bool developerModeEnabled() const;
     bool remoteLoginEnabled() const;
     bool workerWorking() const;
@@ -110,6 +115,7 @@ public:
 signals:
     void wlanIpAddressChanged();
     void usbIpAddressChanged();
+    void developerModeAvailableChanged();
     void developerModeEnabledChanged();
     void remoteLoginEnabledChanged();
     void workerWorkingChanged();
@@ -138,12 +144,13 @@ private:
     QDBusInterface m_usbModeDaemon;
     QDBusObjectPath m_packageKitTransaction;
     QDBusPendingCallWatcher *m_pendingPackageKitCall;
+    QDBusPendingCallWatcher *(DeveloperModeSettings::*m_packageKitCommand)(const QString &packageId);
 
     QString m_wlanIpAddress;
     QString m_usbInterface;
     QString m_usbIpAddress;
     QString m_username;
-    QDBusPendingCallWatcher *(DeveloperModeSettings::*m_packageKitCommand)(const QString &packageId);
+    QString m_developerModePackageId;
     bool m_developerModeEnabled;
     bool m_remoteLoginEnabled;
     DeveloperModeSettings::Status m_workerStatus;

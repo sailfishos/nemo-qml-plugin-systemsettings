@@ -129,6 +129,7 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_usbModeDaemon(USB_MODED_SERVICE, USB_MODED_PATH, USB_MODED_INTERFACE,
             QDBusConnection::systemBus())
     , m_pendingPackageKitCall(nullptr)
+    , m_packageKitCommand(nullptr)
     , m_wlanIpAddress("-")
     , m_usbInterface(USB_NETWORK_FALLBACK_INTERFACE)
     , m_usbIpAddress(USB_NETWORK_FALLBACK_IP)
@@ -144,6 +145,11 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
         m_username = QString(pwd->pw_name);
     } else {
         qWarning() << "Failed to return username using getpwuid()";
+    }
+
+    if (!m_developerModeEnabled) {
+        m_workerStatus = CheckingStatus;
+        executePackageKitCommand(&DeveloperModeSettings::resolvePackageId, DEVELOPER_MODE_PACKAGE);
     }
 
     refresh();
@@ -173,6 +179,11 @@ QString
 DeveloperModeSettings::username() const
 {
     return m_username;
+}
+
+bool DeveloperModeSettings::developerModeAvailable() const
+{
+    return m_developerModeEnabled || !m_developerModePackageId.isEmpty();
 }
 
 bool
@@ -219,7 +230,12 @@ DeveloperModeSettings::setDeveloperMode(bool enabled)
             m_packageKitCommand = &DeveloperModeSettings::removePackage;
         }
 
-        executePackageKitCommand(&DeveloperModeSettings::resolvePackageId, DEVELOPER_MODE_PACKAGE);
+        if (m_developerModePackageId.isEmpty()) {
+            executePackageKitCommand(&DeveloperModeSettings::resolvePackageId, DEVELOPER_MODE_PACKAGE);
+        } else {
+            executePackageKitCommand(m_packageKitCommand, m_developerModePackageId);
+            m_packageKitCommand = nullptr;
+        }
         emit workerStatusChanged();
         emit workerWorkingChanged();
     }
@@ -430,12 +446,18 @@ void DeveloperModeSettings::executePackageKitCommand(
 void DeveloperModeSettings::transactionPackage(uint, const QString &packageId)
 {
     Q_ASSERT(!m_pendingPackageKitCall);
-    Q_ASSERT(m_packageKitCommand);
 
     m_packageKitTransaction = QDBusObjectPath();
 
-    executePackageKitCommand(m_packageKitCommand, packageId);
-    m_packageKitCommand = nullptr;
+    if (m_packageKitCommand) {
+        executePackageKitCommand(m_packageKitCommand, packageId);
+        m_packageKitCommand = nullptr;
+    }
+
+    m_developerModePackageId = packageId;
+    if (!m_developerModeEnabled) {
+        emit developerModeAvailableChanged();
+    }
 }
 
 void DeveloperModeSettings::transactionResolveFinished(uint exit, uint)
@@ -443,8 +465,9 @@ void DeveloperModeSettings::transactionResolveFinished(uint exit, uint)
     if (exit != 1) {
         m_packageKitTransaction = QDBusObjectPath();
 
-        m_workerStatus = Failure;
+        m_workerStatus = m_packageKitCommand ? Failure : Idle;
         m_workerProgress = PROGRESS_INDETERMINATE;
+        m_packageKitCommand = nullptr;
 
         emit workerStatusChanged();
         emit workerWorkingChanged();
