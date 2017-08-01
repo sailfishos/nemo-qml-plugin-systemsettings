@@ -994,7 +994,7 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
                            directive == QStringLiteral("auth-user-pass")) {
                     if (!arguments.isEmpty()) {
                         // If these file paths are not absolute, assume they are in the same directory as the provisioning file
-                        QString file(arguments.at(1));
+                        QString file(arguments.at(0));
                         if (!file.startsWith(QChar('/'))) {
                             const QFileInfo info(provisioningFile.fileName());
                             file = info.dir().absoluteFilePath(file);
