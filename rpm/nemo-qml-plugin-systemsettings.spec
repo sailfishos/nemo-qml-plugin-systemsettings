@@ -15,7 +15,7 @@ BuildRequires:  pkgconfig(Qt5SystemInfo)
 BuildRequires:  pkgconfig(Qt5Test)
 BuildRequires:  pkgconfig(timed-qt5)
 BuildRequires:  pkgconfig(profile)
-BuildRequires:  pkgconfig(mce)
+BuildRequires:  pkgconfig(mce) >= 1.21.0
 BuildRequires:  pkgconfig(mlite5)
 BuildRequires:  pkgconfig(usb-moded-qt5)
 BuildRequires:  pkgconfig(libshadowutils)
