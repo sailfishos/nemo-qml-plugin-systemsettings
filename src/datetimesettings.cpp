@@ -79,6 +79,11 @@ void DateTimeSettings::onGetWallClockInfoFinished(QDBusPendingCallWatcher *watch
     watcher->deleteLater();
 }
 
+bool DateTimeSettings::ready() const
+{
+    return m_timedInfoValid;
+}
+
 void DateTimeSettings::setTime(int hour, int minute)
 {
     QDate currentDate = QDate::currentDate();
@@ -195,6 +200,8 @@ bool DateTimeSettings::setTime(time_t time)
 
 void DateTimeSettings::onTimedSignal(const Maemo::Timed::WallClock::Info &info, bool time_changed)
 {
+    const bool prevReady = ready();
+
     m_timedInfo = info;
     m_timedInfoValid = true;
 
@@ -218,5 +225,9 @@ void DateTimeSettings::onTimedSignal(const Maemo::Timed::WallClock::Info &info, 
     if (newTimezone != m_timezone) {
         m_timezone = newTimezone;
         emit timezoneChanged();
+    }
+
+    if (prevReady != ready()) {
+        emit readyChanged();
     }
 }
