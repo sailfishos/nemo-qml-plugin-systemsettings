@@ -45,6 +45,7 @@ class SYSTEMSETTINGS_EXPORT DateTimeSettings: public QObject
     Q_OBJECT
 
     Q_ENUMS(HourMode)
+    Q_PROPERTY(bool ready READ ready NOTIFY readyChanged)
     Q_PROPERTY(bool automaticTimeUpdate READ automaticTimeUpdate WRITE setAutomaticTimeUpdate NOTIFY automaticTimeUpdateChanged)
     Q_PROPERTY(bool automaticTimezoneUpdate READ automaticTimezoneUpdate WRITE setAutomaticTimezoneUpdate NOTIFY automaticTimezoneUpdateChanged)
     Q_PROPERTY(QString timezone READ timezone WRITE setTimezone NOTIFY timezoneChanged)
@@ -61,6 +62,8 @@ public:
     Q_INVOKABLE void setTime(int hour, int minute);
     Q_INVOKABLE void setDate(const QDate &date);
 
+    bool ready() const;
+
     bool automaticTimeUpdate();
     void setAutomaticTimeUpdate(bool enable);
 
@@ -73,6 +76,7 @@ public:
     Q_INVOKABLE void setHourMode(HourMode mode);
 
 signals:
+    void readyChanged();
     void timeChanged();
     void automaticTimeUpdateChanged();
     void automaticTimezoneUpdateChanged();
