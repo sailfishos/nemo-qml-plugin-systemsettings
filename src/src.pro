@@ -83,6 +83,7 @@ servicefiles.path = /usr/lib/systemd/user/
 servicefiles.files = vpn-updown.service
 
 QMAKE_PKGCONFIG_NAME = lib$$TARGET
+QMAKE_PKGCONFIG_VERSION = $$VERSION
 QMAKE_PKGCONFIG_DESCRIPTION = System settings application development files
 QMAKE_PKGCONFIG_LIBDIR = $$target.path
 QMAKE_PKGCONFIG_INCDIR = $$develheaders.path
