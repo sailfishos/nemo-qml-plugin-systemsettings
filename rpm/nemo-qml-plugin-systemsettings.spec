@@ -1,6 +1,6 @@
 Name:       nemo-qml-plugin-systemsettings
 Summary:    System settings plugin for Nemo Mobile
-Version:    0.2.30
+Version:    0.2.32
 Release:    1
 Group:      System/Libraries
 License:    BSD
@@ -47,8 +47,8 @@ Group:      System/Libraries
 %setup -q -n %{name}-%{version}
 
 %build
-%qmake5 
-make %{?jobs:-j%jobs}
+%qmake5 "VERSION=%{version}"
+make %{?_smp_mflags}
 
 %install
 rm -rf %{buildroot}
