@@ -48,7 +48,7 @@ Group:      System/Libraries
 
 %build
 %qmake5 "VERSION=%{version}"
-make %{?jobs:-j%jobs}
+make %{?_smp_mflags}
 
 %install
 rm -rf %{buildroot}
