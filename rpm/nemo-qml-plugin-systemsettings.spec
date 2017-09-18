@@ -10,6 +10,7 @@ Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 Requires:       connman
 Requires:       mce >= 1.83.0
+Requires:       libsailfishkeyprovider >= 0.0.14
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5SystemInfo)
 BuildRequires:  pkgconfig(Qt5Test)
@@ -22,7 +23,7 @@ BuildRequires:  pkgconfig(libshadowutils)
 BuildRequires:  pkgconfig(blkid)
 BuildRequires:  pkgconfig(libcrypto)
 BuildRequires:  pkgconfig(nemomodels-qt5)
-BuildRequires:  pkgconfig(libsailfishkeyprovider)
+BuildRequires:  pkgconfig(libsailfishkeyprovider) >= 0.0.14
 BuildRequires:  pkgconfig(connman-qt5)
 
 %description
