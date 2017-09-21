@@ -72,10 +72,6 @@ class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
             READ remoteLoginEnabled
             NOTIFY remoteLoginEnabledChanged)
 
-    Q_PROPERTY(bool workerWorking
-            READ workerWorking
-            NOTIFY workerWorkingChanged)
-
     Q_PROPERTY(enum DeveloperModeSettings::Status workerStatus
             READ workerStatus
             NOTIFY workerStatusChanged)
@@ -92,9 +88,7 @@ public:
         Idle = 0,
         CheckingStatus,
         Installing,
-        Removing,
-        Success,
-        Failure,
+        Removing
     };
 
     QString wlanIpAddress() const;
@@ -103,7 +97,6 @@ public:
     bool developerModeAvailable() const;
     bool developerModeEnabled() const;
     bool remoteLoginEnabled() const;
-    bool workerWorking() const;
     enum DeveloperModeSettings::Status workerStatus() const;
     int workerProgress() const;
 
@@ -124,7 +117,6 @@ signals:
 
 private slots:
     void transactionPackage(uint info, const QString &packageId);
-    void transactionResolveFinished(uint exit, uint runtime);
     void transactionItemProgress(const QString &package, uint status, uint progress);
     void transactionErrorCode(uint code, const QString &message);
     void transactionFinished(uint exit, uint runtime);

@@ -198,12 +198,6 @@ DeveloperModeSettings::remoteLoginEnabled() const
     return m_remoteLoginEnabled;
 }
 
-bool
-DeveloperModeSettings::workerWorking() const
-{
-    return m_workerStatus == Installing || m_workerStatus == Removing;
-}
-
 enum DeveloperModeSettings::Status
 DeveloperModeSettings::workerStatus() const
 {
@@ -237,7 +231,6 @@ DeveloperModeSettings::setDeveloperMode(bool enabled)
             m_packageKitCommand = nullptr;
         }
         emit workerStatusChanged();
-        emit workerWorkingChanged();
     }
 }
 
@@ -428,17 +421,15 @@ void DeveloperModeSettings::executePackageKitCommand(
                 if (!reply.isValid()) {
                     qWarning() << "Failed to call PackageKit method" << reply.error().message();
 
-                    m_workerStatus = Failure;
+                    m_workerStatus = Idle;
                     emit workerStatusChanged();
-                    emit workerWorkingChanged();
                 }
             });
         } else {
             qWarning() << "Failed to create PackageKit transaction" << reply.error().message();
 
-            m_workerStatus = Failure;
+            m_workerStatus = Idle;
             emit workerStatusChanged();
-            emit workerWorkingChanged();
         }
     });
 }
@@ -459,22 +450,6 @@ void DeveloperModeSettings::transactionPackage(uint, const QString &packageId)
         emit developerModeAvailableChanged();
     }
 }
-
-void DeveloperModeSettings::transactionResolveFinished(uint exit, uint)
-{
-    if (exit != 1) {
-        m_packageKitTransaction = QDBusObjectPath();
-
-        m_workerStatus = m_packageKitCommand ? Failure : Idle;
-        m_workerProgress = PROGRESS_INDETERMINATE;
-        m_packageKitCommand = nullptr;
-
-        emit workerStatusChanged();
-        emit workerWorkingChanged();
-        emit workerProgressChanged();
-    }
-}
-
 
 void DeveloperModeSettings::transactionItemProgress(const QString &, uint, uint progress)
 {
@@ -503,13 +478,12 @@ void DeveloperModeSettings::transactionFinished(uint exit, uint)
     const bool enabled = m_developerModeEnabled;
     m_developerModeEnabled = QFile::exists(DEVELOPER_MODE_PROVIDED_FILE);
 
-    m_workerStatus = exit == 1 ? Success : Failure;
+    m_workerStatus = Idle;
     m_workerProgress = PROGRESS_INDETERMINATE;
 
     if (m_developerModeEnabled != enabled) {
         emit developerModeEnabledChanged();
     }
     emit workerStatusChanged();
-    emit workerWorkingChanged();
     emit workerProgressChanged();
 }
