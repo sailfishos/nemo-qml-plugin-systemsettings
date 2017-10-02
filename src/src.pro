@@ -31,7 +31,8 @@ SOURCES += \
     partition.cpp \
     partitionmanager.cpp \
     partitionmodel.cpp \
-    locationsettings.cpp
+    locationsettings.cpp \
+    timezoneinfo.cpp
 
 PUBLIC_HEADERS = \
     languagemodel.h \
@@ -52,7 +53,8 @@ PUBLIC_HEADERS = \
     partitionmanager.h \
     partitionmodel.h \
     systemsettingsglobal.h \
-    locationsettings.h
+    locationsettings.h \
+    timezoneinfo.h
 
 HEADERS += \
     $$PUBLIC_HEADERS \
