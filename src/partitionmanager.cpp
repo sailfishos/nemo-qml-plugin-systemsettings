@@ -315,6 +315,19 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
 
     blkid_cache cache = nullptr;
 
+    // Query filesystems supported by this device
+    // Note this will only find filesystems supported either directly by the
+    // kernel, or by modules already loaded.
+    QStringList supportedFs;
+    QFile filesystems(QStringLiteral("/proc/filesystems"));
+    if (filesystems.open(QIODevice::ReadOnly)) {
+        QString line = filesystems.readLine();
+        while (line.length() > 0) {
+            supportedFs << line.trimmed().split('\t').last();
+            line = filesystems.readLine();
+        }
+    }
+    
     for (auto partition : partitions) {
         if (partition->status == Partition::Mounted) {
             struct statvfs64 stat;
@@ -355,7 +368,7 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
             if (char * const type = blkid_get_tag_value(
                         cache, "TYPE", partition->devicePath.toUtf8().constData())) {
                 partition->filesystemType = QString::fromUtf8(type);
-                partition->canMount = !partition->filesystemType.isEmpty();
+                partition->canMount = !partition->filesystemType.isEmpty() && supportedFs.contains(partition->filesystemType);
 
                 ::free(type);
             }
