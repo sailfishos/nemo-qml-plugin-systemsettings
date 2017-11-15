@@ -49,6 +49,7 @@
 #include "certificatemodel.h"
 #include "vpnmodel.h"
 #include "locationsettings.h"
+#include "deviceinfo.h"
 
 static QObject *vpnmodel_api_factory(QQmlEngine *, QJSEngine *)
 {
@@ -85,6 +86,7 @@ public:
         qmlRegisterType<BatteryStatus>(uri, 1, 0, "BatteryStatus");
         qmlRegisterType<DiskUsage>(uri, 1, 0, "DiskUsage");
         qmlRegisterType<LocationSettings>(uri, 1, 0, "LocationSettings");
+        qmlRegisterType<DeviceInfo>(uri, 1, 0, "DeviceInfo");
     }
 };
 
