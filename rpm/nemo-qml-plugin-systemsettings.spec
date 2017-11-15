@@ -25,6 +25,7 @@ BuildRequires:  pkgconfig(libcrypto)
 BuildRequires:  pkgconfig(nemomodels-qt5)
 BuildRequires:  pkgconfig(libsailfishkeyprovider) >= 0.0.14
 BuildRequires:  pkgconfig(connman-qt5)
+BuildRequires:  pkgconfig(ssu-sysinfo) >= 1.1.0
 
 %description
 %{summary}.
