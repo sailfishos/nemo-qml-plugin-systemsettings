@@ -120,6 +120,7 @@ private slots:
     void transactionItemProgress(const QString &package, uint status, uint progress);
     void transactionErrorCode(uint code, const QString &message);
     void transactionFinished(uint exit, uint runtime);
+    void transactionPropertiesChanged(const QString &interface, const QVariantMap &changed, const QStringList &invalidated);
 
 private:
     QDBusPendingCallWatcher *resolvePackageId(const QString &packageName);
@@ -127,6 +128,7 @@ private:
     QDBusPendingCallWatcher *removePackage(const QString &packageId);
 
     void connectTransactionSignal(const QString &name, const char *slot);
+    void connectPropertiesChanged();
 
     void executePackageKitCommand(
             QDBusPendingCallWatcher *(DeveloperModeSettings::*command)(const QString &),
@@ -147,6 +149,8 @@ private:
     bool m_remoteLoginEnabled;
     DeveloperModeSettings::Status m_workerStatus;
     int m_workerProgress;
+    int m_transactionStatus;
+
 };
 
 Q_DECLARE_METATYPE(DeveloperModeSettings::Status);

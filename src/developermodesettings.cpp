@@ -70,9 +70,12 @@
 
 /* D-Bus signal names */
 #define PACKAGEKIT_TRANSACTION_PACKAGE "Package"
-#define PACKAGEKIT_TRANSACTION_ITEMPROGRESS "ItemProgress"
 #define PACKAGEKIT_TRANSACTION_ERRORCODE "ErrorCode"
 #define PACKAGEKIT_TRANSACTION_FINISHED "Finished"
+
+/* D-Bus property names */
+#define PACKAGEKIT_TRANSACTION_PERCENTAGE "Percentage"
+#define PACKAGEKIT_TRANSACTION_STATUS "Status"
 
 /* D-Bus service */
 #define USB_MODED_SERVICE "com.meego.usb_moded"
@@ -86,6 +89,15 @@
 /* USB Mode Daemon network configuration properties */
 #define USB_MODED_CONFIG_IP "ip"
 #define USB_MODED_CONFIG_INTERFACE "interface"
+
+#define DBUS_PROPERTIES_INTERFACE "org.freedesktop.DBus.Properties"
+#define DBUS_PROPERTIES_CHANGED "PropertiesChanged"
+
+enum TransactionStatus {
+    TransactionRemoving = 6,
+    TransactionDownloading = 8,
+    TransactionInstalling = 9
+};
 
 static QMap<QString,QString>
 enumerate_network_interfaces()
@@ -138,6 +150,7 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_remoteLoginEnabled(false) // TODO: Read (from password manager?)
     , m_workerStatus(Idle)
     , m_workerProgress(PROGRESS_INDETERMINATE)
+    , m_transactionStatus(0)
 {
     int uid = getdef_num("UID_MIN", -1);
     struct passwd *pwd;
@@ -333,9 +346,12 @@ QDBusPendingCallWatcher *DeveloperModeSettings::resolvePackageId(const QString &
     connectTransactionSignal(
                 PACKAGEKIT_TRANSACTION_PACKAGE,
                 SLOT(transactionPackage(uint,QString)));
+
+    connectPropertiesChanged();
+
     connectTransactionSignal(
                 PACKAGEKIT_TRANSACTION_FINISHED,
-                SLOT(transactionItemProgress(QString,uint,uint)));
+                SLOT(transactionFinished(uint,uint)));
 
     return packageKitTransactionCall(
                 m_packageKitTransaction,
@@ -345,9 +361,8 @@ QDBusPendingCallWatcher *DeveloperModeSettings::resolvePackageId(const QString &
 
 QDBusPendingCallWatcher *DeveloperModeSettings::installPackage(const QString &packageId)
 {
-    connectTransactionSignal(
-                PACKAGEKIT_TRANSACTION_ITEMPROGRESS,
-                SLOT(transactionItemProgress(QString,uint,uint)));
+    connectPropertiesChanged();
+
     connectTransactionSignal(
                 PACKAGEKIT_TRANSACTION_FINISHED,
                 SLOT(transactionFinished(uint,uint)));
@@ -359,9 +374,8 @@ QDBusPendingCallWatcher *DeveloperModeSettings::installPackage(const QString &pa
 
 QDBusPendingCallWatcher *DeveloperModeSettings::removePackage(const QString &packageId)
 {
-    connectTransactionSignal(
-                PACKAGEKIT_TRANSACTION_ITEMPROGRESS,
-                SLOT(transactionItemProgress(QString,uint,uint)));
+    connectPropertiesChanged();
+
     connectTransactionSignal(
                 PACKAGEKIT_TRANSACTION_FINISHED,
                 SLOT(transactionFinished(uint,uint)));
@@ -382,6 +396,17 @@ void DeveloperModeSettings::connectTransactionSignal(const QString &name, const 
                 name,
                 this,
                 slot);
+}
+
+void DeveloperModeSettings::connectPropertiesChanged()
+{
+    QDBusConnection::systemBus().connect(
+                PACKAGEKIT_SERVICE,
+                m_packageKitTransaction.path(),
+                DBUS_PROPERTIES_INTERFACE,
+                DBUS_PROPERTIES_CHANGED,
+                this,
+                SLOT(transactionPropertiesChanged(QString,QVariantMap,QStringList)));
 }
 
 void DeveloperModeSettings::executePackageKitCommand(
@@ -451,12 +476,39 @@ void DeveloperModeSettings::transactionPackage(uint, const QString &packageId)
     }
 }
 
-void DeveloperModeSettings::transactionItemProgress(const QString &, uint, uint progress)
+void DeveloperModeSettings::transactionPropertiesChanged(
+        const QString &interface, const QVariantMap &changed, const QStringList &)
 {
-    // Ignore package and status.  Progress will proceed from 0 to 100 multiple times.
-    if (m_workerProgress != int(progress)) {
-        m_workerProgress = progress;
-        emit workerProgressChanged();
+    qDebug() << "properties changed" << interface << changed;
+
+    if (interface != PACKAGEKIT_TRANSACTION_INTERFACE) {
+        return;
+    }
+
+    auto it = changed.find(PACKAGEKIT_TRANSACTION_STATUS);
+    if (it != changed.end()) {
+        m_transactionStatus = it->toInt();
+    }
+
+    it = changed.find(PACKAGEKIT_TRANSACTION_PERCENTAGE);
+    if (it != changed.end()) {
+        switch (m_transactionStatus) {
+        case TransactionRemoving:
+        case TransactionDownloading:
+        case TransactionInstalling: {
+            int progress = it->toInt();
+            if (progress > 100) {
+                progress = PROGRESS_INDETERMINATE;
+            }
+            if (m_workerProgress != progress) {
+                m_workerProgress = progress;
+                emit workerProgressChanged();
+            }
+            break;
+        }
+        default:
+            break;
+        }
     }
 }
 
