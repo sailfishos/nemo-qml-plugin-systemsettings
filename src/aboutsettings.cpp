@@ -178,6 +178,13 @@ QString AboutSettings::serial() const
     }
 }
 
+QString AboutSettings::operatingSystemName() const
+{
+    parseReleaseFile(QStringLiteral("/etc/os-release"), &m_osRelease);
+
+    return m_osRelease["NAME"];
+}
+
 QString AboutSettings::softwareVersion() const
 {
     parseReleaseFile(QStringLiteral("/etc/os-release"), &m_osRelease);
