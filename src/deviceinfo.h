@@ -43,6 +43,7 @@ class DeviceInfoPrivate;
 class SYSTEMSETTINGS_EXPORT DeviceInfo: public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool hasAndroidSupport READ hasAndroidSupport CONSTANT)
 
 public:
     enum Feature {
@@ -97,8 +98,11 @@ public:
 
     DeviceInfo(QObject *parent = 0);
     ~DeviceInfo();
+
     Q_INVOKABLE bool hasFeature(DeviceInfo::Feature feature) const;
     Q_INVOKABLE bool hasHardwareKey(Qt::Key key) const;
+
+    bool hasAndroidSupport() const;
 
 private:
 

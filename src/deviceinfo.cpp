@@ -31,6 +31,7 @@
 
 #include "deviceinfo.h"
 
+#include <QFile>
 #include <QSet>
 
 #include <ssusysinfo.h>
@@ -94,4 +95,9 @@ bool DeviceInfo::hasHardwareKey(Qt::Key key) const
 {
     Q_D(const DeviceInfo);
     return d->m_keys.contains(key);
+}
+
+bool DeviceInfo::hasAndroidSupport() const
+{
+    return QFile::exists(QLatin1String("/opt/alien/system/bin/alien_launcher"));
 }
