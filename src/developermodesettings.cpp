@@ -32,11 +32,17 @@
 
 #include "developermodesettings.h"
 
+/* libsailfishaccounts */
+#include <accountmanager.h>
+#include <provider.h>
+#include <service.h>
+
 #include <QDebug>
 #include <QFile>
 #include <QDir>
 #include <QDBusReply>
 #include <QNetworkInterface>
+
 #include <getdef.h>
 #include <pwd.h>
 
@@ -54,6 +60,9 @@
 
 /* A file that is provided by the developer mode package */
 #define DEVELOPER_MODE_PROVIDED_FILE "/usr/bin/devel-su"
+
+/* The service name for developer mode services offered by an account provider */
+#define DEVELOPER_MODE_ACCOUNT_SERVICE "developermode"
 
 /* D-Bus service */
 #define PACKAGEKIT_SERVICE "org.freedesktop.PackageKit"
@@ -140,6 +149,7 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     : QObject(parent)
     , m_usbModeDaemon(USB_MODED_SERVICE, USB_MODED_PATH, USB_MODED_INTERFACE,
             QDBusConnection::systemBus())
+    , m_accountManager(new AccountManager(this))
     , m_pendingPackageKitCall(nullptr)
     , m_packageKitCommand(nullptr)
     , m_wlanIpAddress("-")
@@ -159,6 +169,10 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     } else {
         qWarning() << "Failed to return username using getpwuid()";
     }
+
+    updateAccountProvider();
+    connect(m_accountManager, &AccountManager::providerNamesChanged,
+            this, &DeveloperModeSettings::updateAccountProvider);
 
     if (!m_developerModeEnabled) {
         m_workerStatus = CheckingStatus;
@@ -192,6 +206,11 @@ QString
 DeveloperModeSettings::username() const
 {
     return m_username;
+}
+
+QString DeveloperModeSettings::developerModeAccountProvider() const
+{
+    return m_developerModeAccountProvider;
 }
 
 bool DeveloperModeSettings::developerModeAvailable() const
@@ -538,4 +557,35 @@ void DeveloperModeSettings::transactionFinished(uint exit, uint)
     }
     emit workerStatusChanged();
     emit workerProgressChanged();
+}
+
+void DeveloperModeSettings::updateAccountProvider()
+{
+    // Find all account providers with the developer-mode service. If m_developerModeAccountProvider
+    // is already set to the name of one of these providers, just return. Otherwise, set it to the
+    // first provider found with a matching service.
+    QList<Provider *> accountProviders;
+    for (const QString &providerName : m_accountManager->providerNames()) {
+        if (Provider *accountProvider = m_accountManager->provider(providerName)) {
+            for (const QString &serviceName : accountProvider->serviceNames()) {
+                if (Service *accountService = m_accountManager->service(serviceName)) {
+                    if (accountService->serviceType() == DEVELOPER_MODE_ACCOUNT_SERVICE) {
+                        if (m_developerModeAccountProvider == providerName) {
+                            return;
+                        } else {
+                            accountProviders.append(accountProvider);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (!accountProviders.isEmpty()) {
+        if (m_developerModeAccountProvider != accountProviders.first()->name()) {
+            m_developerModeAccountProvider = accountProviders.first()->name();
+            emit developerModeAccountProviderChanged();
+        }
+    }
 }
