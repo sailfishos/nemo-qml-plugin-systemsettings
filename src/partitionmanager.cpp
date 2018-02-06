@@ -186,7 +186,7 @@ void PartitionManagerPrivate::refresh()
         partitionFile.readLine();
 
         static const QRegularExpression whitespace(QStringLiteral("\\s+"));
-        static const QRegularExpression externalMedia(QStringLiteral("^mmcblk(?!0)\\d+(?:p\\d+$)?"));
+        static const QRegularExpression externalMedia(QStringLiteral("^mmcblk(?!0)\\d+(?:p\\d+$)?|^sd[a-z](\\d+)$"));
         static const QRegularExpression deviceRoot(QStringLiteral("^mmcblk\\d+$"));
 
         while (!partitionFile.atEnd()) {
