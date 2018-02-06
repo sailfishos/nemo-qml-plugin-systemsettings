@@ -61,8 +61,8 @@ signals:
     void partitionRemoved(const Partition &partition);
 
 private slots:
-    void newUnit(const QString &serviceName, const QDBusObjectPath &path);
-    void removedUnit(const QString &serviceName, const QDBusObjectPath &path);
+    void newUnit(const QString &serviceName, const QDBusObjectPath &objectPath);
+    void removedUnit(const QString &serviceName, const QDBusObjectPath &objectPath);
 
 private:
     static PartitionManagerPrivate *sharedInstance;
