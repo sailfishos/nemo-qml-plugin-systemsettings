@@ -256,12 +256,10 @@ DeveloperModeSettings::setDeveloperMode(bool enabled)
             m_packageKitCommand = &DeveloperModeSettings::removePackage;
         }
 
-        if (m_developerModePackageId.isEmpty()) {
-            executePackageKitCommand(&DeveloperModeSettings::resolvePackageId, DEVELOPER_MODE_PACKAGE);
-        } else {
-            executePackageKitCommand(m_packageKitCommand, m_developerModePackageId);
-            m_packageKitCommand = nullptr;
-        }
+        // Always resolve the developer-mode package before doing an install/remove, even if it was
+        // previously resolved; otherwise, the install/remove finishes prematurely before packages
+        // are actually downloaded/removed.
+        executePackageKitCommand(&DeveloperModeSettings::resolvePackageId, DEVELOPER_MODE_PACKAGE);
         emit workerStatusChanged();
     }
 }
@@ -490,6 +488,7 @@ void DeveloperModeSettings::transactionPackage(uint, const QString &packageId)
     }
 
     m_developerModePackageId = packageId;
+
     if (!m_developerModeEnabled) {
         emit developerModeAvailableChanged();
     }
