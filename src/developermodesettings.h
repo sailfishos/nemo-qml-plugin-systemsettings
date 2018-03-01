@@ -92,8 +92,10 @@ public:
     enum Status {
         Idle = 0,
         CheckingStatus,
-        Installing,
-        Removing
+        Preparing,
+        DownloadingPackages,
+        InstallingPackages,
+        RemovingPackages
     };
 
     QString wlanIpAddress() const;
@@ -149,6 +151,7 @@ private:
     QDBusPendingCallWatcher *m_pendingPackageKitCall;
     QDBusPendingCallWatcher *(DeveloperModeSettings::*m_packageKitCommand)(const QString &packageId);
 
+    QList<int> m_statusChanges;
     QString m_wlanIpAddress;
     QString m_usbInterface;
     QString m_usbIpAddress;
@@ -159,6 +162,7 @@ private:
     bool m_remoteLoginEnabled;
     DeveloperModeSettings::Status m_workerStatus;
     int m_workerProgress;
+    int m_transactionRole;
     int m_transactionStatus;
 
 };

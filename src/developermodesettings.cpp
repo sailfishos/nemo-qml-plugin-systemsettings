@@ -85,6 +85,7 @@
 /* D-Bus property names */
 #define PACKAGEKIT_TRANSACTION_PERCENTAGE "Percentage"
 #define PACKAGEKIT_TRANSACTION_STATUS "Status"
+#define PACKAGEKIT_TRANSACTION_ROLE "Role"
 
 /* D-Bus service */
 #define USB_MODED_SERVICE "com.meego.usb_moded"
@@ -102,10 +103,20 @@
 #define DBUS_PROPERTIES_INTERFACE "org.freedesktop.DBus.Properties"
 #define DBUS_PROPERTIES_CHANGED "PropertiesChanged"
 
+enum TransactionRole {
+    TransactionRoleInstallPackages = 11,
+    TransactionRoleRemovePackages = 14
+};
+
 enum TransactionStatus {
-    TransactionRemoving = 6,
-    TransactionDownloading = 8,
-    TransactionInstalling = 9
+    TransactionStatusSetup = 2,
+    TransactionStatusQuery = 4,
+    TransactionStatusRemove = 6,
+    TransactionStatusRefreshCache = 7,
+    TransactionStatusDownload = 8,
+    TransactionStatusInstall = 9,
+    TransactionStatusResolveDeps = 13,
+    TransactionStatusFinished = 18
 };
 
 static QMap<QString,QString>
@@ -160,6 +171,7 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_remoteLoginEnabled(false) // TODO: Read (from password manager?)
     , m_workerStatus(Idle)
     , m_workerProgress(PROGRESS_INDETERMINATE)
+    , m_transactionRole(0)
     , m_transactionStatus(0)
 {
     int uid = getdef_num("UID_MIN", -1);
@@ -248,11 +260,10 @@ DeveloperModeSettings::setDeveloperMode(bool enabled)
     if (m_developerModeEnabled != enabled
             && !m_pendingPackageKitCall
             && m_packageKitTransaction.path().isEmpty()) {
+        m_workerStatus = Preparing;
         if (enabled) {
-            m_workerStatus = Installing;
             m_packageKitCommand = &DeveloperModeSettings::installPackage;
         } else {
-            m_workerStatus = Removing;
             m_packageKitCommand = &DeveloperModeSettings::removePackage;
         }
 
@@ -499,34 +510,117 @@ void DeveloperModeSettings::transactionPropertiesChanged(
 {
     qDebug() << "properties changed" << interface << changed;
 
+    // Expected changes from PackageKit when installing packages:
+    // 1. Change to 'resolve' role
+    // 2. Status changes: setup -> query -> finished
+    // 3. Change to 'install packages' role
+    // 4. Status changes:
+    //      setup -> refresh cache -> query -> resolve deps -> install (refer to as 'Preparing' status)
+    //      -> download ('DownloadingPackages' status)
+    //      -> install ('InstallingPackages' status)
+    //      -> finished
+    //
+    // Expected changes from PackageKit when removing packages:
+    // 1. Change to 'resolve' role
+    // 2. Status changes: setup -> query -> finished
+    // 3. Change to 'remove packages' role
+    // 4. Status changes:
+    //      setup -> remove -> resolve deps (refer to as 'Preparing' status)
+    //      -> remove ('RemovingPackages' status)
+    //      -> finished
+    //
+    // Notice the 'install' and 'remove' packagekit status changes occur twice.
+
     if (interface != PACKAGEKIT_TRANSACTION_INTERFACE) {
         return;
     }
 
-    auto it = changed.find(PACKAGEKIT_TRANSACTION_STATUS);
+    int progress = m_workerProgress;
+    DeveloperModeSettings::Status workerStatus = m_workerStatus;
+
+    auto it = changed.find(PACKAGEKIT_TRANSACTION_ROLE);
+    if (it != changed.end()) {
+        m_transactionRole = it->toInt();
+        switch (m_transactionRole) {
+        case TransactionRoleInstallPackages:
+        case TransactionRoleRemovePackages:
+            progress = 0;
+            m_statusChanges.clear();
+            break;
+        default:
+            progress = PROGRESS_INDETERMINATE;
+            break;
+        }
+    }
+
+    it = changed.find(PACKAGEKIT_TRANSACTION_STATUS);
     if (it != changed.end()) {
         m_transactionStatus = it->toInt();
+        m_statusChanges.append(m_transactionStatus);
     }
 
     it = changed.find(PACKAGEKIT_TRANSACTION_PERCENTAGE);
-    if (it != changed.end()) {
-        switch (m_transactionStatus) {
-        case TransactionRemoving:
-        case TransactionDownloading:
-        case TransactionInstalling: {
-            int progress = it->toInt();
-            if (progress > 100) {
-                progress = PROGRESS_INDETERMINATE;
+    if (it != changed.end() && it->toInt() > 0 && it->toInt() <= 100) {
+        int rangeStart = 0;
+        int rangeEnd = 0;
+        if (m_transactionRole == TransactionRoleInstallPackages) {
+            switch (m_transactionStatus) {
+            case TransactionStatusRefreshCache:   // 0-10 %
+                rangeStart = 0;
+                rangeEnd = 10;
+                break;
+            case TransactionStatusQuery: // fall through; packagekit progress changes 0-100 over query->resolve stages
+            case TransactionStatusResolveDeps:    // 10-20 %
+                rangeStart = 10;
+                rangeEnd = 20;
+                break;
+            case TransactionStatusDownload:    // 20-60 %
+                workerStatus = DownloadingPackages;
+                rangeStart = 20;
+                rangeEnd = 60;
+                break;
+            case TransactionStatusInstall: // 60-100 %
+                if (m_statusChanges.count(TransactionStatusInstall) > 1) {
+                    workerStatus = InstallingPackages;
+                    rangeStart = 60;
+                    rangeEnd = 100;
+                }
+                break;
+            default:
+                break;
             }
-            if (m_workerProgress != progress) {
-                m_workerProgress = progress;
-                emit workerProgressChanged();
+        } else if (m_transactionRole == TransactionRoleRemovePackages) {
+            if (m_statusChanges.count(TransactionStatusRemove) <= 1) {  // 0-20 %
+                // The final remove operation hasn't started, so this progress value must be for
+                // the setup/resolve stages.
+                rangeStart = 0;
+                rangeEnd = 20;
+            } else {    // 20-100 %
+                workerStatus = RemovingPackages;
+                rangeStart = 20;
+                rangeEnd = 100;
             }
-            break;
         }
-        default:
-            break;
+        if (rangeEnd > 0 && rangeEnd > rangeStart) {
+            progress = rangeStart + ((rangeEnd - rangeStart) * (it->toInt() / 100.0));
         }
+    }
+
+    progress = m_workerProgress == PROGRESS_INDETERMINATE
+            ? progress
+            : qMax(progress, m_workerProgress); // Ensure the emitted progress value never decreases.
+
+    if (progress > 100) {
+        progress = PROGRESS_INDETERMINATE;
+    }
+
+    if (m_workerStatus != workerStatus) {
+        m_workerStatus = workerStatus;
+        emit workerStatusChanged();
+    }
+    if (m_workerProgress != progress) {
+        m_workerProgress = progress;
+        emit workerProgressChanged();
     }
 }
 
@@ -541,7 +635,7 @@ void DeveloperModeSettings::transactionErrorCode(uint code, const QString &messa
                 PACKAGEKIT_TRANSACTION_CANCEL), QDBus::NoBlock);
 }
 
-void DeveloperModeSettings::transactionFinished(uint exit, uint)
+void DeveloperModeSettings::transactionFinished(uint, uint)
 {
     m_packageKitTransaction = QDBusObjectPath();
 
