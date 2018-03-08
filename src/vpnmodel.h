@@ -50,7 +50,6 @@ class SYSTEMSETTINGS_EXPORT VpnModel : public ObjectListModel
 {
     Q_OBJECT
     Q_ENUMS(ConnectionState)
-    Q_ENUMS(ConnectionType)
 
     Q_PROPERTY(int bestState READ bestState NOTIFY bestStateChanged)
 
@@ -61,14 +60,6 @@ public:
         Configuration,
         Ready,
         Disconnect,
-    };
-
-    enum ConnectionType {
-        OpenVPN,
-        OpenConnect,
-        VPNC,
-        L2TP,
-        PPTP,
     };
 
     explicit VpnModel(QObject *parent = 0);
@@ -93,7 +84,7 @@ public:
 
     Q_INVOKABLE QVariantMap connectionSettings(const QString &path);
 
-    Q_INVOKABLE QVariantMap processProvisioningFile(const QString &path, ConnectionType type);
+    Q_INVOKABLE QVariantMap processProvisioningFile(const QString &path, const QString &type);
 
     VpnConnection *connection(const QString &path) const;
 
@@ -167,7 +158,7 @@ class SYSTEMSETTINGS_EXPORT VpnConnection : public QObject
     Q_PROPERTY(bool automaticUpDown READ automaticUpDown WRITE setAutomaticUpDown NOTIFY automaticUpDownChanged)
     Q_PROPERTY(bool storeCredentials READ storeCredentials WRITE setStoreCredentials NOTIFY storeCredentialsChanged)
     Q_PROPERTY(int state READ state WRITE setState NOTIFY stateChanged)
-    Q_PROPERTY(int type READ type WRITE setType NOTIFY typeChanged)
+    Q_PROPERTY(QString type READ type WRITE setType NOTIFY typeChanged)
     Q_PROPERTY(bool immutable READ immutable WRITE setImmutable NOTIFY immutableChanged)
     Q_PROPERTY(int index READ index WRITE setIndex NOTIFY indexChanged)
     Q_PROPERTY(QVariantMap iPv4 READ iPv4 WRITE setIPv4 NOTIFY iPv4Changed)
@@ -203,8 +194,8 @@ public:
     int state() const { return state_; }
     void setState(int state) { updateMember(&VpnConnection::state_, state, &VpnConnection::stateChanged); }
 
-    int type() const { return type_; }
-    void setType(int type) { updateMember(&VpnConnection::type_, type, &VpnConnection::typeChanged); }
+    QString type() const { return type_; }
+    void setType(const QString &type) { updateMember(&VpnConnection::type_, type, &VpnConnection::typeChanged); }
 
     bool immutable() const { return immutable_; }
     void setImmutable(bool immutable) { updateMember(&VpnConnection::immutable_, immutable, &VpnConnection::immutableChanged); }
@@ -262,7 +253,7 @@ private:
     QString path_;
     QString name_;
     int state_;
-    int type_;
+    QString type_;
     QString host_;
     QString domain_;
     QString networks_;
@@ -279,6 +270,5 @@ private:
 };
 
 Q_DECLARE_METATYPE(VpnModel::ConnectionState)
-Q_DECLARE_METATYPE(VpnModel::ConnectionType)
 
 #endif

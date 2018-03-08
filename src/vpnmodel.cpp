@@ -48,14 +48,6 @@ QHash<QString, QList<QPair<QVariant, QVariant> > > propertyConversions()
 {
     QHash<QString, QList<QPair<QVariant, QVariant> > > rv;
 
-    QList<QPair<QVariant, QVariant> > types;
-    types.push_back(qMakePair(QVariant::fromValue(QString("openvpn")), QVariant::fromValue(static_cast<int>(VpnModel::OpenVPN))));
-    types.push_back(qMakePair(QVariant::fromValue(QString("openconnect")), QVariant::fromValue(static_cast<int>(VpnModel::OpenConnect))));
-    types.push_back(qMakePair(QVariant::fromValue(QString("vpnc")), QVariant::fromValue(static_cast<int>(VpnModel::VPNC))));
-    types.push_back(qMakePair(QVariant::fromValue(QString("l2tp")), QVariant::fromValue(static_cast<int>(VpnModel::L2TP))));
-    types.push_back(qMakePair(QVariant::fromValue(QString("pptp")), QVariant::fromValue(static_cast<int>(VpnModel::PPTP))));
-    rv.insert(QString("type"), types);
-
     QList<QPair<QVariant, QVariant> > states;
     states.push_back(qMakePair(QVariant::fromValue(QString("idle")), QVariant::fromValue(static_cast<int>(VpnModel::Idle))));
     states.push_back(qMakePair(QVariant::fromValue(QString("failure")), QVariant::fromValue(static_cast<int>(VpnModel::Failure))));
@@ -733,13 +725,13 @@ QVariantMap VpnModel::connectionSettings(const QString &path)
     return rv;
 }
 
-QVariantMap VpnModel::processProvisioningFile(const QString &path, ConnectionType type)
+QVariantMap VpnModel::processProvisioningFile(const QString &path, const QString &type)
 {
     QVariantMap rv;
 
     QFile provisioningFile(path);
     if (provisioningFile.open(QIODevice::ReadOnly)) {
-        if (type == OpenVPN) {
+        if (type == QString("openvpn")) {
             rv = processOpenVpnProvisioningFile(provisioningFile);
         } else {
             qWarning() << "Provisioning not currently supported for VPN type:" << type;
@@ -1109,7 +1101,7 @@ VpnConnection::VpnConnection(const QString &path)
     : QObject(0)
     , path_(path)
     , state_(static_cast<int>(VpnModel::Disconnect))
-    , type_(static_cast<int>(VpnModel::OpenVPN))
+    , type_("openvpn")
 {
 }
 
