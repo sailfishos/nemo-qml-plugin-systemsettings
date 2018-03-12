@@ -34,15 +34,15 @@
 #define DEVELOPERMODESETTINGS_H
 
 #include <QObject>
-#include <QThread>
-#include <QMap>
-#include <QDBusConnection>
 #include <QDBusInterface>
-#include <QNetworkInterface>
+#include <QDBusObjectPath>
 
 #include <systemsettingsglobal.h>
 
-class DeveloperModeSettingsWorker;
+QT_BEGIN_NAMESPACE
+class QDBusPendingCallWatcher;
+class AccountManager;
+QT_END_NAMESPACE
 
 class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
 {
@@ -61,6 +61,14 @@ class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
                READ username
                CONSTANT)
 
+    Q_PROPERTY(bool developerModeAvailable
+            READ developerModeAvailable
+            NOTIFY developerModeAvailableChanged)
+
+    Q_PROPERTY(QString developerModeAccountProvider
+            READ developerModeAccountProvider
+            NOTIFY developerModeAccountProviderChanged)
+
     Q_PROPERTY(bool developerModeEnabled
             READ developerModeEnabled
             NOTIFY developerModeEnabledChanged)
@@ -68,10 +76,6 @@ class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
     Q_PROPERTY(bool remoteLoginEnabled
             READ remoteLoginEnabled
             NOTIFY remoteLoginEnabledChanged)
-
-    Q_PROPERTY(bool workerWorking
-            READ workerWorking
-            NOTIFY workerWorkingChanged)
 
     Q_PROPERTY(enum DeveloperModeSettings::Status workerStatus
             READ workerStatus
@@ -88,18 +92,19 @@ public:
     enum Status {
         Idle = 0,
         CheckingStatus,
-        Installing,
-        Removing,
-        Success,
-        Failure,
+        Preparing,
+        DownloadingPackages,
+        InstallingPackages,
+        RemovingPackages
     };
 
     QString wlanIpAddress() const;
     QString usbIpAddress() const;
     QString username() const;
+    bool developerModeAvailable() const;
     bool developerModeEnabled() const;
+    QString developerModeAccountProvider() const;
     bool remoteLoginEnabled() const;
-    bool workerWorking() const;
     enum DeveloperModeSettings::Status workerStatus() const;
     int workerProgress() const;
 
@@ -111,68 +116,57 @@ public:
 signals:
     void wlanIpAddressChanged();
     void usbIpAddressChanged();
+    void developerModeAvailableChanged();
+    void developerModeAccountProviderChanged();
     void developerModeEnabledChanged();
     void remoteLoginEnabledChanged();
     void workerWorkingChanged();
     void workerStatusChanged();
     void workerProgressChanged();
 
-    /* For worker */
-    void workerRetrieveDeveloperModeStatus();
-    void workerEnableDeveloperMode();
-    void workerDisableDeveloperMode();
-
 private slots:
-    /* For worker */
-    void onWorkerStatusChanged(bool working, enum DeveloperModeSettings::Status status);
-    void onWorkerDeveloperModeEnabledChanged(bool enabled);
-    void onWorkerProgressChanged(int progress);
+    void transactionPackage(uint info, const QString &packageId);
+    void transactionItemProgress(const QString &package, uint status, uint progress);
+    void transactionErrorCode(uint code, const QString &message);
+    void transactionFinished(uint exit, uint runtime);
+    void transactionPropertiesChanged(const QString &interface, const QVariantMap &changed, const QStringList &invalidated);
 
 private:
-    QThread m_worker_thread;
-    DeveloperModeSettingsWorker *m_worker;
-    QDBusInterface m_usbModeDaemon;
+    QDBusPendingCallWatcher *resolvePackageId(const QString &packageName);
+    QDBusPendingCallWatcher *installPackage(const QString &packageId);
+    QDBusPendingCallWatcher *removePackage(const QString &packageId);
 
+    void connectTransactionSignal(const QString &name, const char *slot);
+    void connectPropertiesChanged();
+
+    void executePackageKitCommand(
+            QDBusPendingCallWatcher *(DeveloperModeSettings::*command)(const QString &),
+            const QString &argument);
+
+    void updateAccountProvider();
+
+    QDBusInterface m_usbModeDaemon;
+    QDBusObjectPath m_packageKitTransaction;
+    AccountManager *m_accountManager;
+    QDBusPendingCallWatcher *m_pendingPackageKitCall;
+    QDBusPendingCallWatcher *(DeveloperModeSettings::*m_packageKitCommand)(const QString &packageId);
+
+    QList<int> m_statusChanges;
     QString m_wlanIpAddress;
     QString m_usbInterface;
     QString m_usbIpAddress;
     QString m_username;
+    QString m_developerModePackageId;
+    QString m_developerModeAccountProvider;
     bool m_developerModeEnabled;
     bool m_remoteLoginEnabled;
-    bool m_workerWorking;
-    enum DeveloperModeSettings::Status m_workerStatus;
+    DeveloperModeSettings::Status m_workerStatus;
     int m_workerProgress;
+    int m_transactionRole;
+    int m_transactionStatus;
+
 };
 
 Q_DECLARE_METATYPE(DeveloperModeSettings::Status);
-
-
-class DeveloperModeSettingsWorker : public QObject {
-    Q_OBJECT
-
-public:
-    DeveloperModeSettingsWorker(QObject *parent = NULL);
-
-public slots:
-    /* from Settings object */
-    void retrieveDeveloperModeStatus();
-    void enableDeveloperMode();
-    void disableDeveloperMode();
-
-    /* from D-Bus */
-    void onInstallPackageResult(QString packageName, bool success);
-    void onRemovePackageResult(QString packageName, bool success);
-    void onPackageProgressChanged(QString packageName, int progress);
-
-signals:
-    void statusChanged(bool working, enum DeveloperModeSettings::Status status);
-    void progressChanged(int progress);
-    void developerModeEnabledChanged(bool enabled);
-
-private:
-    bool m_working;
-    QDBusConnection m_sessionBus;
-    QDBusInterface m_storeClient;
-};
 
 #endif /* DEVELOPERMODESETTINGS_H */
