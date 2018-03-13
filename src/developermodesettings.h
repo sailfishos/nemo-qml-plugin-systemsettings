@@ -142,8 +142,8 @@ private:
     void executePackageKitCommand(
             QDBusPendingCallWatcher *(DeveloperModeSettings::*command)(const QString &),
             const QString &argument);
-
-    void updateAccountProvider();
+//
+//    void updateAccountProvider();
 
     QDBusInterface m_usbModeDaemon;
     QDBusObjectPath m_packageKitTransaction;

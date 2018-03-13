@@ -32,10 +32,12 @@
 
 #include "developermodesettings.h"
 
+#if 0
 /* libsailfishaccounts */
 #include <accountmanager.h>
 #include <provider.h>
 #include <service.h>
+#endif
 
 #include <QDebug>
 #include <QFile>
@@ -160,7 +162,7 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     : QObject(parent)
     , m_usbModeDaemon(USB_MODED_SERVICE, USB_MODED_PATH, USB_MODED_INTERFACE,
             QDBusConnection::systemBus())
-    , m_accountManager(new AccountManager(this))
+//    , m_accountManager(new AccountManager(this))
     , m_pendingPackageKitCall(nullptr)
     , m_packageKitCommand(nullptr)
     , m_wlanIpAddress("-")
@@ -182,9 +184,11 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
         qWarning() << "Failed to return username using getpwuid()";
     }
 
+#if 0
     updateAccountProvider();
     connect(m_accountManager, &AccountManager::providerNamesChanged,
             this, &DeveloperModeSettings::updateAccountProvider);
+#endif
 
     if (!m_developerModeEnabled) {
         m_workerStatus = CheckingStatus;
@@ -652,6 +656,7 @@ void DeveloperModeSettings::transactionFinished(uint, uint)
     emit workerProgressChanged();
 }
 
+#if 0
 void DeveloperModeSettings::updateAccountProvider()
 {
     // Find all account providers with the developer-mode service. If m_developerModeAccountProvider
@@ -682,3 +687,4 @@ void DeveloperModeSettings::updateAccountProvider()
         }
     }
 }
+#endif
