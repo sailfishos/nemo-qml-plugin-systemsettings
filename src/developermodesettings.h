@@ -126,7 +126,6 @@ signals:
 
 private slots:
     void transactionPackage(uint info, const QString &packageId);
-    void transactionItemProgress(const QString &package, uint status, uint progress);
     void transactionErrorCode(uint code, const QString &message);
     void transactionFinished(uint exit, uint runtime);
     void transactionPropertiesChanged(const QString &interface, const QVariantMap &changed, const QStringList &invalidated);
