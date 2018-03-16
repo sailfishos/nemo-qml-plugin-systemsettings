@@ -189,6 +189,11 @@ QString Partition::devicePath() const
     return d ? d->devicePath : QString();
 }
 
+QString Partition::deviceName() const
+{
+    return d ? d->deviceName : QString();
+}
+
 QString Partition::mountPath() const
 {
     return d ? d->mountPath : QString();

@@ -128,6 +128,7 @@ QHash<int, QByteArray> PartitionModel::roleNames() const
         { StorageTypeRole, "storageType" },
         { FilesystemTypeRole, "filesystemType" },
         { DevicePathRole, "devicePath" },
+        { DeviceNameRole, "deviceName" },
         { MountPathRole, "mountPath" },
         { BytesAvailableRole, "bytesAvailable" },
         { BytesTotalRole, "bytesTotal" },
@@ -165,6 +166,8 @@ QVariant PartitionModel::data(const QModelIndex &index, int role) const
             return partition.filesystemType();
         case DevicePathRole:
             return partition.devicePath();
+        case DeviceNameRole:
+            return partition.deviceName();
         case MountPathRole:
             return partition.mountPath();
         case BytesAvailableRole:
@@ -185,7 +188,8 @@ void PartitionModel::partitionChanged(const Partition &partition)
 {
     for (int i = 0; i < m_partitions.count(); ++i) {
         if (m_partitions.at(i) == partition) {
-            emit dataChanged(createIndex(i, 0), createIndex(i, 0));
+            QModelIndex index = createIndex(i, 0);
+            emit dataChanged(index, index);
             return;
         }
     }

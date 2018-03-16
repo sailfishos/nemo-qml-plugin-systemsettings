@@ -43,7 +43,10 @@
 static const auto systemdService = QStringLiteral("org.freedesktop.systemd1");
 static const auto systemdPath = QStringLiteral("/org/freedesktop/systemd1");
 static const auto managerInterface = QStringLiteral("org.freedesktop.systemd1.Manager");
-static const auto sdcardMountPath = QStringLiteral("/media/sdcard/");
+
+static const auto userName = QString(qgetenv("USER"));
+static const auto externalMountPath = QString("/run/media/%1/").arg(userName);
+static const auto mountServiceName = QString("run-media-%1").arg(userName);
 
 PartitionManagerPrivate *PartitionManagerPrivate::sharedInstance = nullptr;
 
@@ -186,7 +189,7 @@ void PartitionManagerPrivate::refresh()
         partitionFile.readLine();
 
         static const QRegularExpression whitespace(QStringLiteral("\\s+"));
-        static const QRegularExpression externalMedia(QStringLiteral("^mmcblk(?!0)\\d+(?:p\\d+$)?"));
+        static const QRegularExpression externalMedia(QStringLiteral("^mmcblk(?!0)\\d+(?:p\\d+$)?|^sd[a-z](\\d+)$"));
         static const QRegularExpression deviceRoot(QStringLiteral("^mmcblk\\d+$"));
 
         while (!partitionFile.atEnd()) {
@@ -291,7 +294,7 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
 
         for (auto partition : partitions) {
             if ((partition->status == Partition::Mounted || partition->status == Partition::Mounting)
-                    && (partition->storageType != Partition::External || partition->mountPath.startsWith(sdcardMountPath))) {
+                    && (partition->storageType != Partition::External || partition->mountPath.startsWith(externalMountPath))) {
                 continue;
             }
 
@@ -360,7 +363,7 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
             // Directly probing the device would be better but requires root permissions.
             if (char * const uuid = blkid_get_tag_value(
                         cache, "UUID", partition->devicePath.toUtf8().constData())) {
-                partition->mountPath = sdcardMountPath + QString::fromUtf8(uuid);
+                partition->mountPath = externalMountPath + QString::fromUtf8(uuid);
 
                 ::free(uuid);
             }
@@ -378,7 +381,8 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
 
 static const QString mountPathFromSystemdService(const QString &serviceName)
 {
-    // Format is like media-sdcard-3630\\x2d3563.mount
+    // Format is like run-media-<user>-0403\\x2d02011.mount
+    // run-media-<user>-KINGSTON.mount
     QString mountPath = serviceName;
 
     mountPath.replace("-", "/");
@@ -389,9 +393,11 @@ static const QString mountPathFromSystemdService(const QString &serviceName)
     return mountPath.mid(0, mountPath.length() - 6);
 }
 
-void PartitionManagerPrivate::newUnit(const QString &serviceName, const QDBusObjectPath &)
+void PartitionManagerPrivate::newUnit(const QString &serviceName, const QDBusObjectPath &objectPath)
 {
-    if (!serviceName.startsWith(QStringLiteral("media-sdcard"))) {
+    Q_UNUSED(objectPath)
+
+    if (!serviceName.startsWith(mountServiceName)) {
         return;
     }
 
@@ -399,9 +405,11 @@ void PartitionManagerPrivate::newUnit(const QString &serviceName, const QDBusObj
     refresh();
 }
 
-void PartitionManagerPrivate::removedUnit(const QString &serviceName, const QDBusObjectPath &)
+void PartitionManagerPrivate::removedUnit(const QString &serviceName, const QDBusObjectPath &objectPath)
 {
-    if (!serviceName.startsWith(QStringLiteral("media-sdcard"))) {
+    Q_UNUSED(objectPath)
+
+    if (!serviceName.startsWith(mountServiceName)) {
         return;
     }
 

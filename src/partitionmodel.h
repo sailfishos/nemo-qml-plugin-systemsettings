@@ -53,6 +53,7 @@ public:
         StorageTypeRole,
         FilesystemTypeRole,
         DevicePathRole,
+        DeviceNameRole,
         MountPathRole,
         BytesAvailableRole,
         BytesTotalRole,

@@ -82,6 +82,7 @@ public:
     StorageType storageType() const;
 
     QString devicePath() const;
+    QString deviceName() const;
     QString mountPath() const;
 
     QString filesystemType() const;
