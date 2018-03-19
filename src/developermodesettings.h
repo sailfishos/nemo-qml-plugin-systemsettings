@@ -41,7 +41,6 @@
 
 QT_BEGIN_NAMESPACE
 class QDBusPendingCallWatcher;
-class AccountManager;
 QT_END_NAMESPACE
 
 class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
@@ -64,10 +63,6 @@ class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
     Q_PROPERTY(bool developerModeAvailable
             READ developerModeAvailable
             NOTIFY developerModeAvailableChanged)
-
-    Q_PROPERTY(QString developerModeAccountProvider
-            READ developerModeAccountProvider
-            NOTIFY developerModeAccountProviderChanged)
 
     Q_PROPERTY(bool developerModeEnabled
             READ developerModeEnabled
@@ -103,7 +98,6 @@ public:
     QString username() const;
     bool developerModeAvailable() const;
     bool developerModeEnabled() const;
-    QString developerModeAccountProvider() const;
     bool remoteLoginEnabled() const;
     enum DeveloperModeSettings::Status workerStatus() const;
     int workerProgress() const;
@@ -117,7 +111,6 @@ signals:
     void wlanIpAddressChanged();
     void usbIpAddressChanged();
     void developerModeAvailableChanged();
-    void developerModeAccountProviderChanged();
     void developerModeEnabledChanged();
     void remoteLoginEnabledChanged();
     void workerWorkingChanged();
@@ -141,12 +134,9 @@ private:
     void executePackageKitCommand(
             QDBusPendingCallWatcher *(DeveloperModeSettings::*command)(const QString &),
             const QString &argument);
-//
-//    void updateAccountProvider();
 
     QDBusInterface m_usbModeDaemon;
     QDBusObjectPath m_packageKitTransaction;
-    AccountManager *m_accountManager;
     QDBusPendingCallWatcher *m_pendingPackageKitCall;
     QDBusPendingCallWatcher *(DeveloperModeSettings::*m_packageKitCommand)(const QString &packageId);
 
@@ -156,7 +146,6 @@ private:
     QString m_usbIpAddress;
     QString m_username;
     QString m_developerModePackageId;
-    QString m_developerModeAccountProvider;
     bool m_developerModeEnabled;
     bool m_remoteLoginEnabled;
     DeveloperModeSettings::Status m_workerStatus;
