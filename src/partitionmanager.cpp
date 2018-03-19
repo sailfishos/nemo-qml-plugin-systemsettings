@@ -30,8 +30,8 @@
  */
 
 #include "partitionmanager_p.h"
+#include "udisks2monitor_p.h"
 
-#include <QDBusInterface>
 #include <QFile>
 #include <QRegularExpression>
 
@@ -40,13 +40,8 @@
 #include <mntent.h>
 #include <sys/statvfs.h>
 
-static const auto systemdService = QStringLiteral("org.freedesktop.systemd1");
-static const auto systemdPath = QStringLiteral("/org/freedesktop/systemd1");
-static const auto managerInterface = QStringLiteral("org.freedesktop.systemd1.Manager");
-
 static const auto userName = QString(qgetenv("USER"));
 static const auto externalMountPath = QString("/run/media/%1/").arg(userName);
-static const auto mountServiceName = QString("run-media-%1").arg(userName);
 
 PartitionManagerPrivate *PartitionManagerPrivate::sharedInstance = nullptr;
 
@@ -55,6 +50,7 @@ PartitionManagerPrivate::PartitionManagerPrivate()
     Q_ASSERT(!sharedInstance);
 
     sharedInstance = this;
+    m_udisksMonitor.reset(new UDisks2::Monitor(this));
 
     QExplicitlySharedDataPointer<PartitionPrivate> root(new PartitionPrivate(this));
     root->storageType = Partition::System;
@@ -96,35 +92,6 @@ PartitionManagerPrivate::PartitionManagerPrivate()
 
     if (internalPartitionCount == 1) {
         root->storageType = Partition::Mass;
-    }
-
-    QDBusConnection systemBus = QDBusConnection::systemBus();
-
-    QDBusInterface systemd(systemdService,
-                           systemdPath,
-                           managerInterface,
-                           systemBus);
-    // Subscribe to systemd signals.
-    systemd.call(QDBus::NoBlock, QStringLiteral("Subscribe"));
-
-    if (!systemBus.connect(
-                systemdService,
-                systemdPath,
-                managerInterface,
-                QStringLiteral("UnitNew"),
-                this,
-                SLOT(newUnit(QString,QDBusObjectPath)))) {
-        qWarning("Failed to connect to new unit signal: %s", qPrintable(systemBus.lastError().message()));
-    }
-
-    if (!systemBus.connect(
-                systemdService,
-                systemdPath,
-                managerInterface,
-                QStringLiteral("UnitRemoved"),
-                this,
-                SLOT(removedUnit(QString,QDBusObjectPath)))) {
-        qWarning("Failed to connect to removed unit signal: %s", qPrintable(systemBus.lastError().message()));
     }
 
     if (root->status == Partition::Mounted) {
@@ -189,7 +156,7 @@ void PartitionManagerPrivate::refresh()
         partitionFile.readLine();
 
         static const QRegularExpression whitespace(QStringLiteral("\\s+"));
-        static const QRegularExpression externalMedia(QStringLiteral("^mmcblk(?!0)\\d+(?:p\\d+$)?|^sd[a-z](\\d+)$"));
+        static const QRegularExpression externalMedia(QString("^%1$").arg(externalDevice));
         static const QRegularExpression deviceRoot(QStringLiteral("^mmcblk\\d+$"));
 
         while (!partitionFile.atEnd()) {
@@ -247,9 +214,6 @@ void PartitionManagerPrivate::refresh()
     }
 
     for (const auto partition : addedPartitions) {
-        if (partition->storageType == Partition::External) {
-            partition->getUnit();
-        }
         emit partitionAdded(Partition(partition));
     }
 
@@ -334,8 +298,6 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
     for (auto partition : partitions) {
         if (partition->status == Partition::Mounted) {
             struct statvfs64 stat;
-
-
             if (::statvfs64(partition->mountPath.toUtf8().constData(), &stat) == 0) {
                 partition->bytesTotal = stat.f_blocks * stat.f_frsize;
                 qint64 bytesFree = stat.f_bfree * stat.f_frsize;
@@ -375,53 +337,6 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
 
                 ::free(type);
             }
-        }
-    }
-}
-
-static const QString mountPathFromSystemdService(const QString &serviceName)
-{
-    // Format is like run-media-<user>-0403\\x2d02011.mount
-    // run-media-<user>-KINGSTON.mount
-    QString mountPath = serviceName;
-
-    mountPath.replace("-", "/");
-    mountPath.replace("\\x2d", "-");
-    mountPath.insert(0, "/");
-
-    // .mount (6) from the back
-    return mountPath.mid(0, mountPath.length() - 6);
-}
-
-void PartitionManagerPrivate::newUnit(const QString &serviceName, const QDBusObjectPath &objectPath)
-{
-    Q_UNUSED(objectPath)
-
-    if (!serviceName.startsWith(mountServiceName)) {
-        return;
-    }
-
-    // Always refresh when an sdcard got mounted.
-    refresh();
-}
-
-void PartitionManagerPrivate::removedUnit(const QString &serviceName, const QDBusObjectPath &objectPath)
-{
-    Q_UNUSED(objectPath)
-
-    if (!serviceName.startsWith(mountServiceName)) {
-        return;
-    }
-
-    const QString mountPath = mountPathFromSystemdService(serviceName);
-
-    for (Partitions::iterator it = m_partitions.begin(); it != m_partitions.end(); ++it) {
-        const auto partition = *it;
-
-        if (partition->mountPath == mountPath) {
-            refresh();
-
-            return;
         }
     }
 }

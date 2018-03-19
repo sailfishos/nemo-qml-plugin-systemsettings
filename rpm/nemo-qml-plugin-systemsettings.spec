@@ -22,6 +22,7 @@ BuildRequires:  pkgconfig(usb-moded-qt5)
 BuildRequires:  pkgconfig(libshadowutils)
 BuildRequires:  pkgconfig(blkid)
 BuildRequires:  pkgconfig(libcrypto)
+BuildRequires:  pkgconfig(nemodbus) >= 2.1.16
 BuildRequires:  pkgconfig(nemomodels-qt5)
 BuildRequires:  pkgconfig(libsailfishkeyprovider) >= 0.0.14
 BuildRequires:  pkgconfig(connman-qt5)

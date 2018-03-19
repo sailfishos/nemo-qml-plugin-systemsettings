@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Jolla Ltd. <andrew.den.exter@jolla.com>
+ * Copyright (C) 2018 Jolla Ltd. <raine.makelainen@jolla.com>
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -29,51 +29,50 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#ifndef PARTITION_P_H
-#define PARTITION_P_H
+#ifndef UDISKS2_MONITOR_H
+#define UDISKS2_MONITOR_H
 
-#include "partition.h"
+#include <QObject>
+#include <QDBusObjectPath>
+#include <QExplicitlySharedDataPointer>
 
 class PartitionManagerPrivate;
 
-class PartitionPrivate : public QSharedData
+typedef QMap<QString, QVariantMap> InterfaceAndPropertyMap;
+
+Q_DECLARE_METATYPE(InterfaceAndPropertyMap)
+
+namespace UDisks2 {
+
+class Job;
+
+class Monitor : public QObject
 {
+    Q_OBJECT
 public:
-    PartitionPrivate(PartitionManagerPrivate *manager)
-        : manager(manager)
-        , bytesAvailable(0)
-        , bytesTotal(0)
-        , bytesFree(0)
-        , storageType(Partition::Invalid)
-        , status(Partition::Unmounted)
-        , readOnly(true)
-        , canMount(false)
-        , mountFailed(false)
-        , deviceRoot(false)
-    {
-    }
+    explicit Monitor(PartitionManagerPrivate *manager, QObject *parent = nullptr);
+    ~Monitor();
 
-public:
-    bool isParent(const QExplicitlySharedDataPointer<PartitionPrivate> &child) const {
-        return (deviceRoot && child->deviceName.startsWith(deviceName + QLatin1Char('p')));
-    }
+    static Monitor *instance();
 
-    PartitionManagerPrivate *manager;
+signals:
+    void errorMessage(const QString &objectPath, const QString &errorName);
 
-    QString deviceName;
-    QString devicePath;
-    QString mountPath;
-    QString filesystemType;
-    QString activeState;
-    qint64 bytesAvailable;
-    qint64 bytesTotal;
-    qint64 bytesFree;
-    Partition::StorageType storageType;
-    Partition::Status status;
-    bool readOnly;
-    bool canMount;
-    bool mountFailed;
-    bool deviceRoot;
+private slots:
+    void interfacesAdded(const QDBusObjectPath &objectPath, const InterfaceAndPropertyMap &interfaces);
+    void interfacesRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces);
+
+private:
+    void updateBlockDevState(const UDisks2::Job *job, bool success);
+    bool externalBlockDevice(const QString &objectPathStr) const;
+
+private:
+    static Monitor *sharedInstance;
+
+    QExplicitlySharedDataPointer<PartitionManagerPrivate> m_manager;
+    QList<UDisks2::Job *> m_jobsToWait;
 };
+
+}
 
 #endif

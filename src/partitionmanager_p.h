@@ -32,10 +32,18 @@
 #ifndef PARTITIONMANAGER_P_H
 #define PARTITIONMANAGER_P_H
 
-#include <partitionmanager.h>
-#include <partition_p.h>
+#include "partitionmanager.h"
+#include "partition_p.h"
 
+#include <QMap>
 #include <QVector>
+#include <QScopedPointer>
+
+namespace UDisks2 {
+class Monitor;
+}
+
+static const auto externalDevice = QStringLiteral("mmcblk(?!0)\\d+(?:p\\d+$)?|(sd[a-z]\\d+)");
 
 class PartitionManagerPrivate : public QObject, public QSharedData
 {
@@ -60,16 +68,16 @@ signals:
     void partitionAdded(const Partition &partition);
     void partitionRemoved(const Partition &partition);
 
-private slots:
-    void newUnit(const QString &serviceName, const QDBusObjectPath &objectPath);
-    void removedUnit(const QString &serviceName, const QDBusObjectPath &objectPath);
-
 private:
     static PartitionManagerPrivate *sharedInstance;
 
     Partitions m_partitions;
     Partition m_root;
 
+    QScopedPointer<UDisks2::Monitor> m_udisksMonitor;
+
+    // Allow direct access to the Partitions.
+    friend class UDisks2::Monitor;
 };
 
 

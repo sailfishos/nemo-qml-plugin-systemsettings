@@ -7,7 +7,7 @@ QT -= gui
 
 CONFIG += c++11 hide_symbols link_pkgconfig
 PKGCONFIG += profile mlite5 mce timed-qt5 libshadowutils blkid libcrypto nemomodels-qt5 libsailfishkeyprovider connman-qt5
-PKGCONFIG += ssu-sysinfo
+PKGCONFIG += ssu-sysinfo nemodbus
 
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
 system(qdbusxml2cpp -c ConnmanVpnProxy -p connmanvpnproxy ../dbus/net.connman.vpn.xml -i qdbusxml2cpp_dbus_types.h)
@@ -34,7 +34,9 @@ SOURCES += \
     partitionmodel.cpp \
     deviceinfo.cpp \
     locationsettings.cpp \
-    timezoneinfo.cpp
+    timezoneinfo.cpp \
+    udisks2job.cpp \
+    udisks2monitor.cpp
 
 PUBLIC_HEADERS = \
     languagemodel.h \
@@ -66,7 +68,10 @@ HEADERS += \
     diskusage_p.h \
     locationsettings_p.h \
     partition_p.h \
-    partitionmanager_p.h
+    partitionmanager_p.h \
+    udisks2defines.h \
+    udisks2job_p.h \
+    udisks2monitor_p.h
 
 DEFINES += \
     SYSTEMSETTINGS_BUILD_LIBRARY
