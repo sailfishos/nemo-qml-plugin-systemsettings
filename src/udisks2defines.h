@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2016 Jolla Ltd. <andrew.den.exter@jolla.com>
+ * Copyright (C) 2018 Jolla Ltd. <raine.makelainen@jolla.com>
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -29,51 +29,27 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#ifndef PARTITION_P_H
-#define PARTITION_P_H
+#ifndef UDISKS2_DEFINES
+#define UDISKS2_DEFINES
 
-#include "partition.h"
+#define DBUS_OBJECT_MANAGER_INTERFACE QLatin1String("org.freedesktop.DBus.ObjectManager")
 
-class PartitionManagerPrivate;
+#define UDISKS2_SERVICE QLatin1String("org.freedesktop.UDisks2")
+#define UDISKS2_PATH QLatin1String("/org/freedesktop/UDisks2")
 
-class PartitionPrivate : public QSharedData
-{
-public:
-    PartitionPrivate(PartitionManagerPrivate *manager)
-        : manager(manager)
-        , bytesAvailable(0)
-        , bytesTotal(0)
-        , bytesFree(0)
-        , storageType(Partition::Invalid)
-        , status(Partition::Unmounted)
-        , readOnly(true)
-        , canMount(false)
-        , mountFailed(false)
-        , deviceRoot(false)
-    {
-    }
+#define UDISKS2_BLOCK_INTERFACE QLatin1String("org.freedesktop.UDisks2.Block")
+#define UDISKS2_PARTITION_INTERFACE QLatin1String("org.freedesktop.UDisks2.Partition")
+#define UDISKS2_JOB_INTERFACE QLatin1String("org.freedesktop.UDisks2.Job")
 
-public:
-    bool isParent(const QExplicitlySharedDataPointer<PartitionPrivate> &child) const {
-        return (deviceRoot && child->deviceName.startsWith(deviceName + QLatin1Char('p')));
-    }
+#define UDISKS2_JOB_KEY_OPERATION QLatin1String("Operation")
+#define UDISKS2_JOB_KEY_OBJECTS QLatin1String("Objects")
 
-    PartitionManagerPrivate *manager;
+#define UDISKS2_JOB_OP_FS_UNMOUNT QLatin1String("filesystem-unmount")
+#define UDISKS2_JOB_OP_FS_MOUNT QLatin1String("filesystem-mount")
+#define UDISKS2_JOB_OP_CLEANUP QLatin1String("cleanup")
 
-    QString deviceName;
-    QString devicePath;
-    QString mountPath;
-    QString filesystemType;
-    QString activeState;
-    qint64 bytesAvailable;
-    qint64 bytesTotal;
-    qint64 bytesFree;
-    Partition::StorageType storageType;
-    Partition::Status status;
-    bool readOnly;
-    bool canMount;
-    bool mountFailed;
-    bool deviceRoot;
-};
+// Errors
+#define UDISKS2_ERROR_DEVICE_BUSY QLatin1String("org.freedesktop.UDisks2.Error.DeviceBusy")
+#define UDISKS2_ERROR_TARGET_BUSY QLatin1String("target is busy")
 
 #endif
