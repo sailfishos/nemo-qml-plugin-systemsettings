@@ -164,18 +164,23 @@ QString AboutSettings::imei() const
 
 QString AboutSettings::serial() const
 {
-    // XXX: For now, this is specific to the Jolla Tablet; eventually we should
-    // use QDeviceInfo's uniqueDeviceID(), but that does not always return the
-    // serial number, so this is our best bet for the short term (this will not
-    // show any serial number on the Phone, there we have the IMEI instead).
+    // TODO: eventually we should use QDeviceInfo's uniqueDeviceID()
 
-    QFile serial_txt("/config/serial/serial.txt");
-    if (serial_txt.exists()) {
-        serial_txt.open(QIODevice::ReadOnly);
-        return QString::fromUtf8(serial_txt.readAll()).trimmed();
-    } else {
-        return "";
+    QStringList serialFiles;
+
+    serialFiles
+        // This file is specific to the Jolla Tablet;
+        << "/config/serial/serial.txt"
+        // Some devices have serialno in this path.
+        << "/sys/firmware/devicetree/base/firmware/android/serialno";
+
+    for (const QString &serialFile : serialFiles) {
+        QFile serialTxt(serialFile);
+        if (serialTxt.exists() && serialTxt.open(QIODevice::ReadOnly))
+            return QString::fromUtf8(serialTxt.readAll()).trimmed();
     }
+
+    return QString();
 }
 
 QString AboutSettings::operatingSystemName() const
