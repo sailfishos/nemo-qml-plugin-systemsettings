@@ -68,7 +68,7 @@ quint64 DiskUsageWorker::calculateSize(QString directory, QString *expandedPath,
     }
 
     QProcess du;
-    du.start("du", QStringList() << "-sb" << directory, QIODevice::ReadOnly);
+    du.start("du", QStringList() << "-sbx" << directory, QIODevice::ReadOnly);
     du.waitForFinished();
     if (du.exitStatus() != QProcess::NormalExit) {
         qWarning() << "Could not determine size of:" << directory;
