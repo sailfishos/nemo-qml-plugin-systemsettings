@@ -432,6 +432,10 @@ VpnModel::VpnModel(QObject *parent)
             vpnServices_.erase(vpnServiceIterator);
             delete proxy;
         }
+        pendingDisconnects_.remove(path);
+        if (pendingConnect_ == path) {
+            pendingConnect_.clear();
+        }
     });
 
     // If connman-vpn restarts, we need to discard and re-read the state
@@ -444,6 +448,8 @@ VpnModel::VpnModel(QObject *parent)
         setPopulated(false);
         qDeleteAll(connections_);
         qDeleteAll(vpnServices_);
+        pendingDisconnects_.clear();
+        pendingConnect_.clear();
     });
     connect(watcher, &QDBusServiceWatcher::serviceRegistered, this, [this](const QString &) {
         fetchVpnList();
@@ -591,23 +597,40 @@ void VpnModel::deleteConnection(const QString &path)
 
 void VpnModel::activateConnection(const QString &path)
 {
-    auto it = connections_.find(path);
-    if (it != connections_.end()) {
-        ConnmanVpnConnectionProxy *proxy(*it);
+    for (int i = 0, n = count(); i < n; ++i) {
+        VpnConnection *connection = qobject_cast<VpnConnection *>(get(i));
+        QString otherPath = connection->path();
+        if (otherPath != path && !pendingDisconnects_.contains(otherPath) && (connection->state() == VpnModel::Ready ||
+                                                                              connection->state() == VpnModel::Configuration)) {
+            pendingDisconnects_.insert(otherPath, connection);
+            deactivateConnection(otherPath);
+            qCDebug(lcVpnLog) << "Adding pending vpn disconnect" << otherPath << connection->state() << "when connecting to vpn";
+        }
+    }
 
-        QDBusPendingCall call = proxy->Connect();
+    qCDebug(lcVpnLog) << "About to connect has pending:" << !pendingDisconnects_.isEmpty() << pendingDisconnects_.keys();
 
-        QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
-        connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
-            QDBusPendingReply<void> reply = *watcher;
-            watcher->deleteLater();
+    if (pendingDisconnects_.isEmpty()) {
+        auto it = connections_.find(path);
+        if (it != connections_.end()) {
+            ConnmanVpnConnectionProxy *proxy(*it);
+            QDBusPendingCall call = proxy->Connect();
+            qCDebug(lcVpnLog) << "Connect to vpn" << path;
 
-            if (reply.isError()) {
-                qCWarning(lcVpnLog) << "Unable to activate Connman VPN connection:" << path << ":" << reply.error().message();
-            }
-        });
+            QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
+            connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
+                QDBusPendingReply<void> reply = *watcher;
+                watcher->deleteLater();
+
+                if (reply.isError()) {
+                    qCWarning(lcVpnLog) << "Unable to activate Connman VPN connection:" << path << ":" << reply.error().message();
+                }
+            });
+        } else {
+            qCWarning(lcVpnLog) << "Unable to activate VPN connection without proxy:" << path;
+        }
     } else {
-        qCWarning(lcVpnLog) << "Unable to activate VPN connection without proxy:" << path;
+        pendingConnect_ = path;
     }
 }
 
@@ -615,6 +638,13 @@ void VpnModel::deactivateConnection(const QString &path)
 {
     auto it = connections_.find(path);
     if (it != connections_.end()) {
+        VpnConnection *connection = this->connection(path);
+        if (connection && !pendingDisconnects_.contains(path) && (connection->state() == VpnModel::Ready ||
+                                                                  connection->state() == VpnModel::Configuration)) {
+            qCDebug(lcVpnLog) << "Adding pending vpn disconnect" << path << connection->state() << "when disconnecting from a vpn";
+            pendingDisconnects_.insert(path, connection);
+        }
+
         ConnmanVpnConnectionProxy *proxy(*it);
 
         QDBusPendingCall call = proxy->Disconnect();
@@ -810,9 +840,29 @@ VpnConnection *VpnModel::connection(const QString &path) const
     return nullptr;
 }
 
+void VpnModel::updatePendingDisconnectState()
+{
+    VpnConnection *pendingDisconnect = qobject_cast<VpnConnection *>(sender());
+    qCDebug(lcVpnLog) << "Pending disconnect state changed" << pendingDisconnect->state() << pendingDisconnect->path() << pendingDisconnect->name();
+    if (pendingDisconnect->state() == VpnModel::Idle || pendingDisconnect->state() == VpnModel::Failure) {
+        ConnmanServiceProxy *serviceProxy = vpnServices_.value(pendingDisconnect->path());
+        serviceProxy->SetProperty(autoConnectKey, QDBusVariant(false));
+
+        pendingDisconnects_.remove(pendingDisconnect->path());
+        qCDebug(lcVpnLog) << "Pending disconnect is idle" << pendingDisconnect->path() << pendingDisconnect->name();
+
+        if (pendingDisconnects_.isEmpty() && !pendingConnect_.isEmpty()) {
+            qCDebug(lcVpnLog) << "Will activate vpn" << pendingConnect_;
+            activateConnection(pendingConnect_);
+            pendingConnect_.clear();
+        }
+    }
+}
+
 VpnConnection *VpnModel::newConnection(const QString &path)
 {
     VpnConnection *conn = new VpnConnection(path);
+    connect(conn, &VpnConnection::stateChanged, this, &VpnModel::updatePendingDisconnectState, Qt::UniqueConnection);
     appendItem(conn);
 
     // Create a vpn and a connman service proxies for this connection
