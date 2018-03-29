@@ -15,6 +15,7 @@ system(qdbusxml2cpp -c ConnmanVpnConnectionProxy -p connmanvpnconnectionproxy ..
 
 SOURCES += \
     languagemodel.cpp \
+    logging.cpp \
     datetimesettings.cpp \
     profilecontrol.cpp \
     alarmtonemodel.cpp \
@@ -67,6 +68,7 @@ HEADERS += \
     batterystatus_p.h \
     diskusage_p.h \
     locationsettings_p.h \
+    logging_p.h \
     partition_p.h \
     partitionmanager_p.h \
     udisks2defines.h \
