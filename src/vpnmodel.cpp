@@ -32,15 +32,27 @@
 
 #include "vpnmodel.h"
 #include "logging_p.h"
+#include "connmanvpnconnectionproxy.h"
+#include "connmanserviceproxy.h"
 
 #include <QCryptographicHash>
 #include <QDBusPendingCallWatcher>
 #include <QDBusServiceWatcher>
 #include <QRegularExpression>
 
+#include <nemo-dbus/dbus.h>
+
 namespace {
 
 const QString defaultDomain(QStringLiteral("merproject.org"));
+const auto connmanService = QStringLiteral("net.connman");
+const auto connmanVpnService = QStringLiteral("net.connman.vpn");
+const auto autoConnectKey = QStringLiteral("AutoConnect");
+
+QString vpnServicePath(QString connectionPath)
+{
+    return QString("/net/connman/service/vpn_%1").arg(connectionPath.section("/", 5));
+}
 
 // Conversion to/from DBus/QML
 QHash<QString, QList<QPair<QVariant, QVariant> > > propertyConversions()
@@ -374,7 +386,7 @@ QVariantMap VpnModel::CredentialsRepository::decodeCredentials(const QByteArray 
 
 VpnModel::VpnModel(QObject *parent)
     : ObjectListModel(parent, true, false)
-    , connmanVpn_("net.connman.vpn", "/", QDBusConnection::systemBus(), this)
+    , connmanVpn_(connmanVpnService, "/", QDBusConnection::systemBus(), this)
     , tokenFiles_("/home/nemo/.local/share/system/vpn")
     , credentials_("/home/nemo/.local/share/system/vpn-data")
     , bestState_(VpnModel::Idle)
@@ -413,10 +425,17 @@ VpnModel::VpnModel(QObject *parent)
             connections_.erase(it);
             delete proxy;
         }
+
+        auto vpnServiceIterator = vpnServices_.find(path);
+        if (vpnServiceIterator != vpnServices_.end()) {
+            ConnmanServiceProxy *proxy(*vpnServiceIterator);
+            vpnServices_.erase(vpnServiceIterator);
+            delete proxy;
+        }
     });
 
     // If connman-vpn restarts, we need to discard and re-read the state
-    QDBusServiceWatcher *watcher = new QDBusServiceWatcher("net.connman.vpn", QDBusConnection::systemBus(), QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this);
+    QDBusServiceWatcher *watcher = new QDBusServiceWatcher(connmanVpnService, QDBusConnection::systemBus(), QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this);
     connect(watcher, &QDBusServiceWatcher::serviceUnregistered, this, [this](const QString &) {
         for (int i = 0, n = count(); i < n; ++i) {
             get(i)->deleteLater();
@@ -424,6 +443,7 @@ VpnModel::VpnModel(QObject *parent)
         clear();
         setPopulated(false);
         qDeleteAll(connections_);
+        qDeleteAll(vpnServices_);
     });
     connect(watcher, &QDBusServiceWatcher::serviceRegistered, this, [this](const QString &) {
         fetchVpnList();
@@ -795,14 +815,48 @@ VpnConnection *VpnModel::newConnection(const QString &path)
     VpnConnection *conn = new VpnConnection(path);
     appendItem(conn);
 
-    // Create a proxy for this connection
-    ConnmanVpnConnectionProxy *proxy = new ConnmanVpnConnectionProxy("net.connman.vpn", path, QDBusConnection::systemBus(), nullptr);
+    // Create a vpn and a connman service proxies for this connection
+    ConnmanVpnConnectionProxy *proxy = new ConnmanVpnConnectionProxy(connmanVpnService, path, QDBusConnection::systemBus(), nullptr);
+    ConnmanServiceProxy *serviceProxy = new ConnmanServiceProxy(connmanService, vpnServicePath(path), QDBusConnection::systemBus(), nullptr);
+
     connections_.insert(path, proxy);
+    vpnServices_.insert(path, serviceProxy);
+
+    QDBusPendingCall servicePropertiesCall = serviceProxy->GetProperties();
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(servicePropertiesCall, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, conn, path](QDBusPendingCallWatcher *watcher) {
+        QDBusPendingReply<> reply = *watcher;
+        if (reply.isFinished() && reply.isValid()) {
+            QDBusMessage message = reply.reply();
+            QVariantMap properties = NemoDBus::demarshallArgument<QVariantMap>(message.arguments().value(0));
+            bool autoConnect = properties.value(autoConnectKey).toBool();
+            properties.clear();
+            properties.insert(autoConnectKey, autoConnect);
+            qCInfo(lcVpnLog) << "Initial VPN service properties:" << properties << path << conn->name();
+            updateConnection(conn, propertiesToQml(properties));
+        } else {
+            qCDebug(lcVpnLog) << "Error :" << path << ":" << reply.error().message();
+        }
+
+        watcher->deleteLater();
+    });
 
     connect(proxy, &ConnmanVpnConnectionProxy::PropertyChanged, this, [this, conn](const QString &name, const QDBusVariant &value) {
+        ConnmanVpnConnectionProxy *proxy = qobject_cast<ConnmanVpnConnectionProxy *>(sender());
         QVariantMap properties;
+        qCInfo(lcVpnLog) << "VPN connection property changed:" << name << value.variant() << proxy->path() << conn->name();
         properties.insert(name, value.variant());
         updateConnection(conn, propertiesToQml(properties));
+    });
+
+    connect(serviceProxy, &ConnmanServiceProxy::PropertyChanged, this, [this, conn](const QString &name, const QDBusVariant &value) {
+        ConnmanServiceProxy *proxy = qobject_cast<ConnmanServiceProxy *>(sender());
+        qCInfo(lcVpnLog) << "VPN service property changed:" << name << value.variant() << proxy->path() << conn->name();
+        if (name == autoConnectKey) {
+            QVariantMap properties;
+            properties.insert(name, value.variant());
+            updateConnection(conn, propertiesToQml(properties));
+        }
     });
 
     return conn;
@@ -1101,6 +1155,11 @@ VpnConnection::VpnConnection(const QString &path)
     , path_(path)
     , state_(static_cast<int>(VpnModel::Disconnect))
     , type_("openvpn")
+    , autoConnect_(false)
+    , automaticUpDown_(false)
+    , storeCredentials_(false)
+    , immutable_(false)
+    , index_(-1)
 {
 }
 

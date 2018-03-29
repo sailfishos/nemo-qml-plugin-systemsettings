@@ -12,6 +12,7 @@ PKGCONFIG += ssu-sysinfo nemodbus
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
 system(qdbusxml2cpp -c ConnmanVpnProxy -p connmanvpnproxy ../dbus/net.connman.vpn.xml -i qdbusxml2cpp_dbus_types.h)
 system(qdbusxml2cpp -c ConnmanVpnConnectionProxy -p connmanvpnconnectionproxy ../dbus/net.connman.vpn.Connection.xml -i qdbusxml2cpp_dbus_types.h)
+system(qdbusxml2cpp -c ConnmanServiceProxy -p connmanserviceproxy ../dbus/net.connman.service.xml -i qdbusxml2cpp_dbus_types.h)
 
 SOURCES += \
     languagemodel.cpp \
@@ -24,6 +25,7 @@ SOURCES += \
     aboutsettings.cpp \
     certificatemodel.cpp \
     vpnmodel.cpp \
+    connmanserviceproxy.cpp \
     connmanvpnproxy.cpp \
     connmanvpnconnectionproxy.cpp \
     developermodesettings.cpp \
@@ -49,6 +51,7 @@ PUBLIC_HEADERS = \
     aboutsettings.h \
     certificatemodel.h \
     vpnmodel.h \
+    connmanserviceproxy.h \
     connmanvpnproxy.h \
     connmanvpnconnectionproxy.h \
     developermodesettings.h \

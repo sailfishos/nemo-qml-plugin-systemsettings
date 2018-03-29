@@ -34,22 +34,21 @@
 #define VPNMODEL_H
 
 #include "connmanvpnproxy.h"
-#include "connmanvpnconnectionproxy.h"
 
 #include <systemsettingsglobal.h>
-
 #include <objectlistmodel.h>
 
 #include <QDir>
 #include <QVariantMap>
 
+class ConnmanServiceProxy;
+class ConnmanVpnConnectionProxy;
 
 class SYSTEMSETTINGS_EXPORT VpnConnection;
 
 class SYSTEMSETTINGS_EXPORT VpnModel : public ObjectListModel
 {
     Q_OBJECT
-    Q_ENUMS(ConnectionState)
 
     Q_PROPERTY(int bestState READ bestState NOTIFY bestStateChanged)
 
@@ -61,6 +60,7 @@ public:
         Ready,
         Disconnect,
     };
+    Q_ENUM(ConnectionState)
 
     explicit VpnModel(QObject *parent = 0);
     virtual ~VpnModel();
@@ -142,6 +142,7 @@ private:
 
     ConnmanVpnProxy connmanVpn_;
     QHash<QString, ConnmanVpnConnectionProxy *> connections_;
+    QHash<QString, ConnmanServiceProxy *> vpnServices_;
     TokenFileRepository tokenFiles_;
     CredentialsRepository credentials_;
     ConnectionState bestState_;
@@ -155,6 +156,7 @@ class SYSTEMSETTINGS_EXPORT VpnConnection : public QObject
     Q_PROPERTY(QString host READ host WRITE setHost NOTIFY hostChanged)
     Q_PROPERTY(QString domain READ domain WRITE setDomain NOTIFY domainChanged)
     Q_PROPERTY(QString networks READ networks WRITE setNetworks NOTIFY networksChanged)
+    Q_PROPERTY(bool autoConnect READ autoConnect WRITE setAutoConnect NOTIFY autoConnectChanged)
     Q_PROPERTY(bool automaticUpDown READ automaticUpDown WRITE setAutomaticUpDown NOTIFY automaticUpDownChanged)
     Q_PROPERTY(bool storeCredentials READ storeCredentials WRITE setStoreCredentials NOTIFY storeCredentialsChanged)
     Q_PROPERTY(int state READ state WRITE setState NOTIFY stateChanged)
@@ -184,6 +186,9 @@ public:
 
     QString networks() const { return networks_; }
     void setNetworks(const QString &networks) { updateMember(&VpnConnection::networks_, networks, &VpnConnection::networksChanged); }
+
+    bool autoConnect() const { return autoConnect_; }
+    void setAutoConnect(bool autoConnect) { updateMember(&VpnConnection::autoConnect_, autoConnect, &VpnConnection::autoConnectChanged); }
 
     bool automaticUpDown() const { return automaticUpDown_; }
     void setAutomaticUpDown(bool automaticUpDown) { updateMember(&VpnConnection::automaticUpDown_, automaticUpDown, &VpnConnection::automaticUpDownChanged); }
@@ -228,6 +233,7 @@ signals:
     void hostChanged();
     void domainChanged();
     void networksChanged();
+    void autoConnectChanged();
     void automaticUpDownChanged();
     void storeCredentialsChanged();
     void immutableChanged();
@@ -257,6 +263,7 @@ private:
     QString host_;
     QString domain_;
     QString networks_;
+    bool autoConnect_;
     bool automaticUpDown_;
     bool storeCredentials_;
     bool immutable_;
