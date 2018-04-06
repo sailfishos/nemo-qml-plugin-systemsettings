@@ -1,8 +1,0 @@
-[Unit]
-Description=Automatic up/down for configured VPN connections
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/vpn-updown.sh up
-ExecStop=/usr/bin/vpn-updown.sh down
-RemainAfterExit=yes

@@ -56,7 +56,6 @@ make %{?_smp_mflags}
 %install
 rm -rf %{buildroot}
 %qmake5_install
-chmod +x %{buildroot}/%{_bindir}/vpn-updown.sh
 
 %post -p /sbin/ldconfig
 
@@ -67,8 +66,6 @@ chmod +x %{buildroot}/%{_bindir}/vpn-updown.sh
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/libnemosystemsettings.so
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/qmldir
 %{_libdir}/libsystemsettings.so.*
-%{_libdir}/systemd/user/vpn-updown.service
-%{_bindir}/vpn-updown.sh
 %dir %attr(0775, root, privileged) /etc/location
 %config %attr(0664, root, privileged) /etc/location/location.conf
 

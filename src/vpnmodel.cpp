@@ -31,17 +31,28 @@
  */
 
 #include "vpnmodel.h"
+#include "logging_p.h"
+#include "connmanvpnconnectionproxy.h"
+#include "connmanserviceproxy.h"
 
 #include <QCryptographicHash>
 #include <QDBusPendingCallWatcher>
 #include <QDBusServiceWatcher>
 #include <QRegularExpression>
-#include <QDebug>
 
+#include <nemo-dbus/dbus.h>
 
 namespace {
 
 const QString defaultDomain(QStringLiteral("merproject.org"));
+const auto connmanService = QStringLiteral("net.connman");
+const auto connmanVpnService = QStringLiteral("net.connman.vpn");
+const auto autoConnectKey = QStringLiteral("AutoConnect");
+
+QString vpnServicePath(QString connectionPath)
+{
+    return QString("/net/connman/service/vpn_%1").arg(connectionPath.section("/", 5));
+}
 
 // Conversion to/from DBus/QML
 QHash<QString, QList<QPair<QVariant, QVariant> > > propertyConversions()
@@ -70,7 +81,7 @@ QVariant convertValue(const QString &key, const QVariant &value, bool toDBus)
         if (lit != list.end()) {
             return toDBus ? (*lit).first : (*lit).second;
         } else {
-            qWarning() << "No conversion found for" << (toDBus ? "QML" : "DBus") << "value:" << value << key;
+            qCWarning(lcVpnLog) << "No conversion found for" << (toDBus ? "QML" : "DBus") << "value:" << value << key;
         }
     }
 
@@ -185,7 +196,7 @@ VpnModel::TokenFileRepository::TokenFileRepository(const QString &path)
     : baseDir_(path)
 {
     if (!baseDir_.exists() && !baseDir_.mkpath(path)) {
-        qWarning() << "Unable to create base directory for VPN token files:" << path;
+        qCWarning(lcVpnLog) << "Unable to create base directory for VPN token files:" << path;
     } else {
         foreach (const QFileInfo &info, baseDir_.entryInfoList()) {
             if (info.isFile() && info.size() == 0) {
@@ -216,7 +227,7 @@ void VpnModel::TokenFileRepository::ensureToken(const QString &token)
     if (!tokens_.contains(token)) {
         QFile tokenFile(baseDir_.absoluteFilePath(token));
         if (!tokenFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-            qWarning() << "Unable to write token file:" << tokenFile.fileName();
+            qCWarning(lcVpnLog) << "Unable to write token file:" << tokenFile.fileName();
         } else {
             tokenFile.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner | QFileDevice::ReadOther | QFileDevice::WriteOther);
             tokenFile.close();
@@ -230,7 +241,7 @@ void VpnModel::TokenFileRepository::removeToken(const QString &token)
     QStringList::iterator it = std::find(tokens_.begin(), tokens_.end(), token);
     if (it != tokens_.end()) {
         if (!baseDir_.remove(token)) {
-            qWarning() << "Unable to delete token file:" << token;
+            qCWarning(lcVpnLog) << "Unable to delete token file:" << token;
         } else {
             tokens_.erase(it);
         }
@@ -257,7 +268,7 @@ VpnModel::CredentialsRepository::CredentialsRepository(const QString &path)
     : baseDir_(path)
 {
     if (!baseDir_.exists() && !baseDir_.mkpath(path)) {
-        qWarning() << "Unable to create base directory for VPN credentials:" << path;
+        qCWarning(lcVpnLog) << "Unable to create base directory for VPN credentials:" << path;
     }
 }
 
@@ -281,7 +292,7 @@ bool VpnModel::CredentialsRepository::storeCredentials(const QString &location, 
 {
     QFile credentialsFile(baseDir_.absoluteFilePath(location));
     if (!credentialsFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-        qWarning() << "Unable to write credentials file:" << credentialsFile.fileName();
+        qCWarning(lcVpnLog) << "Unable to write credentials file:" << credentialsFile.fileName();
         return false;
     } else {
         credentialsFile.write(encodeCredentials(credentials));
@@ -296,7 +307,7 @@ bool VpnModel::CredentialsRepository::removeCredentials(const QString &location)
 {
     if (baseDir_.exists(location)) {
         if (!baseDir_.remove(location)) {
-            qWarning() << "Unable to delete credentials file:" << location;
+            qCWarning(lcVpnLog) << "Unable to delete credentials file:" << location;
             return false;
         }
     }
@@ -310,7 +321,7 @@ QVariantMap VpnModel::CredentialsRepository::credentials(const QString &location
 
     QFile credentialsFile(baseDir_.absoluteFilePath(location));
     if (!credentialsFile.open(QIODevice::ReadOnly)) {
-        qWarning() << "Unable to read credentials file:" << credentialsFile.fileName();
+        qCWarning(lcVpnLog) << "Unable to read credentials file:" << credentialsFile.fileName();
     } else {
         const QByteArray encoded = credentialsFile.readAll();
         credentialsFile.close();
@@ -356,7 +367,7 @@ QVariantMap VpnModel::CredentialsRepository::decodeCredentials(const QByteArray 
     is >> version;
 
     if (version != 1u) {
-        qWarning() << "Invalid version for stored credentials:" << version;
+        qCWarning(lcVpnLog) << "Invalid version for stored credentials:" << version;
     } else {
         quint32 items;
         is >> items;
@@ -375,7 +386,7 @@ QVariantMap VpnModel::CredentialsRepository::decodeCredentials(const QByteArray 
 
 VpnModel::VpnModel(QObject *parent)
     : ObjectListModel(parent, true, false)
-    , connmanVpn_("net.connman.vpn", "/", QDBusConnection::systemBus(), this)
+    , connmanVpn_(connmanVpnService, "/", QDBusConnection::systemBus(), this)
     , tokenFiles_("/home/nemo/.local/share/system/vpn")
     , credentials_("/home/nemo/.local/share/system/vpn-data")
     , bestState_(VpnModel::Idle)
@@ -387,7 +398,7 @@ VpnModel::VpnModel(QObject *parent)
         const QString path(objectPath.path());
         VpnConnection *conn = connection(path);
         if (!conn) {
-            qWarning() << "Adding connection:" << path;
+            qCDebug(lcVpnLog) << "Adding connection:" << path;
             conn = newConnection(path);
         }
 
@@ -400,11 +411,11 @@ VpnModel::VpnModel(QObject *parent)
     connect(&connmanVpn_, &ConnmanVpnProxy::ConnectionRemoved, [this](const QDBusObjectPath &objectPath) {
         const QString path(objectPath.path());
         if (VpnConnection *conn = connection(path)) {
-            qWarning() << "Removing obsolete connection:" << path;
+            qCDebug(lcVpnLog) << "Removing obsolete connection:" << path;
             removeItem(conn);
             delete conn;
         } else {
-            qWarning() << "Unable to remove unknown connection:" << path;
+            qCWarning(lcVpnLog) << "Unable to remove unknown connection:" << path;
         }
 
         // Remove the proxy if present
@@ -414,10 +425,21 @@ VpnModel::VpnModel(QObject *parent)
             connections_.erase(it);
             delete proxy;
         }
+
+        auto vpnServiceIterator = vpnServices_.find(path);
+        if (vpnServiceIterator != vpnServices_.end()) {
+            ConnmanServiceProxy *proxy(*vpnServiceIterator);
+            vpnServices_.erase(vpnServiceIterator);
+            delete proxy;
+        }
+        pendingDisconnects_.remove(path);
+        if (pendingConnect_ == path) {
+            pendingConnect_.clear();
+        }
     });
 
     // If connman-vpn restarts, we need to discard and re-read the state
-    QDBusServiceWatcher *watcher = new QDBusServiceWatcher("net.connman.vpn", QDBusConnection::systemBus(), QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this);
+    QDBusServiceWatcher *watcher = new QDBusServiceWatcher(connmanVpnService, QDBusConnection::systemBus(), QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this);
     connect(watcher, &QDBusServiceWatcher::serviceUnregistered, this, [this](const QString &) {
         for (int i = 0, n = count(); i < n; ++i) {
             get(i)->deleteLater();
@@ -425,6 +447,9 @@ VpnModel::VpnModel(QObject *parent)
         clear();
         setPopulated(false);
         qDeleteAll(connections_);
+        qDeleteAll(vpnServices_);
+        pendingDisconnects_.clear();
+        pendingConnect_.clear();
     });
     connect(watcher, &QDBusServiceWatcher::serviceRegistered, this, [this](const QString &) {
         fetchVpnList();
@@ -466,17 +491,17 @@ void VpnModel::createConnection(const QVariantMap &createProperties)
                 watcher->deleteLater();
 
                 if (reply.isError()) {
-                    qWarning() << "Unable to create Connman VPN connection:" << reply.error().message();
+                    qCWarning(lcVpnLog) << "Unable to create Connman VPN connection:" << reply.error().message();
                 } else {
                     const QDBusObjectPath &objectPath(reply.value());
-                    qWarning() << "Created VPN connection:" << objectPath.path();
+                    qCWarning(lcVpnLog) << "Created VPN connection:" << objectPath.path();
                 }
             });
         } else {
-            qWarning() << "Unable to create VPN connection without domain, host and name properties";
+            qCWarning(lcVpnLog) << "Unable to create VPN connection without domain, host and name properties";
         }
     } else {
-        qWarning() << "Unable to create VPN connection with pre-existing path:" << path;
+        qCWarning(lcVpnLog) << "Unable to create VPN connection with pre-existing path:" << path;
     }
 }
 
@@ -487,7 +512,7 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
         // but as far as I can tell, the only way to cause Connman to store the configuration to
         // disk is to create a new connection...  Work around this by removing the existing
         // connection and recreating it with the updated properties.
-        qWarning() << "Removing VPN connection for modification:" << conn->path();
+        qCWarning(lcVpnLog) << "Removing VPN connection for modification:" << conn->path();
         deleteConnection(conn->path());
 
         // Remove properties that connman doesn't know about
@@ -520,10 +545,10 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
             watcher->deleteLater();
 
             if (reply.isError()) {
-                qWarning() << "Unable to recreate Connman VPN connection:" << reply.error().message();
+                qCWarning(lcVpnLog) << "Unable to recreate Connman VPN connection:" << reply.error().message();
             } else {
                 const QDBusObjectPath &objectPath(reply.value());
-                qWarning() << "Modified VPN connection:" << objectPath.path();
+                qCWarning(lcVpnLog) << "Modified VPN connection:" << objectPath.path();
 
                 if (automatic != wasAutomatic) {
                     if (automatic) {
@@ -543,7 +568,7 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
             }
         });
     } else {
-        qWarning() << "Unable to update unknown VPN connection:" << path;
+        qCWarning(lcVpnLog) << "Unable to update unknown VPN connection:" << path;
     }
 }
 
@@ -560,35 +585,52 @@ void VpnModel::deleteConnection(const QString &path)
             watcher->deleteLater();
 
             if (reply.isError()) {
-                qWarning() << "Unable to delete Connman VPN connection:" << path << ":" << reply.error().message();
+                qCWarning(lcVpnLog) << "Unable to delete Connman VPN connection:" << path << ":" << reply.error().message();
             } else {
-                qWarning() << "Deleted connection:" << path;
+                qCWarning(lcVpnLog) << "Deleted connection:" << path;
             }
         });
     } else {
-        qWarning() << "Unable to delete unknown connection:" << path;
+        qCWarning(lcVpnLog) << "Unable to delete unknown connection:" << path;
     }
 }
 
 void VpnModel::activateConnection(const QString &path)
 {
-    auto it = connections_.find(path);
-    if (it != connections_.end()) {
-        ConnmanVpnConnectionProxy *proxy(*it);
+    for (int i = 0, n = count(); i < n; ++i) {
+        VpnConnection *connection = qobject_cast<VpnConnection *>(get(i));
+        QString otherPath = connection->path();
+        if (otherPath != path && !pendingDisconnects_.contains(otherPath) && (connection->state() == VpnModel::Ready ||
+                                                                              connection->state() == VpnModel::Configuration)) {
+            pendingDisconnects_.insert(otherPath, connection);
+            deactivateConnection(otherPath);
+            qCDebug(lcVpnLog) << "Adding pending vpn disconnect" << otherPath << connection->state() << "when connecting to vpn";
+        }
+    }
 
-        QDBusPendingCall call = proxy->Connect();
+    qCDebug(lcVpnLog) << "About to connect has pending:" << !pendingDisconnects_.isEmpty() << pendingDisconnects_.keys();
 
-        QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
-        connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
-            QDBusPendingReply<void> reply = *watcher;
-            watcher->deleteLater();
+    if (pendingDisconnects_.isEmpty()) {
+        auto it = connections_.find(path);
+        if (it != connections_.end()) {
+            ConnmanVpnConnectionProxy *proxy(*it);
+            QDBusPendingCall call = proxy->Connect();
+            qCDebug(lcVpnLog) << "Connect to vpn" << path;
 
-            if (reply.isError()) {
-                qWarning() << "Unable to activate Connman VPN connection:" << path << ":" << reply.error().message();
-            }
-        });
+            QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
+            connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
+                QDBusPendingReply<void> reply = *watcher;
+                watcher->deleteLater();
+
+                if (reply.isError()) {
+                    qCWarning(lcVpnLog) << "Unable to activate Connman VPN connection:" << path << ":" << reply.error().message();
+                }
+            });
+        } else {
+            qCWarning(lcVpnLog) << "Unable to activate VPN connection without proxy:" << path;
+        }
     } else {
-        qWarning() << "Unable to activate VPN connection without proxy:" << path;
+        pendingConnect_ = path;
     }
 }
 
@@ -596,6 +638,13 @@ void VpnModel::deactivateConnection(const QString &path)
 {
     auto it = connections_.find(path);
     if (it != connections_.end()) {
+        VpnConnection *connection = this->connection(path);
+        if (connection && !pendingDisconnects_.contains(path) && (connection->state() == VpnModel::Ready ||
+                                                                  connection->state() == VpnModel::Configuration)) {
+            qCDebug(lcVpnLog) << "Adding pending vpn disconnect" << path << connection->state() << "when disconnecting from a vpn";
+            pendingDisconnects_.insert(path, connection);
+        }
+
         ConnmanVpnConnectionProxy *proxy(*it);
 
         QDBusPendingCall call = proxy->Disconnect();
@@ -606,11 +655,11 @@ void VpnModel::deactivateConnection(const QString &path)
             watcher->deleteLater();
 
             if (reply.isError()) {
-                qWarning() << "Unable to deactivate Connman VPN connection:" << path << ":" << reply.error().message();
+                qCWarning(lcVpnLog) << "Unable to deactivate Connman VPN connection:" << path << ":" << reply.error().message();
             }
         });
     } else {
-        qWarning() << "Unable to deactivate VPN connection without proxy:" << path;
+        qCWarning(lcVpnLog) << "Unable to deactivate VPN connection without proxy:" << path;
     }
 }
 
@@ -630,7 +679,7 @@ void VpnModel::setAutomaticConnection(const QString &path, bool enabled)
             itemChanged(conn);
         }
     } else {
-        qWarning() << "Unable to set automatic connection for unknown VPN connection:" << path;
+        qCWarning(lcVpnLog) << "Unable to set automatic connection for unknown VPN connection:" << path;
     }
 }
 
@@ -645,7 +694,7 @@ QVariantMap VpnModel::connectionCredentials(const QString &path)
         if (enabled) {
             rv = credentials_.credentials(location);
         } else {
-            qWarning() << "VPN does not permit credentials storage:" << path;
+            qCWarning(lcVpnLog) << "VPN does not permit credentials storage:" << path;
         }
 
         if (conn->storeCredentials() != enabled) {
@@ -653,7 +702,7 @@ QVariantMap VpnModel::connectionCredentials(const QString &path)
             itemChanged(conn);
         }
     } else {
-        qWarning() << "Unable to return credentials for unknown VPN connection:" << path;
+        qCWarning(lcVpnLog) << "Unable to return credentials for unknown VPN connection:" << path;
     }
 
     return rv;
@@ -669,7 +718,7 @@ void VpnModel::setConnectionCredentials(const QString &path, const QVariantMap &
         }
         itemChanged(conn);
     } else {
-        qWarning() << "Unable to set credentials for unknown VPN connection:" << path;
+        qCWarning(lcVpnLog) << "Unable to set credentials for unknown VPN connection:" << path;
     }
 }
 
@@ -685,7 +734,7 @@ bool VpnModel::connectionCredentialsEnabled(const QString &path)
         }
         return enabled;
     } else {
-        qWarning() << "Unable to test credentials storage for unknown VPN connection:" << path;
+        qCWarning(lcVpnLog) << "Unable to test credentials storage for unknown VPN connection:" << path;
     }
 
     return false;
@@ -704,7 +753,7 @@ void VpnModel::disableConnectionCredentials(const QString &path)
         }
         itemChanged(conn);
     } else {
-        qWarning() << "Unable to set automatic connection for unknown VPN connection:" << path;
+        qCWarning(lcVpnLog) << "Unable to set automatic connection for unknown VPN connection:" << path;
     }
 }
 
@@ -734,10 +783,10 @@ QVariantMap VpnModel::processProvisioningFile(const QString &path, const QString
         if (type == QString("openvpn")) {
             rv = processOpenVpnProvisioningFile(provisioningFile);
         } else {
-            qWarning() << "Provisioning not currently supported for VPN type:" << type;
+            qCWarning(lcVpnLog) << "Provisioning not currently supported for VPN type:" << type;
         }
     } else {
-        qWarning() << "Unable to open provisioning file:" << path;
+        qCWarning(lcVpnLog) << "Unable to open provisioning file:" << path;
     }
 
     return rv;
@@ -753,7 +802,7 @@ void VpnModel::fetchVpnList()
         watcher->deleteLater();
 
         if (reply.isError()) {
-            qWarning() << "Unable to fetch Connman VPN connections:" << reply.error().message();
+            qCWarning(lcVpnLog) << "Unable to fetch Connman VPN connections:" << reply.error().message();
         } else {
             const PathPropertiesArray &connections(reply.value());
 
@@ -791,19 +840,73 @@ VpnConnection *VpnModel::connection(const QString &path) const
     return nullptr;
 }
 
+void VpnModel::updatePendingDisconnectState()
+{
+    VpnConnection *pendingDisconnect = qobject_cast<VpnConnection *>(sender());
+    qCDebug(lcVpnLog) << "Pending disconnect state changed" << pendingDisconnect->state() << pendingDisconnect->path() << pendingDisconnect->name();
+    if (pendingDisconnect->state() == VpnModel::Idle || pendingDisconnect->state() == VpnModel::Failure) {
+        ConnmanServiceProxy *serviceProxy = vpnServices_.value(pendingDisconnect->path());
+        serviceProxy->SetProperty(autoConnectKey, QDBusVariant(false));
+
+        pendingDisconnects_.remove(pendingDisconnect->path());
+        qCDebug(lcVpnLog) << "Pending disconnect is idle" << pendingDisconnect->path() << pendingDisconnect->name();
+
+        if (pendingDisconnects_.isEmpty() && !pendingConnect_.isEmpty()) {
+            qCDebug(lcVpnLog) << "Will activate vpn" << pendingConnect_;
+            activateConnection(pendingConnect_);
+            pendingConnect_.clear();
+        }
+    }
+}
+
 VpnConnection *VpnModel::newConnection(const QString &path)
 {
     VpnConnection *conn = new VpnConnection(path);
+    connect(conn, &VpnConnection::stateChanged, this, &VpnModel::updatePendingDisconnectState, Qt::UniqueConnection);
     appendItem(conn);
 
-    // Create a proxy for this connection
-    ConnmanVpnConnectionProxy *proxy = new ConnmanVpnConnectionProxy("net.connman.vpn", path, QDBusConnection::systemBus(), nullptr);
+    // Create a vpn and a connman service proxies for this connection
+    ConnmanVpnConnectionProxy *proxy = new ConnmanVpnConnectionProxy(connmanVpnService, path, QDBusConnection::systemBus(), nullptr);
+    ConnmanServiceProxy *serviceProxy = new ConnmanServiceProxy(connmanService, vpnServicePath(path), QDBusConnection::systemBus(), nullptr);
+
     connections_.insert(path, proxy);
+    vpnServices_.insert(path, serviceProxy);
+
+    QDBusPendingCall servicePropertiesCall = serviceProxy->GetProperties();
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(servicePropertiesCall, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, conn, path](QDBusPendingCallWatcher *watcher) {
+        QDBusPendingReply<> reply = *watcher;
+        if (reply.isFinished() && reply.isValid()) {
+            QDBusMessage message = reply.reply();
+            QVariantMap properties = NemoDBus::demarshallArgument<QVariantMap>(message.arguments().value(0));
+            bool autoConnect = properties.value(autoConnectKey).toBool();
+            properties.clear();
+            properties.insert(autoConnectKey, autoConnect);
+            qCInfo(lcVpnLog) << "Initial VPN service properties:" << properties << path << conn->name();
+            updateConnection(conn, propertiesToQml(properties));
+        } else {
+            qCDebug(lcVpnLog) << "Error :" << path << ":" << reply.error().message();
+        }
+
+        watcher->deleteLater();
+    });
 
     connect(proxy, &ConnmanVpnConnectionProxy::PropertyChanged, this, [this, conn](const QString &name, const QDBusVariant &value) {
+        ConnmanVpnConnectionProxy *proxy = qobject_cast<ConnmanVpnConnectionProxy *>(sender());
         QVariantMap properties;
+        qCInfo(lcVpnLog) << "VPN connection property changed:" << name << value.variant() << proxy->path() << conn->name();
         properties.insert(name, value.variant());
         updateConnection(conn, propertiesToQml(properties));
+    });
+
+    connect(serviceProxy, &ConnmanServiceProxy::PropertyChanged, this, [this, conn](const QString &name, const QDBusVariant &value) {
+        ConnmanServiceProxy *proxy = qobject_cast<ConnmanServiceProxy *>(sender());
+        qCInfo(lcVpnLog) << "VPN service property changed:" << name << value.variant() << proxy->path() << conn->name();
+        if (name == autoConnectKey) {
+            QVariantMap properties;
+            properties.insert(name, value.variant());
+            updateConnection(conn, propertiesToQml(properties));
+        }
     });
 
     return conn;
@@ -907,15 +1010,15 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
         } else if (line.contains(embeddedLeader, &match)) {
             embeddedMarker = match.captured(1);
             if (embeddedMarker.isEmpty()) {
-                qWarning() << "Invalid embedded content";
+                qCWarning(lcVpnLog) << "Invalid embedded content";
             }
         } else if (line.contains(embeddedTrailer, &match)) {
             const QString marker = match.captured(1);
             if (marker != embeddedMarker) {
-                qWarning() << "Invalid embedded content:" << marker << "!=" << embeddedMarker;
+                qCWarning(lcVpnLog) << "Invalid embedded content:" << marker << "!=" << embeddedMarker;
             } else {
                 if (embeddedContent.isEmpty()) {
-                    qWarning() << "Ignoring empty embedded content:" << embeddedMarker;
+                    qCWarning(lcVpnLog) << "Ignoring empty embedded content:" << embeddedMarker;
                 } else {
                     if (embeddedMarker == QStringLiteral("connection")) {
                         // Special case: not embedded content, but a <connection> structure - pass through as an extra option
@@ -924,7 +1027,7 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
                         // Embedded content
                         QDir outputDir(outputPath);
                         if (!outputDir.exists() && !outputDir.mkpath(outputPath)) {
-                            qWarning() << "Unable to create base directory for VPN provisioning content:" << outputPath;
+                            qCWarning(lcVpnLog) << "Unable to create base directory for VPN provisioning content:" << outputPath;
                         } else {
                             // Name the file according to content
                             QCryptographicHash hash(QCryptographicHash::Sha1);
@@ -933,7 +1036,7 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
                             const QString outputFileName(QString(hash.result().toHex()) + QChar('.') + embeddedMarker);
                             QFile outputFile(outputDir.absoluteFilePath(outputFileName));
                             if (!outputFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                                qWarning() << "Unable to write VPN provisioning content file:" << outputFile.fileName();
+                                qCWarning(lcVpnLog) << "Unable to write VPN provisioning content file:" << outputFile.fileName();
                             } else {
                                 QTextStream os(&outputFile);
                                 os << embeddedContent;
@@ -1070,7 +1173,7 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
         // Write a config file to contain the extra options
         QDir outputDir(outputPath);
         if (!outputDir.exists() && !outputDir.mkpath(outputPath)) {
-            qWarning() << "Unable to create base directory for VPN provisioning content:" << outputPath;
+            qCWarning(lcVpnLog) << "Unable to create base directory for VPN provisioning content:" << outputPath;
         } else {
             // Name the file according to content
             QCryptographicHash hash(QCryptographicHash::Sha1);
@@ -1081,7 +1184,7 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
             const QString outputFileName(QString(hash.result().toHex()) + QStringLiteral(".conf"));
             QFile outputFile(outputDir.absoluteFilePath(outputFileName));
             if (!outputFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
-                qWarning() << "Unable to write VPN provisioning configuration file:" << outputFile.fileName();
+                qCWarning(lcVpnLog) << "Unable to write VPN provisioning configuration file:" << outputFile.fileName();
             } else {
                 QTextStream os(&outputFile);
                 foreach (const QString &line, extraOptions) {
@@ -1102,6 +1205,11 @@ VpnConnection::VpnConnection(const QString &path)
     , path_(path)
     , state_(static_cast<int>(VpnModel::Disconnect))
     , type_("openvpn")
+    , autoConnect_(false)
+    , automaticUpDown_(false)
+    , storeCredentials_(false)
+    , immutable_(false)
+    , index_(-1)
 {
 }
 
