@@ -509,18 +509,18 @@ void VpnModel::deleteConnection(const QString &path)
 
 void VpnModel::activateConnection(const QString &path)
 {
+    qCInfo(lcVpnLog) << "Connect" << path;
     for (int i = 0, n = count(); i < n; ++i) {
         VpnConnection *connection = qobject_cast<VpnConnection *>(get(i));
         QString otherPath = connection->path();
         if (otherPath != path && !pendingDisconnects_.contains(otherPath) && (connection->state() == VpnModel::Ready ||
                                                                               connection->state() == VpnModel::Configuration)) {
-            pendingDisconnects_.insert(otherPath, connection);
             deactivateConnection(otherPath);
             qCDebug(lcVpnLog) << "Adding pending vpn disconnect" << otherPath << connection->state() << "when connecting to vpn";
         }
     }
 
-    qCDebug(lcVpnLog) << "About to connect has pending:" << !pendingDisconnects_.isEmpty() << pendingDisconnects_.keys();
+    qCDebug(lcVpnLog) << "About to connect has pending disconnects:" << !pendingDisconnects_.isEmpty() << pendingDisconnects_.keys() << "connecting:" << path;
 
     if (pendingDisconnects_.isEmpty()) {
         auto it = connections_.find(path);
@@ -548,6 +548,7 @@ void VpnModel::activateConnection(const QString &path)
 
 void VpnModel::deactivateConnection(const QString &path)
 {
+    qCInfo(lcVpnLog) << "Disconnect" << path;
     auto it = connections_.find(path);
     if (it != connections_.end()) {
         VpnConnection *connection = this->connection(path);
@@ -555,6 +556,7 @@ void VpnModel::deactivateConnection(const QString &path)
                                                                   connection->state() == VpnModel::Configuration)) {
             qCDebug(lcVpnLog) << "Adding pending vpn disconnect" << path << connection->state() << "when disconnecting from a vpn";
             pendingDisconnects_.insert(path, connection);
+            connect(connection, &VpnConnection::stateChanged, this, &VpnModel::updatePendingDisconnectState, Qt::UniqueConnection);
         }
 
         ConnmanVpnConnectionProxy *proxy(*it);
@@ -737,6 +739,8 @@ void VpnModel::updatePendingDisconnectState()
         pendingDisconnects_.remove(pendingDisconnect->path());
         qCDebug(lcVpnLog) << "Pending disconnect is idle" << pendingDisconnect->path() << pendingDisconnect->name();
 
+        disconnect(pendingDisconnect, &VpnConnection::stateChanged, this, &VpnModel::updatePendingDisconnectState);
+
         if (pendingDisconnects_.isEmpty() && !pendingConnect_.isEmpty()) {
             qCDebug(lcVpnLog) << "Will activate vpn" << pendingConnect_;
             activateConnection(pendingConnect_);
@@ -748,7 +752,6 @@ void VpnModel::updatePendingDisconnectState()
 VpnConnection *VpnModel::newConnection(const QString &path)
 {
     VpnConnection *conn = new VpnConnection(path);
-    connect(conn, &VpnConnection::stateChanged, this, &VpnModel::updatePendingDisconnectState, Qt::UniqueConnection);
     appendItem(conn);
 
     // Create a vpn and a connman service proxies for this connection
