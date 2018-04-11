@@ -39,9 +39,7 @@
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusReply>
-
-#include <sys/statvfs.h>
-
+#include <QStorageInfo>
 
 quint64 DiskUsageWorker::calculateSize(QString directory, QString *expandedPath, bool androidHomeExists)
 {
@@ -61,18 +59,7 @@ quint64 DiskUsageWorker::calculateSize(QString directory, QString *expandedPath,
     }
 
     if (directory == "/") {
-        // Shortcut for getting usage of rootfs
-        // TODO: Once we have Qt 5.4, use QStorageInfo
-        struct statvfs stv;
-        memset(&stv, 0, sizeof(stv));
-        if (statvfs(directory.toUtf8().constData(), &stv) != 0) {
-            // Do not make an entry for the usage here
-            qWarning() << "statvfs() failed on:" << directory;
-            return 0L;
-        }
-        quint64 fsSize = float(stv.f_frsize) * float(stv.f_blocks);
-        quint64 freeSpace = float(stv.f_frsize) * float(stv.f_bfree);
-        return fsSize - freeSpace;
+        return QStorageInfo::root().bytesTotal() - QStorageInfo::root().bytesAvailable();
     }
 
     QDir d(directory);
@@ -81,7 +68,7 @@ quint64 DiskUsageWorker::calculateSize(QString directory, QString *expandedPath,
     }
 
     QProcess du;
-    du.start("du", QStringList() << "-sb" << directory, QIODevice::ReadOnly);
+    du.start("du", QStringList() << "-sbx" << directory, QIODevice::ReadOnly);
     du.waitForFinished();
     if (du.exitStatus() != QProcess::NormalExit) {
         qWarning() << "Could not determine size of:" << directory;
