@@ -487,21 +487,31 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
 void VpnModel::deleteConnection(const QString &path)
 {
     if (VpnConnection *conn = connection(path)) {
-        Q_UNUSED(conn)
-
-        QDBusPendingCall call = connmanVpn_.Remove(QDBusObjectPath(path));
-
-        QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
-        connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
-            QDBusPendingReply<void> reply = *watcher;
-            watcher->deleteLater();
-
-            if (reply.isError()) {
-                qCWarning(lcVpnLog) << "Unable to delete Connman VPN connection:" << path << ":" << reply.error().message();
-            } else {
-                qCWarning(lcVpnLog) << "Deleted connection:" << path;
+        if (conn->state() == VpnModel::Ready || conn->state() == VpnModel::Configuration) {
+            auto it = connections_.find(path);
+            if (it != connections_.end()) {
+                ConnmanVpnConnectionProxy *proxy(*it);
+                QDBusPendingCall call = proxy->Disconnect();
+                QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
+                connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
+                    watcher->deleteLater();
+                    // Regardless of reply status let's remove it.
+                    deleteConnection(path);
+                });
             }
-        });
+        } else {
+            QDBusPendingCall call = connmanVpn_.Remove(QDBusObjectPath(path));
+            QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
+            connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
+                QDBusPendingReply<void> reply = *watcher;
+                watcher->deleteLater();
+                if (reply.isError()) {
+                    qCWarning(lcVpnLog) << "Unable to delete Connman VPN connection:" << path << ":" << reply.error().message();
+                } else {
+                    qCWarning(lcVpnLog) << "Deleted connection:" << path;
+                }
+            });
+        }
     } else {
         qCWarning(lcVpnLog) << "Unable to delete unknown connection:" << path;
     }
