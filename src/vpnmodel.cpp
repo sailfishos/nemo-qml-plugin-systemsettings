@@ -864,8 +864,12 @@ void VpnModel::updateConnection(VpnConnection *conn, const QVariantMap &updatePr
             }
         }
 
-        if (itemCount > 1) {
-            // Keep the items sorted by name
+
+        // Keep the items sorted by name. So sort only when updateProperties map contains
+        // a name e.i. not when "autoConnect" changes. In practice this means that sorting
+        // is only allowed when a VPN is created. When modifying name of a VPN, the VPN
+        // will be first removed and then recreated.
+        if (itemCount > 1 && updateProperties.contains(QStringLiteral("name"))) {
             int index = 0;
             for ( ; index < itemCount; ++index) {
                 const VpnConnection *existing = get<VpnConnection>(index);
