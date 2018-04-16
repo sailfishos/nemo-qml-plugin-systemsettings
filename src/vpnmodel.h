@@ -101,6 +101,10 @@ private:
 
     QVariantMap processOpenVpnProvisioningFile(QFile &provisioningFile);
 
+    bool domainInUse(const QString &domain) const;
+    QString createDefaultDomain() const;
+    bool isDefaultDomain(const QString &domain) const;
+
     class CredentialsRepository
     {
     public:
@@ -125,6 +129,7 @@ private:
     ConnmanVpnProxy connmanVpn_;
     QHash<QString, ConnmanVpnConnectionProxy *> connections_;
     QHash<QString, ConnmanServiceProxy *> vpnServices_;
+    QSet<QString> defaultDomains_;
     QMap<QString, VpnConnection*> pendingDisconnects_;
     QString pendingConnect_;
     CredentialsRepository credentials_;

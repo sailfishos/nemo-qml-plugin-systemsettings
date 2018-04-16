@@ -44,7 +44,8 @@
 
 namespace {
 
-const QString defaultDomain(QStringLiteral("merproject.org"));
+const auto defaultDomain = QStringLiteral("sailfishos.org");
+const auto legacyDefaultDomain(QStringLiteral("merproject.org"));
 const auto connmanService = QStringLiteral("net.connman");
 const auto connmanVpnService = QStringLiteral("net.connman.vpn");
 const auto autoConnectKey = QStringLiteral("AutoConnect");
@@ -405,7 +406,7 @@ void VpnModel::createConnection(const QVariantMap &createProperties)
             QVariantMap properties(createProperties);
             const QString domain(properties.value(QString("domain")).toString());
             if (domain.isEmpty()) {
-                properties.insert(QString("domain"), QVariant::fromValue(defaultDomain));
+                properties.insert(QString("domain"), QVariant::fromValue(createDefaultDomain()));
             }
 
             QDBusPendingCall call = connmanVpn_.Create(propertiesToDBus(properties));
@@ -450,7 +451,7 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
 
         const QString domain(updatedProperties.value(QString("domain")).toString());
         if (domain.isEmpty()) {
-            updatedProperties.insert(QString("domain"), QVariant::fromValue(defaultDomain));
+            updatedProperties.insert(QString("domain"), QVariant::fromValue(createDefaultDomain()));
         }
 
         const QString location(CredentialsRepository::locationForObjectPath(path));
@@ -830,7 +831,11 @@ void VpnModel::updateConnection(VpnConnection *conn, const QVariantMap &updatePr
 
     ppit = properties.find(QStringLiteral("domain"));
     if (ppit != properties.end()) {
-        if ((*ppit).value<QString>() == defaultDomain) {
+        QString domain = (*ppit).value<QString>();
+        if (isDefaultDomain(domain)) {
+            // Default domains are dropped from the model data but
+            // let's track what default domains we have seen.
+            defaultDomains_.insert(domain);
             properties.erase(ppit);
         }
     }
@@ -859,8 +864,12 @@ void VpnModel::updateConnection(VpnConnection *conn, const QVariantMap &updatePr
             }
         }
 
-        if (itemCount > 1) {
-            // Keep the items sorted by name
+
+        // Keep the items sorted by name. So sort only when updateProperties map contains
+        // a name e.i. not when "autoConnect" changes. In practice this means that sorting
+        // is only allowed when a VPN is created. When modifying name of a VPN, the VPN
+        // will be first removed and then recreated.
+        if (itemCount > 1 && updateProperties.contains(QStringLiteral("name"))) {
             int index = 0;
             for ( ; index < itemCount; ++index) {
                 const VpnConnection *existing = get<VpnConnection>(index);
@@ -1096,6 +1105,42 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
     }
 
     return rv;
+}
+
+bool VpnModel::domainInUse(const QString &domain) const
+{
+    if (defaultDomains_.contains(domain)) {
+        return true;
+    }
+
+    const int itemCount(count());
+    for (int index = 0; index < itemCount; ++index) {
+        const VpnConnection *connection = get<VpnConnection>(index);
+        if (connection->domain() == domain) {
+            return true;
+        }
+    }
+    return false;
+}
+
+QString VpnModel::createDefaultDomain() const
+{
+    QString newDomain = defaultDomain;
+    int index = 1;
+    while (domainInUse(newDomain)) {
+        newDomain = defaultDomain + QString(".%1").arg(index);
+        ++index;
+    }
+    return newDomain;
+}
+
+bool VpnModel::isDefaultDomain(const QString &domain) const
+{
+    if (domain == legacyDefaultDomain)
+        return true;
+
+    static const QRegularExpression domainPattern(QStringLiteral("^%1(\\.\\d+)?$").arg(defaultDomain));
+    return domainPattern.match(domain).hasMatch();
 }
 
 
