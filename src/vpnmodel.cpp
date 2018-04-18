@@ -35,6 +35,7 @@
 #include "connmanvpnconnectionproxy.h"
 #include "connmanserviceproxy.h"
 
+#include <QStandardPaths>
 #include <QCryptographicHash>
 #include <QDBusPendingCallWatcher>
 #include <QDBusServiceWatcher>
@@ -315,7 +316,7 @@ QVariantMap VpnModel::CredentialsRepository::decodeCredentials(const QByteArray 
 VpnModel::VpnModel(QObject *parent)
     : ObjectListModel(parent, true, false)
     , connmanVpn_(connmanVpnService, "/", QDBusConnection::systemBus(), this)
-    , credentials_("/home/nemo/.local/share/system/vpn-data")
+    , credentials_(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/system/privileged/vpn-data"))
     , bestState_(VpnModel::Idle)
 {
     qDBusRegisterMetaType<PathProperties>();
@@ -897,8 +898,7 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
     const QRegularExpression embeddedLeader(QStringLiteral("^\\s*<([^\\/>]+)>"));
     const QRegularExpression embeddedTrailer(QStringLiteral("^\\s*<\\/([^\\/>]+)>"));
     const QRegularExpression whitespace(QStringLiteral("\\s"));
-
-    const QString outputPath("/home/nemo/.local/share/system/vpn-provisioning");
+    const QString outputPath(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/system/privileged/vpn-provisioning"));
 
     auto normaliseProtocol = [](const QString &proto) {
         if (proto == QStringLiteral("tcp")) {
