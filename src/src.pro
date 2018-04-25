@@ -7,7 +7,7 @@ QT -= gui
 
 CONFIG += c++11 hide_symbols link_pkgconfig
 PKGCONFIG += profile mlite5 mce timed-qt5 libshadowutils blkid libcrypto nemomodels-qt5 libsailfishkeyprovider connman-qt5
-PKGCONFIG += ssu-sysinfo nemodbus
+PKGCONFIG += ssu-sysinfo nemodbus packagekitqt5
 
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
 system(qdbusxml2cpp -c ConnmanVpnProxy -p connmanvpnproxy ../dbus/net.connman.vpn.xml -i qdbusxml2cpp_dbus_types.h)

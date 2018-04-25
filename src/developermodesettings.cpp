@@ -31,8 +31,8 @@
  */
 
 #include "developermodesettings.h"
+#include "logging_p.h"
 
-#include <QDebug>
 #include <QFile>
 #include <QDir>
 #include <QDBusReply>
@@ -40,6 +40,8 @@
 
 #include <getdef.h>
 #include <pwd.h>
+
+#include <daemon.h>
 
 /* Symbolic constants */
 #define PROGRESS_INDETERMINATE (-1)
@@ -173,12 +175,22 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     if ((pwd = getpwuid(uid)) != NULL) {
         m_username = QString(pwd->pw_name);
     } else {
-        qWarning() << "Failed to return username using getpwuid()";
+        qCWarning(lcDeveloperModeLog) << "Failed to return username using getpwuid()";
     }
+
 
     if (!m_developerModeEnabled) {
         m_workerStatus = CheckingStatus;
-        executePackageKitCommand(&DeveloperModeSettings::resolvePackageId, DEVELOPER_MODE_PACKAGE);
+        PackageKit::Transaction *transaction = PackageKit::Daemon::refreshCache(true);
+
+        connect(transaction, &PackageKit::Transaction::errorCode, this, [this](PackageKit::Transaction::Error error, const QString &details) {
+            qCWarning(lcDeveloperModeLog) << "Failed to refresh package cache:" << error << details;
+        });
+
+        connect(transaction, &PackageKit::Transaction::finished, this, [this](PackageKit::Transaction::Exit status, uint runtime) {
+            qCDebug(lcDeveloperModeLog) << "Package kit cache updated:" << status << runtime;
+            executePackageKitCommand(&DeveloperModeSettings::resolvePackageId, DEVELOPER_MODE_PACKAGE);
+        });
     }
 
     refresh();
@@ -322,8 +334,8 @@ DeveloperModeSettings::refresh()
 
     foreach (const QString &device, entries.keys()) {
         QString ip = entries[device];
-        qDebug() << "Device:" << device
-                 << "IP:" << ip;
+        qCDebug(lcDeveloperModeLog) << "Device:" << device
+                                    << "IP:" << ip;
     }
 }
 
@@ -356,6 +368,7 @@ static QDBusPendingCallWatcher *packageKitTransactionCall(
 
 QDBusPendingCallWatcher *DeveloperModeSettings::resolvePackageId(const QString &packageName)
 {
+
     connectTransactionSignal(
                 PACKAGEKIT_TRANSACTION_PACKAGE,
                 SLOT(transactionPackage(uint,QString)));
@@ -438,6 +451,7 @@ void DeveloperModeSettings::executePackageKitCommand(
         m_pendingPackageKitCall = nullptr;
 
         QDBusReply<QDBusObjectPath> reply = *watcher;
+
         if (reply.isValid()) {
             m_packageKitTransaction = reply.value();
 
@@ -457,14 +471,14 @@ void DeveloperModeSettings::executePackageKitCommand(
 
                 QDBusReply<void> reply = *watcher;
                 if (!reply.isValid()) {
-                    qWarning() << "Failed to call PackageKit method" << reply.error().message();
+                    qCWarning(lcDeveloperModeLog) << "Failed to call PackageKit method" << reply.error().message();
 
                     m_workerStatus = Idle;
                     emit workerStatusChanged();
                 }
             });
         } else {
-            qWarning() << "Failed to create PackageKit transaction" << reply.error().message();
+            qCWarning(lcDeveloperModeLog) << "Failed to create PackageKit transaction" << reply.error().message();
 
             m_workerStatus = Idle;
             emit workerStatusChanged();
@@ -493,7 +507,6 @@ void DeveloperModeSettings::transactionPackage(uint, const QString &packageId)
 void DeveloperModeSettings::transactionPropertiesChanged(
         const QString &interface, const QVariantMap &changed, const QStringList &)
 {
-    qDebug() << "properties changed" << interface << changed;
 
     // Expected changes from PackageKit when installing packages:
     // 1. Change to 'resolve' role
@@ -611,8 +624,7 @@ void DeveloperModeSettings::transactionPropertiesChanged(
 
 void DeveloperModeSettings::transactionErrorCode(uint code, const QString &message)
 {
-    qWarning() << "PackageKit error" << code << message;
-
+    qCWarning(lcDeveloperModeLog) << "Transaction error:" << code << message;
     QDBusConnection::systemBus().call(QDBusMessage::createMethodCall(
                 PACKAGEKIT_SERVICE,
                 m_packageKitTransaction.path(),
@@ -626,7 +638,6 @@ void DeveloperModeSettings::transactionFinished(uint, uint)
 
     const bool enabled = m_developerModeEnabled;
     m_developerModeEnabled = QFile::exists(DEVELOPER_MODE_PROVIDED_FILE);
-
     m_workerStatus = Idle;
     m_workerProgress = PROGRESS_INDETERMINATE;
 
