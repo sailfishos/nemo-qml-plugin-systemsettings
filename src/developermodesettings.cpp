@@ -86,8 +86,7 @@ static QMap<QString,QString> enumerate_network_interfaces()
     return result;
 }
 
-static inline QString
-usb_moded_get_config(QDBusInterface &usb, QString key, QString fallback)
+static QString usb_moded_get_config(QDBusInterface &usb, QString key, QString fallback)
 {
     QString value = fallback;
 
@@ -100,12 +99,10 @@ usb_moded_get_config(QDBusInterface &usb, QString key, QString fallback)
     return value;
 }
 
-static inline void
-usb_moded_set_config(QDBusInterface &usb, QString key, QString value)
+static void usb_moded_set_config(QDBusInterface &usb, QString key, QString value)
 {
     usb.call(USB_MODED_SET_NET_CONFIG, key, value);
 }
-
 
 DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     : QObject(parent)
@@ -142,20 +139,17 @@ DeveloperModeSettings::~DeveloperModeSettings()
 {
 }
 
-QString
-DeveloperModeSettings::wlanIpAddress() const
+QString DeveloperModeSettings::wlanIpAddress() const
 {
     return m_wlanIpAddress;
 }
 
-QString
-DeveloperModeSettings::usbIpAddress() const
+QString DeveloperModeSettings::usbIpAddress() const
 {
     return m_usbIpAddress;
 }
 
-QString
-DeveloperModeSettings::username() const
+QString DeveloperModeSettings::username() const
 {
     return m_username;
 }
@@ -165,32 +159,27 @@ bool DeveloperModeSettings::developerModeAvailable() const
     return m_developerModeEnabled || !m_developerModePackageId.isEmpty();
 }
 
-bool
-DeveloperModeSettings::developerModeEnabled() const
+bool DeveloperModeSettings::developerModeEnabled() const
 {
     return m_developerModeEnabled;
 }
 
-bool
-DeveloperModeSettings::remoteLoginEnabled() const
+bool DeveloperModeSettings::remoteLoginEnabled() const
 {
     return m_remoteLoginEnabled;
 }
 
-enum DeveloperModeSettings::Status
-DeveloperModeSettings::workerStatus() const
+enum DeveloperModeSettings::Status DeveloperModeSettings::workerStatus() const
 {
     return m_workerStatus;
 }
 
-int
-DeveloperModeSettings::workerProgress() const
+int DeveloperModeSettings::workerProgress() const
 {
     return m_workerProgress;
 }
 
-void
-DeveloperModeSettings::setDeveloperMode(bool enabled)
+void DeveloperModeSettings::setDeveloperMode(bool enabled)
 {
     if (m_developerModeEnabled != enabled) {
         m_workerStatus = Preparing;
@@ -204,8 +193,7 @@ DeveloperModeSettings::setDeveloperMode(bool enabled)
     }
 }
 
-void
-DeveloperModeSettings::setRemoteLogin(bool enabled)
+void DeveloperModeSettings::setRemoteLogin(bool enabled)
 {
     if (m_remoteLoginEnabled != enabled) {
         m_remoteLoginEnabled = enabled;
@@ -213,8 +201,7 @@ DeveloperModeSettings::setRemoteLogin(bool enabled)
     }
 }
 
-void
-DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
+void DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
 {
     if (m_usbIpAddress != usbIpAddress) {
         usb_moded_set_config(m_usbModeDaemon, USB_MODED_CONFIG_IP, usbIpAddress);
@@ -223,8 +210,7 @@ DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
     }
 }
 
-void
-DeveloperModeSettings::refresh()
+void DeveloperModeSettings::refresh()
 {
     /* Retrieve network configuration from usb_moded */
     m_usbInterface = usb_moded_get_config(m_usbModeDaemon,

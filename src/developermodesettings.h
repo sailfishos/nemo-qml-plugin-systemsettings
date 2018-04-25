@@ -49,37 +49,14 @@ class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
     Q_OBJECT
     Q_ENUMS(Status)
 
-    Q_PROPERTY(QString wlanIpAddress
-            READ wlanIpAddress
-            NOTIFY wlanIpAddressChanged)
-
-    Q_PROPERTY(QString usbIpAddress
-            READ usbIpAddress
-            NOTIFY usbIpAddressChanged)
-
-    Q_PROPERTY(QString username
-               READ username
-               CONSTANT)
-
-    Q_PROPERTY(bool developerModeAvailable
-            READ developerModeAvailable
-            NOTIFY developerModeAvailableChanged)
-
-    Q_PROPERTY(bool developerModeEnabled
-            READ developerModeEnabled
-            NOTIFY developerModeEnabledChanged)
-
-    Q_PROPERTY(bool remoteLoginEnabled
-            READ remoteLoginEnabled
-            NOTIFY remoteLoginEnabledChanged)
-
-    Q_PROPERTY(enum DeveloperModeSettings::Status workerStatus
-            READ workerStatus
-            NOTIFY workerStatusChanged)
-
-    Q_PROPERTY(int workerProgress
-            READ workerProgress
-            NOTIFY workerProgressChanged)
+    Q_PROPERTY(QString wlanIpAddress READ wlanIpAddress NOTIFY wlanIpAddressChanged)
+    Q_PROPERTY(QString usbIpAddress READ usbIpAddress NOTIFY usbIpAddressChanged)
+    Q_PROPERTY(QString username READ username CONSTANT)
+    Q_PROPERTY(bool developerModeAvailable READ developerModeAvailable NOTIFY developerModeAvailableChanged)
+    Q_PROPERTY(bool developerModeEnabled READ developerModeEnabled NOTIFY developerModeEnabledChanged)
+    Q_PROPERTY(bool remoteLoginEnabled READ remoteLoginEnabled NOTIFY remoteLoginEnabledChanged)
+    Q_PROPERTY(enum DeveloperModeSettings::Status workerStatus READ workerStatus NOTIFY workerStatusChanged)
+    Q_PROPERTY(int workerProgress READ workerProgress NOTIFY workerProgressChanged)
 
 public:
     explicit DeveloperModeSettings(QObject *parent = NULL);
