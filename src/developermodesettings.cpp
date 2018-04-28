@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2013 Jolla Ltd.
+ * Copyright (C) 2013-2018 Jolla Ltd.
  * Contact: Thomas Perl <thomas.perl@jollamobile.com>
+ * Contact: Raine Makelainen <raine.makelainen@jolla.com>
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -31,12 +32,13 @@
  */
 
 #include "developermodesettings.h"
+#include "logging_p.h"
 
-#include <QDebug>
 #include <QFile>
 #include <QDir>
 #include <QDBusReply>
 #include <QNetworkInterface>
+#include <transaction.h>
 
 #include <getdef.h>
 #include <pwd.h>
@@ -50,37 +52,11 @@
 #define WLAN_NETWORK_INTERFACE "wlan0"
 #define WLAN_NETWORK_FALLBACK_INTERFACE "tether"
 
-/* Developer mode package */
-#define DEVELOPER_MODE_PACKAGE "jolla-developer-mode"
-
 /* A file that is provided by the developer mode package */
 #define DEVELOPER_MODE_PROVIDED_FILE "/usr/bin/devel-su"
 
 /* The service name for developer mode services offered by an account provider */
 #define DEVELOPER_MODE_ACCOUNT_SERVICE "developermode"
-
-/* D-Bus service */
-#define PACKAGEKIT_SERVICE "org.freedesktop.PackageKit"
-#define PACKAGEKIT_PATH "/org/freedesktop/PackageKit"
-#define PACKAGEKIT_INTERFACE "org.freedesktop.PackageKit"
-#define PACKAGEKIT_TRANSACTION_INTERFACE "org.freedesktop.PackageKit.Transaction"
-
-/* D-Bus method names */
-#define PACKAGEKIT_CREATETRANSACTION "CreateTransaction"
-#define PACKAGEKIT_TRANSACTION_RESOLVE "Resolve"
-#define PACKAGEKIT_TRANSACTION_CANCEL "Cancel"
-#define PACKAGEKIT_TRANSACTION_INSTALLPACKAGES "InstallPackages"
-#define PACKAGEKIT_TRANSACTION_REMOVEPACKAGES "RemovePackages"
-
-/* D-Bus signal names */
-#define PACKAGEKIT_TRANSACTION_PACKAGE "Package"
-#define PACKAGEKIT_TRANSACTION_ERRORCODE "ErrorCode"
-#define PACKAGEKIT_TRANSACTION_FINISHED "Finished"
-
-/* D-Bus property names */
-#define PACKAGEKIT_TRANSACTION_PERCENTAGE "Percentage"
-#define PACKAGEKIT_TRANSACTION_STATUS "Status"
-#define PACKAGEKIT_TRANSACTION_ROLE "Role"
 
 /* D-Bus service */
 #define USB_MODED_SERVICE "com.meego.usb_moded"
@@ -95,27 +71,7 @@
 #define USB_MODED_CONFIG_IP "ip"
 #define USB_MODED_CONFIG_INTERFACE "interface"
 
-#define DBUS_PROPERTIES_INTERFACE "org.freedesktop.DBus.Properties"
-#define DBUS_PROPERTIES_CHANGED "PropertiesChanged"
-
-enum TransactionRole {
-    TransactionRoleInstallPackages = 11,
-    TransactionRoleRemovePackages = 14
-};
-
-enum TransactionStatus {
-    TransactionStatusSetup = 2,
-    TransactionStatusQuery = 4,
-    TransactionStatusRemove = 6,
-    TransactionStatusRefreshCache = 7,
-    TransactionStatusDownload = 8,
-    TransactionStatusInstall = 9,
-    TransactionStatusResolveDeps = 13,
-    TransactionStatusFinished = 18
-};
-
-static QMap<QString,QString>
-enumerate_network_interfaces()
+static QMap<QString,QString> enumerate_network_interfaces()
 {
     QMap<QString,QString> result;
 
@@ -130,8 +86,7 @@ enumerate_network_interfaces()
     return result;
 }
 
-static inline QString
-usb_moded_get_config(QDBusInterface &usb, QString key, QString fallback)
+static QString usb_moded_get_config(QDBusInterface &usb, QString key, QString fallback)
 {
     QString value = fallback;
 
@@ -144,19 +99,15 @@ usb_moded_get_config(QDBusInterface &usb, QString key, QString fallback)
     return value;
 }
 
-static inline void
-usb_moded_set_config(QDBusInterface &usb, QString key, QString value)
+static void usb_moded_set_config(QDBusInterface &usb, QString key, QString value)
 {
     usb.call(USB_MODED_SET_NET_CONFIG, key, value);
 }
-
 
 DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     : QObject(parent)
     , m_usbModeDaemon(USB_MODED_SERVICE, USB_MODED_PATH, USB_MODED_INTERFACE,
             QDBusConnection::systemBus())
-    , m_pendingPackageKitCall(nullptr)
-    , m_packageKitCommand(nullptr)
     , m_wlanIpAddress("-")
     , m_usbInterface(USB_NETWORK_FALLBACK_INTERFACE)
     , m_usbIpAddress(USB_NETWORK_FALLBACK_IP)
@@ -165,22 +116,19 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_remoteLoginEnabled(false) // TODO: Read (from password manager?)
     , m_workerStatus(Idle)
     , m_workerProgress(PROGRESS_INDETERMINATE)
-    , m_transactionRole(0)
-    , m_transactionStatus(0)
+    , m_transactionRole(PackageKit::Transaction::RoleUnknown)
+    , m_transactionStatus(PackageKit::Transaction::StatusUnknown)
+    , m_cacheUpdated(false)
 {
     int uid = getdef_num("UID_MIN", -1);
     struct passwd *pwd;
     if ((pwd = getpwuid(uid)) != NULL) {
         m_username = QString(pwd->pw_name);
     } else {
-        qWarning() << "Failed to return username using getpwuid()";
+        qCWarning(lcDeveloperModeLog) << "Failed to return username using getpwuid()";
     }
 
-    if (!m_developerModeEnabled) {
-        m_workerStatus = CheckingStatus;
-        executePackageKitCommand(&DeveloperModeSettings::resolvePackageId, DEVELOPER_MODE_PACKAGE);
-    }
-
+    checkDeveloperModeStatus(true);
     refresh();
 
     // TODO: Watch WLAN / USB IP addresses for changes
@@ -189,23 +137,19 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
 
 DeveloperModeSettings::~DeveloperModeSettings()
 {
-    delete m_pendingPackageKitCall;
 }
 
-QString
-DeveloperModeSettings::wlanIpAddress() const
+QString DeveloperModeSettings::wlanIpAddress() const
 {
     return m_wlanIpAddress;
 }
 
-QString
-DeveloperModeSettings::usbIpAddress() const
+QString DeveloperModeSettings::usbIpAddress() const
 {
     return m_usbIpAddress;
 }
 
-QString
-DeveloperModeSettings::username() const
+QString DeveloperModeSettings::username() const
 {
     return m_username;
 }
@@ -215,53 +159,41 @@ bool DeveloperModeSettings::developerModeAvailable() const
     return m_developerModeEnabled || !m_developerModePackageId.isEmpty();
 }
 
-bool
-DeveloperModeSettings::developerModeEnabled() const
+bool DeveloperModeSettings::developerModeEnabled() const
 {
     return m_developerModeEnabled;
 }
 
-bool
-DeveloperModeSettings::remoteLoginEnabled() const
+bool DeveloperModeSettings::remoteLoginEnabled() const
 {
     return m_remoteLoginEnabled;
 }
 
-enum DeveloperModeSettings::Status
-DeveloperModeSettings::workerStatus() const
+enum DeveloperModeSettings::Status DeveloperModeSettings::workerStatus() const
 {
     return m_workerStatus;
 }
 
-int
-DeveloperModeSettings::workerProgress() const
+int DeveloperModeSettings::workerProgress() const
 {
     return m_workerProgress;
 }
 
-void
-DeveloperModeSettings::setDeveloperMode(bool enabled)
+void DeveloperModeSettings::setDeveloperMode(bool enabled)
 {
-    if (m_developerModeEnabled != enabled
-            && !m_pendingPackageKitCall
-            && m_packageKitTransaction.path().isEmpty()) {
+    if (m_developerModeEnabled != enabled) {
         m_workerStatus = Preparing;
         if (enabled) {
-            m_packageKitCommand = &DeveloperModeSettings::installPackage;
+            resolveDeveloperModePackageId(InstallCommand);
         } else {
-            m_packageKitCommand = &DeveloperModeSettings::removePackage;
+            resolveDeveloperModePackageId(RemoveCommand);
         }
 
-        // Always resolve the developer-mode package before doing an install/remove, even if it was
-        // previously resolved; otherwise, the install/remove finishes prematurely before packages
-        // are actually downloaded/removed.
-        executePackageKitCommand(&DeveloperModeSettings::resolvePackageId, DEVELOPER_MODE_PACKAGE);
         emit workerStatusChanged();
     }
 }
 
-void
-DeveloperModeSettings::setRemoteLogin(bool enabled)
+void DeveloperModeSettings::setRemoteLogin(bool enabled)
 {
     if (m_remoteLoginEnabled != enabled) {
         m_remoteLoginEnabled = enabled;
@@ -269,8 +201,7 @@ DeveloperModeSettings::setRemoteLogin(bool enabled)
     }
 }
 
-void
-DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
+void DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
 {
     if (m_usbIpAddress != usbIpAddress) {
         usb_moded_set_config(m_usbModeDaemon, USB_MODED_CONFIG_IP, usbIpAddress);
@@ -279,8 +210,7 @@ DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
     }
 }
 
-void
-DeveloperModeSettings::refresh()
+void DeveloperModeSettings::refresh()
 {
     /* Retrieve network configuration from usb_moded */
     m_usbInterface = usb_moded_get_config(m_usbModeDaemon,
@@ -322,178 +252,107 @@ DeveloperModeSettings::refresh()
 
     foreach (const QString &device, entries.keys()) {
         QString ip = entries[device];
-        qDebug() << "Device:" << device
-                 << "IP:" << ip;
+        qCDebug(lcDeveloperModeLog) << "Device:" << device
+                                    << "IP:" << ip;
     }
 }
 
-static QDBusPendingCallWatcher *packageKitCall(
-        const QString &path,
-        const QString &interface,
-        const QString &method,
-        const QVariantList &arguments = QVariantList())
+void DeveloperModeSettings::checkDeveloperModeStatus()
 {
-    QDBusMessage message = QDBusMessage::createMethodCall(PACKAGEKIT_SERVICE, path, interface, method);
-    message.setArguments(arguments);
-
-    return new QDBusPendingCallWatcher(QDBusConnection::systemBus().asyncCall(message));
+    checkDeveloperModeStatus(false);
 }
 
-static QDBusPendingCallWatcher *packageKitCall(
-        const QString &method,
-        const QVariantList &arguments = QVariantList())
+void DeveloperModeSettings::checkDeveloperModeStatus(bool initial)
 {
-    return packageKitCall(PACKAGEKIT_PATH, PACKAGEKIT_INTERFACE, method, arguments);
-}
+    if (!m_developerModeEnabled) {
+        Status oldStatus = m_workerStatus;
+        m_workerStatus = initial ? InitialCheckingStatus : CheckingStatus;
+        resolveDeveloperModePackageId(NoCommand);
 
-static QDBusPendingCallWatcher *packageKitTransactionCall(
-        const QDBusObjectPath &path,
-        const QString &method,
-        const QVariantList &arguments = QVariantList())
-{
-    return packageKitCall(path.path(), PACKAGEKIT_TRANSACTION_INTERFACE, method, arguments);
-}
-
-QDBusPendingCallWatcher *DeveloperModeSettings::resolvePackageId(const QString &packageName)
-{
-    connectTransactionSignal(
-                PACKAGEKIT_TRANSACTION_PACKAGE,
-                SLOT(transactionPackage(uint,QString)));
-
-    connectPropertiesChanged();
-
-    connectTransactionSignal(
-                PACKAGEKIT_TRANSACTION_FINISHED,
-                SLOT(transactionFinished(uint,uint)));
-
-    return packageKitTransactionCall(
-                m_packageKitTransaction,
-                PACKAGEKIT_TRANSACTION_RESOLVE,
-                QVariantList() << quint64() << (QStringList() << packageName));
-}
-
-QDBusPendingCallWatcher *DeveloperModeSettings::installPackage(const QString &packageId)
-{
-    connectPropertiesChanged();
-
-    connectTransactionSignal(
-                PACKAGEKIT_TRANSACTION_FINISHED,
-                SLOT(transactionFinished(uint,uint)));
-
-    return packageKitTransactionCall(m_packageKitTransaction, PACKAGEKIT_TRANSACTION_INSTALLPACKAGES, QVariantList()
-                << QVariant::fromValue(quint64())
-                << (QStringList() << packageId));
-}
-
-QDBusPendingCallWatcher *DeveloperModeSettings::removePackage(const QString &packageId)
-{
-    connectPropertiesChanged();
-
-    connectTransactionSignal(
-                PACKAGEKIT_TRANSACTION_FINISHED,
-                SLOT(transactionFinished(uint,uint)));
-
-    return packageKitTransactionCall(m_packageKitTransaction, PACKAGEKIT_TRANSACTION_REMOVEPACKAGES, QVariantList()
-                << QVariant::fromValue(quint64())
-                << (QStringList() << packageId)
-                << true
-                << true);
-}
-
-void DeveloperModeSettings::connectTransactionSignal(const QString &name, const char *slot)
-{
-    QDBusConnection::systemBus().connect(
-                PACKAGEKIT_SERVICE,
-                m_packageKitTransaction.path(),
-                PACKAGEKIT_TRANSACTION_INTERFACE,
-                name,
-                this,
-                slot);
-}
-
-void DeveloperModeSettings::connectPropertiesChanged()
-{
-    QDBusConnection::systemBus().connect(
-                PACKAGEKIT_SERVICE,
-                m_packageKitTransaction.path(),
-                DBUS_PROPERTIES_INTERFACE,
-                DBUS_PROPERTIES_CHANGED,
-                this,
-                SLOT(transactionPropertiesChanged(QString,QVariantMap,QStringList)));
-}
-
-void DeveloperModeSettings::executePackageKitCommand(
-        QDBusPendingCallWatcher *(DeveloperModeSettings::*command)(const QString &),
-        const QString &argument)
-{
-    Q_ASSERT(!m_pendingPackageKitCall);
-    m_pendingPackageKitCall = packageKitCall(PACKAGEKIT_CREATETRANSACTION);
-
-    connect(m_pendingPackageKitCall,
-                &QDBusPendingCallWatcher::finished,
-                this,
-                [this, command, argument](QDBusPendingCallWatcher *watcher) {
-        Q_ASSERT(m_pendingPackageKitCall == watcher);
-        watcher->deleteLater();
-        m_pendingPackageKitCall = nullptr;
-
-        QDBusReply<QDBusObjectPath> reply = *watcher;
-        if (reply.isValid()) {
-            m_packageKitTransaction = reply.value();
-
-            connectTransactionSignal(
-                        PACKAGEKIT_TRANSACTION_ERRORCODE,
-                        SLOT(transactionErrorCode(uint,QString)));
-
-            m_pendingPackageKitCall = (this->*command)(argument);
-
-            connect(m_pendingPackageKitCall,
-                        &QDBusPendingCallWatcher::finished,
-                        this,
-                        [this](QDBusPendingCallWatcher *watcher) {
-                Q_ASSERT(m_pendingPackageKitCall == watcher);
-                watcher->deleteLater();
-                m_pendingPackageKitCall = nullptr;
-
-                QDBusReply<void> reply = *watcher;
-                if (!reply.isValid()) {
-                    qWarning() << "Failed to call PackageKit method" << reply.error().message();
-
-                    m_workerStatus = Idle;
-                    emit workerStatusChanged();
-                }
-            });
-        } else {
-            qWarning() << "Failed to create PackageKit transaction" << reply.error().message();
-
-            m_workerStatus = Idle;
+        if (oldStatus != m_workerStatus) {
             emit workerStatusChanged();
         }
+    }
+}
+
+void DeveloperModeSettings::refreshPackageCache()
+{
+    // Soft refresh, do not clear & reload valid cache.
+    PackageKit::Transaction *refreshCache = PackageKit::Daemon::refreshCache(false);
+    connect(refreshCache, &PackageKit::Transaction::errorCode, this, &DeveloperModeSettings::transactionErrorCode);
+    connect(refreshCache, &PackageKit::Transaction::finished, this, [this](PackageKit::Transaction::Exit status, uint runtime) {
+        qCDebug(lcDeveloperModeLog) << "Package cache updated:" << status << runtime;
+        m_cacheUpdated = (status == PackageKit::Transaction::ExitSuccess);
+        if (m_cacheUpdated) {
+            emit packageCacheUpdated();
+        }
+        transactionFinished(status, runtime);
     });
 }
 
-void DeveloperModeSettings::transactionPackage(uint, const QString &packageId)
+void DeveloperModeSettings::resolveDeveloperModePackageId(Command command)
 {
-    Q_ASSERT(!m_pendingPackageKitCall);
-
-    m_packageKitTransaction = QDBusObjectPath();
-
-    if (m_packageKitCommand) {
-        executePackageKitCommand(m_packageKitCommand, packageId);
-        m_packageKitCommand = nullptr;
+    if (!m_cacheUpdated) {
+        refreshPackageCache();
+        connect(this, &DeveloperModeSettings::packageCacheUpdated, this, [this, command]() {
+            resolveDeveloperModePackageId(command);
+        });
+    } else {
+        PackageKit::Transaction *resolvePackage = PackageKit::Daemon::resolve(QStringLiteral("jolla-developer-mode"));
+        connect(resolvePackage, &PackageKit::Transaction::errorCode, this, &DeveloperModeSettings::transactionErrorCode);
+        connect(resolvePackage, &PackageKit::Transaction::package, this, &DeveloperModeSettings::transactionPackage);
+        connect(resolvePackage, &PackageKit::Transaction::finished, this, [this, command](PackageKit::Transaction::Exit status, uint runtime) {
+            transactionFinished(status, runtime);
+            switch (command) {
+            case InstallCommand:
+                connectCommandSignals(PackageKit::Daemon::installPackage(m_developerModePackageId));
+                break;
+            case RemoveCommand:
+                connectCommandSignals(PackageKit::Daemon::removePackage(m_developerModePackageId, true, true));
+                break;
+            case NoCommand:
+                // Nothing to do
+                break;
+            default:
+                break;
+            }
+        });
     }
+}
 
+void DeveloperModeSettings::connectCommandSignals(PackageKit::Transaction *transaction)
+{
+    connect(transaction, &PackageKit::Transaction::errorCode, this, &DeveloperModeSettings::transactionErrorCode);
+    connect(transaction, &PackageKit::Transaction::finished, this, &DeveloperModeSettings::transactionFinished);
+    connect(transaction, &PackageKit::Transaction::percentageChanged, this, [this, transaction]() {
+        updateState(transaction->percentage(), m_transactionStatus, m_transactionRole);
+    });
+
+    connect(transaction, &PackageKit::Transaction::statusChanged, this, [this, transaction]() {
+        updateState(m_workerProgress, transaction->status(), m_transactionRole);
+    });
+
+    connect(transaction, &PackageKit::Transaction::roleChanged, this, [this, transaction]() {
+        updateState(m_workerProgress, m_transactionStatus, transaction->role());
+    });
+}
+
+void DeveloperModeSettings::transactionPackage(PackageKit::Transaction::Info info, const QString &packageId, const QString &summary)
+{
+    qCDebug(lcDeveloperModeLog) << "Package transaction:" << info << packageId << "summary:" << summary;
     m_developerModePackageId = packageId;
 
-    if (!m_developerModeEnabled) {
+    if (!m_developerModePackageId.isEmpty()) {
         emit developerModeAvailableChanged();
     }
 }
 
-void DeveloperModeSettings::transactionPropertiesChanged(
-        const QString &interface, const QVariantMap &changed, const QStringList &)
+void DeveloperModeSettings::updateState(int percentage, PackageKit::Transaction::Status status, PackageKit::Transaction::Role role)
 {
-    qDebug() << "properties changed" << interface << changed;
+    // Do not update progress when finished.
+    if (status == PackageKit::Transaction::StatusFinished) {
+        return;
+    }
 
     // Expected changes from PackageKit when installing packages:
     // 1. Change to 'resolve' role
@@ -516,68 +375,42 @@ void DeveloperModeSettings::transactionPropertiesChanged(
     //
     // Notice the 'install' and 'remove' packagekit status changes occur twice.
 
-    if (interface != PACKAGEKIT_TRANSACTION_INTERFACE) {
-        return;
-    }
-
     int progress = m_workerProgress;
     DeveloperModeSettings::Status workerStatus = m_workerStatus;
 
-    auto it = changed.find(PACKAGEKIT_TRANSACTION_ROLE);
-    if (it != changed.end()) {
-        m_transactionRole = it->toInt();
-        switch (m_transactionRole) {
-        case TransactionRoleInstallPackages:
-        case TransactionRoleRemovePackages:
-            progress = 0;
-            m_statusChanges.clear();
-            break;
-        default:
-            progress = PROGRESS_INDETERMINATE;
-            break;
-        }
-    }
+    m_transactionRole = role;
+    m_transactionStatus = status;
 
-    it = changed.find(PACKAGEKIT_TRANSACTION_STATUS);
-    if (it != changed.end()) {
-        m_transactionStatus = it->toInt();
-        m_statusChanges.append(m_transactionStatus);
-    }
-
-    it = changed.find(PACKAGEKIT_TRANSACTION_PERCENTAGE);
-    if (it != changed.end() && it->toInt() > 0 && it->toInt() <= 100) {
+    if (percentage >= 0 && percentage <= 100) {
         int rangeStart = 0;
         int rangeEnd = 0;
-        if (m_transactionRole == TransactionRoleInstallPackages) {
+        if (m_transactionRole == PackageKit::Transaction::RoleInstallPackages) {
             switch (m_transactionStatus) {
-            case TransactionStatusRefreshCache:   // 0-10 %
+            case PackageKit::Transaction::StatusRefreshCache:   // 0-10 %
                 rangeStart = 0;
                 rangeEnd = 10;
                 break;
-            case TransactionStatusQuery: // fall through; packagekit progress changes 0-100 over query->resolve stages
-            case TransactionStatusResolveDeps:    // 10-20 %
+            case PackageKit::Transaction::StatusQuery: // fall through; packagekit progress changes 0-100 over query->resolve stages
+            case PackageKit::Transaction::StatusDepResolve:    // 10-20 %
                 rangeStart = 10;
                 rangeEnd = 20;
                 break;
-            case TransactionStatusDownload:    // 20-60 %
+            case PackageKit::Transaction::StatusDownload:    // 20-60 %
                 workerStatus = DownloadingPackages;
                 rangeStart = 20;
                 rangeEnd = 60;
                 break;
-            case TransactionStatusInstall: // 60-100 %
-                if (m_statusChanges.count(TransactionStatusInstall) > 1) {
-                    workerStatus = InstallingPackages;
-                    rangeStart = 60;
-                    rangeEnd = 100;
-                }
+            case PackageKit::Transaction::StatusInstall: // 60-100 %
+                workerStatus = InstallingPackages;
+                rangeStart = 60;
+                rangeEnd = 100;
                 break;
             default:
                 break;
             }
-        } else if (m_transactionRole == TransactionRoleRemovePackages) {
-            if (m_statusChanges.count(TransactionStatusRemove) <= 1) {  // 0-20 %
-                // The final remove operation hasn't started, so this progress value must be for
-                // the setup/resolve stages.
+        } else if (m_transactionRole == PackageKit::Transaction::RoleRemovePackages) {
+            if (m_transactionStatus == PackageKit::Transaction::StatusSetup) {
+                // Let the setup to be bound between 0-20 %
                 rangeStart = 0;
                 rangeEnd = 20;
             } else {    // 20-100 %
@@ -587,17 +420,11 @@ void DeveloperModeSettings::transactionPropertiesChanged(
             }
         }
         if (rangeEnd > 0 && rangeEnd > rangeStart) {
-            progress = rangeStart + ((rangeEnd - rangeStart) * (it->toInt() / 100.0));
+            progress = rangeStart + ((rangeEnd - rangeStart) * (percentage / 100.0));
         }
     }
 
-    progress = m_workerProgress == PROGRESS_INDETERMINATE
-            ? progress
-            : qMax(progress, m_workerProgress); // Ensure the emitted progress value never decreases.
-
-    if (progress > 100) {
-        progress = PROGRESS_INDETERMINATE;
-    }
+    progress = qBound(0, qMax(progress, m_workerProgress), 100); // Ensure the emitted progress value never decreases.
 
     if (m_workerStatus != workerStatus) {
         m_workerStatus = workerStatus;
@@ -609,24 +436,17 @@ void DeveloperModeSettings::transactionPropertiesChanged(
     }
 }
 
-void DeveloperModeSettings::transactionErrorCode(uint code, const QString &message)
+void DeveloperModeSettings::transactionErrorCode(PackageKit::Transaction::Error code, const QString &details)
 {
-    qWarning() << "PackageKit error" << code << message;
-
-    QDBusConnection::systemBus().call(QDBusMessage::createMethodCall(
-                PACKAGEKIT_SERVICE,
-                m_packageKitTransaction.path(),
-                PACKAGEKIT_TRANSACTION_INTERFACE,
-                PACKAGEKIT_TRANSACTION_CANCEL), QDBus::NoBlock);
+    qCWarning(lcDeveloperModeLog) << "Transaction error:" << code << details;
 }
 
-void DeveloperModeSettings::transactionFinished(uint, uint)
+void DeveloperModeSettings::transactionFinished(PackageKit::Transaction::Exit status, uint runtime)
 {
-    m_packageKitTransaction = QDBusObjectPath();
+    qCDebug(lcDeveloperModeLog) << "Transaction finished:" << status << runtime;
 
     const bool enabled = m_developerModeEnabled;
     m_developerModeEnabled = QFile::exists(DEVELOPER_MODE_PROVIDED_FILE);
-
     m_workerStatus = Idle;
     m_workerProgress = PROGRESS_INDETERMINATE;
 

@@ -35,5 +35,6 @@
 #include <QLoggingCategory>
 
 Q_DECLARE_LOGGING_CATEGORY(lcVpnLog)
+Q_DECLARE_LOGGING_CATEGORY(lcDeveloperModeLog)
 
 #endif
