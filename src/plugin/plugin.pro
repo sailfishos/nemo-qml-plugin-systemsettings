@@ -11,11 +11,15 @@ PKGCONFIG += profile usb-moded-qt5 nemomodels-qt5 libsailfishkeyprovider connman
 target.path = $$[QT_INSTALL_QML]/$$PLUGIN_IMPORT_PATH
 INSTALLS += target
 
-qmldir.files += qmldir
+qmldir.files += qmldir plugins.qmltypes
 qmldir.path +=  $$[QT_INSTALL_QML]/$$$$PLUGIN_IMPORT_PATH
 INSTALLS += qmldir
 
+qmltypes.commands = qmlplugindump -nonrelocatable org.nemomobile.systemsettings 1.0 > $$PWD/plugins.qmltypes
+QMAKE_EXTRA_TARGETS += qmltypes
+
 OTHER_FILES += \
+    plugins.qmltypes \
     qmldir
 
 SOURCES += \

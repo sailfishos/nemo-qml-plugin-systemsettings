@@ -65,6 +65,7 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root,-)
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/libnemosystemsettings.so
+%{_libdir}/qt5/qml/org/nemomobile/systemsettings/plugins.qmltypes
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/qmldir
 %{_libdir}/libsystemsettings.so.*
 %dir %attr(0775, root, privileged) /etc/location
