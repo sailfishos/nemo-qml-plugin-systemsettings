@@ -55,9 +55,6 @@
 /* A file that is provided by the developer mode package */
 #define DEVELOPER_MODE_PROVIDED_FILE "/usr/bin/devel-su"
 
-/* The service name for developer mode services offered by an account provider */
-#define DEVELOPER_MODE_ACCOUNT_SERVICE "developermode"
-
 /* D-Bus service */
 #define USB_MODED_SERVICE "com.meego.usb_moded"
 #define USB_MODED_PATH "/com/meego/usb_moded"
@@ -266,8 +263,15 @@ void DeveloperModeSettings::checkDeveloperModeStatus(bool initial)
 {
     if (!m_developerModeEnabled) {
         Status oldStatus = m_workerStatus;
+        if (oldStatus != Idle && oldStatus != InitialCheckingStatus) {
+            qCWarning(lcDeveloperModeLog) << Q_FUNC_INFO << "called while action ongoing, ignoring.";
+            return;
+        }
+
         m_workerStatus = initial ? InitialCheckingStatus : CheckingStatus;
-        resolveDeveloperModePackageId(NoCommand);
+        if (oldStatus == Idle) {
+            resolveDeveloperModePackageId(NoCommand);
+        }
 
         if (oldStatus != m_workerStatus) {
             emit workerStatusChanged();
