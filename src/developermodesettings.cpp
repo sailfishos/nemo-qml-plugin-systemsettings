@@ -91,7 +91,6 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_usbIpAddress(USB_NETWORK_FALLBACK_IP)
     , m_username("nemo")
     , m_developerModeEnabled(QFile::exists(DEVELOPER_MODE_PROVIDED_FILE))
-    , m_remoteLoginEnabled(false) // TODO: Read (from password manager?)
     , m_workerStatus(Idle)
     , m_workerProgress(PROGRESS_INDETERMINATE)
     , m_transactionRole(PackageKit::Transaction::RoleUnknown)
@@ -142,11 +141,6 @@ bool DeveloperModeSettings::developerModeEnabled() const
     return m_developerModeEnabled;
 }
 
-bool DeveloperModeSettings::remoteLoginEnabled() const
-{
-    return m_remoteLoginEnabled;
-}
-
 enum DeveloperModeSettings::Status DeveloperModeSettings::workerStatus() const
 {
     return m_workerStatus;
@@ -168,14 +162,6 @@ void DeveloperModeSettings::setDeveloperMode(bool enabled)
         }
 
         emit workerStatusChanged();
-    }
-}
-
-void DeveloperModeSettings::setRemoteLogin(bool enabled)
-{
-    if (m_remoteLoginEnabled != enabled) {
-        m_remoteLoginEnabled = enabled;
-        emit remoteLoginEnabledChanged();
     }
 }
 

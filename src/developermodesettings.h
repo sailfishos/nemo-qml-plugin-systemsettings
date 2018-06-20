@@ -54,7 +54,6 @@ class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
     Q_PROPERTY(QString username READ username CONSTANT)
     Q_PROPERTY(bool developerModeAvailable READ developerModeAvailable NOTIFY developerModeAvailableChanged)
     Q_PROPERTY(bool developerModeEnabled READ developerModeEnabled NOTIFY developerModeEnabledChanged)
-    Q_PROPERTY(bool remoteLoginEnabled READ remoteLoginEnabled NOTIFY remoteLoginEnabledChanged)
     Q_PROPERTY(enum DeveloperModeSettings::Status workerStatus READ workerStatus NOTIFY workerStatusChanged)
     Q_PROPERTY(int workerProgress READ workerProgress NOTIFY workerProgressChanged)
 
@@ -77,12 +76,10 @@ public:
     QString username() const;
     bool developerModeAvailable() const;
     bool developerModeEnabled() const;
-    bool remoteLoginEnabled() const;
     enum DeveloperModeSettings::Status workerStatus() const;
     int workerProgress() const;
 
     Q_INVOKABLE void setDeveloperMode(bool enabled);
-    Q_INVOKABLE void setRemoteLogin(bool enabled);
     Q_INVOKABLE void setUsbIpAddress(const QString &usbIpAddress);
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void checkDeveloperModeStatus();
@@ -92,7 +89,6 @@ signals:
     void usbIpAddressChanged();
     void developerModeAvailableChanged();
     void developerModeEnabledChanged();
-    void remoteLoginEnabledChanged();
     void workerWorkingChanged();
     void workerStatusChanged();
     void workerProgressChanged();
@@ -126,7 +122,6 @@ private:
     QString m_username;
     QString m_developerModePackageId;
     bool m_developerModeEnabled;
-    bool m_remoteLoginEnabled;
     DeveloperModeSettings::Status m_workerStatus;
     int m_workerProgress;
     PackageKit::Transaction::Role m_transactionRole;
