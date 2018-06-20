@@ -83,28 +83,9 @@ static QMap<QString,QString> enumerate_network_interfaces()
     return result;
 }
 
-static QString usb_moded_get_config(QDBusInterface &usb, QString key, QString fallback)
-{
-    QString value = fallback;
-
-    QDBusMessage msg = usb.call(USB_MODED_GET_NET_CONFIG, key);
-    QList<QVariant> result = msg.arguments();
-    if (result[0].toString() == key && result.size() == 2) {
-        value = result[1].toString();
-    }
-
-    return value;
-}
-
-static void usb_moded_set_config(QDBusInterface &usb, QString key, QString value)
-{
-    usb.call(USB_MODED_SET_NET_CONFIG, key, value);
-}
-
 DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     : QObject(parent)
-    , m_usbModeDaemon(USB_MODED_SERVICE, USB_MODED_PATH, USB_MODED_INTERFACE,
-            QDBusConnection::systemBus())
+    , m_usbModeDaemon(USB_MODED_SERVICE, USB_MODED_PATH, USB_MODED_INTERFACE, QDBusConnection::systemBus())
     , m_wlanIpAddress("-")
     , m_usbInterface(USB_NETWORK_FALLBACK_INTERFACE)
     , m_usbIpAddress(USB_NETWORK_FALLBACK_IP)
@@ -201,7 +182,7 @@ void DeveloperModeSettings::setRemoteLogin(bool enabled)
 void DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
 {
     if (m_usbIpAddress != usbIpAddress) {
-        usb_moded_set_config(m_usbModeDaemon, USB_MODED_CONFIG_IP, usbIpAddress);
+        usbModedSetConfig(USB_MODED_CONFIG_IP, usbIpAddress);
         m_usbIpAddress = usbIpAddress;
         emit usbIpAddressChanged();
     }
@@ -210,10 +191,9 @@ void DeveloperModeSettings::setUsbIpAddress(const QString &usbIpAddress)
 void DeveloperModeSettings::refresh()
 {
     /* Retrieve network configuration from usb_moded */
-    m_usbInterface = usb_moded_get_config(m_usbModeDaemon,
-            USB_MODED_CONFIG_INTERFACE, USB_NETWORK_FALLBACK_INTERFACE);
-    QString usbIp = usb_moded_get_config(m_usbModeDaemon,
-            USB_MODED_CONFIG_IP, USB_NETWORK_FALLBACK_IP);
+    m_usbInterface = usbModedGetConfig(USB_MODED_CONFIG_INTERFACE, USB_NETWORK_FALLBACK_INTERFACE);
+    QString usbIp = usbModedGetConfig(USB_MODED_CONFIG_IP, USB_NETWORK_FALLBACK_IP);
+
     if (usbIp != m_usbIpAddress) {
         m_usbIpAddress = usbIp;
         emit usbIpAddressChanged();
@@ -459,4 +439,22 @@ void DeveloperModeSettings::transactionFinished(PackageKit::Transaction::Exit st
     }
     emit workerStatusChanged();
     emit workerProgressChanged();
+}
+
+QString DeveloperModeSettings::usbModedGetConfig(const QString &key, const QString &fallback)
+{
+    QString value = fallback;
+
+    QDBusMessage msg = m_usbModeDaemon.call(USB_MODED_GET_NET_CONFIG, key);
+    QList<QVariant> result = msg.arguments();
+    if (result[0].toString() == key && result.size() == 2) {
+        value = result[1].toString();
+    }
+
+    return value;
+}
+
+void DeveloperModeSettings::usbModedSetConfig(const QString &key, const QString &value)
+{
+    m_usbModeDaemon.call(USB_MODED_SET_NET_CONFIG, key, value);
 }

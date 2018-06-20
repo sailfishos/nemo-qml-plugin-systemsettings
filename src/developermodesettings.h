@@ -116,6 +116,9 @@ private:
     void connectCommandSignals(PackageKit::Transaction *transaction);
     void checkDeveloperModeStatus(bool initial);
 
+    QString usbModedGetConfig(const QString &key, const QString &fallback);
+    void usbModedSetConfig(const QString &key, const QString &value);
+
     QDBusInterface m_usbModeDaemon;
     QString m_wlanIpAddress;
     QString m_usbInterface;
