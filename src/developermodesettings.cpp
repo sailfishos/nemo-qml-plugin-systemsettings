@@ -72,8 +72,8 @@ static QMap<QString,QString> enumerate_network_interfaces()
 {
     QMap<QString,QString> result;
 
-    foreach (const QNetworkInterface &intf, QNetworkInterface::allInterfaces()) {
-        foreach (const QNetworkAddressEntry &entry, intf.addressEntries()) {
+    for (const QNetworkInterface &intf : QNetworkInterface::allInterfaces()) {
+        for (const QNetworkAddressEntry &entry : intf.addressEntries()) {
             if (entry.ip().protocol() == QAbstractSocket::IPv4Protocol) {
                 result[intf.name()] = entry.ip().toString();
             }
@@ -213,10 +213,8 @@ void DeveloperModeSettings::refresh()
         }
     }
 
-    foreach (const QString &device, entries.keys()) {
-        QString ip = entries[device];
-        qCDebug(lcDeveloperModeLog) << "Device:" << device
-                                    << "IP:" << ip;
+    for (const QString &device : entries.keys()) {
+        qCDebug(lcDeveloperModeLog) << "Device:" << device << "IP:" << entries[device];
     }
 }
 
