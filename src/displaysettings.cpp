@@ -68,6 +68,7 @@ DisplaySettings::DisplaySettings(QObject *parent)
     m_doubleTapMode             = true;
     m_lidSensorFilteringEnabled = true;
     m_lidSensorEnabled          = true;
+    m_populated                 = false;
 
     /* Setup change listener & get current values via async query */
     m_mceSignalIface = new ComNokiaMceSignalInterface(MCE_SERVICE, MCE_SIGNAL_PATH, QDBusConnection::systemBus(), this);
@@ -94,6 +95,8 @@ void DisplaySettings::configReply(QDBusPendingCallWatcher *watcher)
             i.next();
             updateConfig(i.key(), i.value());
         }
+        m_populated = true;
+        emit populatedChanged();
     }
 
     watcher->deleteLater();
@@ -273,6 +276,11 @@ void DisplaySettings::setLidSensorFilteringEnabled(bool enabled)
 bool DisplaySettings::flipoverGestureEnabled() const
 {
     return m_flipoverGestureEnabled;
+}
+
+bool DisplaySettings::populated() const
+{
+    return m_populated;
 }
 
 void DisplaySettings::setFlipoverGestureEnabled(bool enabled)

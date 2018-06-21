@@ -62,6 +62,7 @@ class SYSTEMSETTINGS_EXPORT DisplaySettings: public QObject
     Q_PROPERTY(bool lidSensorEnabled READ lidSensorEnabled WRITE setLidSensorEnabled NOTIFY lidSensorEnabledChanged)
     Q_PROPERTY(bool lidSensorFilteringEnabled READ lidSensorFilteringEnabled WRITE setLidSensorFilteringEnabled NOTIFY lidSensorFilteringEnabledChanged)
     Q_PROPERTY(bool flipoverGestureEnabled READ flipoverGestureEnabled WRITE setFlipoverGestureEnabled NOTIFY flipoverGestureEnabledChanged)
+    Q_PROPERTY(bool populated READ populated NOTIFY populatedChanged)
 
 public:
     enum DoubleTapMode {
@@ -127,6 +128,8 @@ public:
     bool flipoverGestureEnabled() const;
     void setFlipoverGestureEnabled(bool);
 
+    bool populated() const;
+
 signals:
     void brightnessChanged();
     void dimTimeoutChanged();
@@ -141,11 +144,11 @@ signals:
     void lidSensorEnabledChanged();
     void lidSensorFilteringEnabledChanged();
     void flipoverGestureEnabledChanged();
+    void populatedChanged();
 
 private slots:
     void configChange(const QString &key, const QDBusVariant &value);
     void configReply(QDBusPendingCallWatcher *watcher);
-
 
 private:
     void updateConfig(const QString &key, const QVariant &value);
@@ -164,6 +167,7 @@ private:
     bool m_lidSensorEnabled;
     bool m_lidSensorFilteringEnabled;
     bool m_flipoverGestureEnabled;
+    bool m_populated;
 };
 
 QML_DECLARE_TYPE(DisplaySettings)
