@@ -52,11 +52,9 @@ class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
     Q_PROPERTY(QString wlanIpAddress READ wlanIpAddress NOTIFY wlanIpAddressChanged)
     Q_PROPERTY(QString usbIpAddress READ usbIpAddress NOTIFY usbIpAddressChanged)
     Q_PROPERTY(QString username READ username CONSTANT)
-    Q_PROPERTY(bool developerModeAvailable READ developerModeAvailable NOTIFY developerModeAvailableChanged)
     Q_PROPERTY(bool developerModeEnabled READ developerModeEnabled NOTIFY developerModeEnabledChanged)
-    Q_PROPERTY(bool remoteLoginEnabled READ remoteLoginEnabled NOTIFY remoteLoginEnabledChanged)
-    Q_PROPERTY(enum DeveloperModeSettings::Status workerStatus READ workerStatus NOTIFY workerStatusChanged)
-    Q_PROPERTY(int workerProgress READ workerProgress NOTIFY workerProgressChanged)
+    Q_PROPERTY(enum DeveloperModeSettings::Status workStatus READ workStatus NOTIFY workStatusChanged)
+    Q_PROPERTY(int workProgress READ workProgress NOTIFY workProgressChanged)
 
 public:
     explicit DeveloperModeSettings(QObject *parent = NULL);
@@ -64,8 +62,6 @@ public:
 
     enum Status {
         Idle = 0,
-        InitialCheckingStatus,
-        CheckingStatus,
         Preparing,
         DownloadingPackages,
         InstallingPackages,
@@ -75,46 +71,39 @@ public:
     QString wlanIpAddress() const;
     QString usbIpAddress() const;
     QString username() const;
-    bool developerModeAvailable() const;
     bool developerModeEnabled() const;
-    bool remoteLoginEnabled() const;
-    enum DeveloperModeSettings::Status workerStatus() const;
-    int workerProgress() const;
+    enum DeveloperModeSettings::Status workStatus() const;
+    int workProgress() const;
 
     Q_INVOKABLE void setDeveloperMode(bool enabled);
-    Q_INVOKABLE void setRemoteLogin(bool enabled);
     Q_INVOKABLE void setUsbIpAddress(const QString &usbIpAddress);
     Q_INVOKABLE void refresh();
-    Q_INVOKABLE void checkDeveloperModeStatus();
 
 signals:
     void wlanIpAddressChanged();
     void usbIpAddressChanged();
-    void developerModeAvailableChanged();
     void developerModeEnabledChanged();
-    void remoteLoginEnabledChanged();
-    void workerWorkingChanged();
-    void workerStatusChanged();
-    void workerProgressChanged();
-    void packageCacheUpdated();
+    void workStatusChanged();
+    void workProgressChanged();
 
 private slots:
-    void transactionPackage(PackageKit::Transaction::Info info, const QString &packageId, const QString &summary);
-    void transactionErrorCode(PackageKit::Transaction::Error code, const QString &details);
-    void transactionFinished(PackageKit::Transaction::Exit status, uint runtime);
+    void reportTransactionErrorCode(PackageKit::Transaction::Error code, const QString &details);
     void updateState(int percentage, PackageKit::Transaction::Status status, PackageKit::Transaction::Role role);
 
 private:
     enum Command {
-        NoCommand,
         InstallCommand,
         RemoveCommand
     };
 
-    void refreshPackageCache();
-    void resolveDeveloperModePackageId(Command command);
+    void resetState();
+    void setWorkStatus(Status status);
+    void refreshPackageCacheAndInstall();
+    void resolveAndExecute(Command command);
     void connectCommandSignals(PackageKit::Transaction *transaction);
-    void checkDeveloperModeStatus(bool initial);
+
+    QString usbModedGetConfig(const QString &key, const QString &fallback);
+    void usbModedSetConfig(const QString &key, const QString &value);
 
     QDBusInterface m_usbModeDaemon;
     QString m_wlanIpAddress;
@@ -123,14 +112,13 @@ private:
     QString m_username;
     QString m_developerModePackageId;
     bool m_developerModeEnabled;
-    bool m_remoteLoginEnabled;
-    DeveloperModeSettings::Status m_workerStatus;
-    int m_workerProgress;
+    DeveloperModeSettings::Status m_workStatus;
+    int m_workProgress;
     PackageKit::Transaction::Role m_transactionRole;
     PackageKit::Transaction::Status m_transactionStatus;
-    bool m_cacheUpdated;
+    bool m_refreshedForInstall;
 };
 
-Q_DECLARE_METATYPE(DeveloperModeSettings::Status);
+Q_DECLARE_METATYPE(DeveloperModeSettings::Status)
 
 #endif /* DEVELOPERMODESETTINGS_H */
