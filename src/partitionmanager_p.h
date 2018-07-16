@@ -63,10 +63,22 @@ public:
     void refresh(PartitionPrivate *partition);
     void refresh(const Partitions &partitions, Partitions &changedPartitions);
 
+    void mount(const Partition &partition);
+    void unmount(const Partition &partition);
+    void format(const Partition &partition, const QString &type, const QString &label);
+
+    QStringList supportedFileSystems() const;
+
 signals:
     void partitionChanged(const Partition &partition);
     void partitionAdded(const Partition &partition);
     void partitionRemoved(const Partition &partition);
+
+    void status(const QString &deviceName, Partition::Status);
+    void errorMessage(const QString &objectPath, const QString &errorName);
+    void mountError(Partition::Error error);
+    void unmountError(Partition::Error error);
+    void formatError(Partition::Error error);
 
 private:
     static PartitionManagerPrivate *sharedInstance;

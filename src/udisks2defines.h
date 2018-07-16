@@ -32,24 +32,39 @@
 #ifndef UDISKS2_DEFINES
 #define UDISKS2_DEFINES
 
-#define DBUS_OBJECT_MANAGER_INTERFACE QLatin1String("org.freedesktop.DBus.ObjectManager")
+#define DBUS_OBJECT_MANAGER_INTERFACE    QLatin1String("org.freedesktop.DBus.ObjectManager")
+#define DBUS_OBJECT_PROPERTIES_INTERFACE QLatin1String("org.freedesktop.DBus.Properties")
+#define DBUS_GET_ALL                     QLatin1String("GetAll")
 
 #define UDISKS2_SERVICE QLatin1String("org.freedesktop.UDisks2")
-#define UDISKS2_PATH QLatin1String("/org/freedesktop/UDisks2")
+#define UDISKS2_PATH    QLatin1String("/org/freedesktop/UDisks2")
 
-#define UDISKS2_BLOCK_INTERFACE QLatin1String("org.freedesktop.UDisks2.Block")
-#define UDISKS2_PARTITION_INTERFACE QLatin1String("org.freedesktop.UDisks2.Partition")
-#define UDISKS2_JOB_INTERFACE QLatin1String("org.freedesktop.UDisks2.Job")
+// Interfaces
+#define UDISKS2_BLOCK_INTERFACE      QLatin1String("org.freedesktop.UDisks2.Block")
+#define UDISKS2_FILESYSTEM_INTERFACE QLatin1String("org.freedesktop.UDisks2.Filesystem")
+#define UDISKS2_PARTITION_INTERFACE  QLatin1String("org.freedesktop.UDisks2.Partition")
+#define UDISKS2_JOB_INTERFACE        QLatin1String("org.freedesktop.UDisks2.Job")
 
-#define UDISKS2_JOB_KEY_OPERATION QLatin1String("Operation")
-#define UDISKS2_JOB_KEY_OBJECTS QLatin1String("Objects")
-
+// Jobs
 #define UDISKS2_JOB_OP_FS_UNMOUNT QLatin1String("filesystem-unmount")
-#define UDISKS2_JOB_OP_FS_MOUNT QLatin1String("filesystem-mount")
-#define UDISKS2_JOB_OP_CLEANUP QLatin1String("cleanup")
+#define UDISKS2_JOB_OP_FS_MOUNT   QLatin1String("filesystem-mount")
+#define UDISKS2_JOB_OP_CLEANUP    QLatin1String("cleanup")
+#define UDISKS2_JOB_OF_FS_FORMAT  QLatin1String("format-mkfs")
+
+// Job keys
+#define UDISKS2_JOB_KEY_OPERATION QLatin1String("Operation")
+#define UDISKS2_JOB_KEY_OBJECTS   QLatin1String("Objects")
+
+// Mount, Unmount, Format
+#define UDISKS2_BLOCK_DEVICE_PATH  QString("/org/freedesktop/UDisks2/block_devices/%1")
+#define UDISKS2_BLOCK_FORMAT       QLatin1String("Format")
+#define UDISKS2_FILESYSTEM_MOUNT   QLatin1String("Mount")
+#define UDISKS2_FILESYSTEM_UNMOUNT QLatin1String("Unmount")
 
 // Errors
-#define UDISKS2_ERROR_DEVICE_BUSY QLatin1String("org.freedesktop.UDisks2.Error.DeviceBusy")
-#define UDISKS2_ERROR_TARGET_BUSY QLatin1String("target is busy")
+#define UDISKS2_ERROR_DEVICE_BUSY        QLatin1String("org.freedesktop.UDisks2.Error.DeviceBusy")
+#define UDISKS2_ERROR_TARGET_BUSY        QLatin1String("target is busy")
+#define UDISKS2_ERROR_ALREADY_MOUNTED    "org.freedesktop.UDisks2.Error.AlreadyMounted"
+#define UDISKS2_ERROR_ALREADY_UNMOUNTING "org.freedesktop.UDisks2.Error.AlreadyUnmounting"
 
 #endif

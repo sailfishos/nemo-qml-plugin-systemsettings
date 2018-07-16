@@ -31,6 +31,7 @@
 
 #include "partitionmanager_p.h"
 #include "udisks2monitor_p.h"
+#include "logging_p.h"
 
 #include <QFile>
 #include <QRegularExpression>
@@ -43,6 +44,8 @@
 static const auto userName = QString(qgetenv("USER"));
 static const auto externalMountPath = QString("/run/media/%1/").arg(userName);
 
+static const QRegularExpression externalMedia(QString("^%1$").arg(externalDevice));
+
 PartitionManagerPrivate *PartitionManagerPrivate::sharedInstance = nullptr;
 
 PartitionManagerPrivate::PartitionManagerPrivate()
@@ -51,6 +54,11 @@ PartitionManagerPrivate::PartitionManagerPrivate()
 
     sharedInstance = this;
     m_udisksMonitor.reset(new UDisks2::Monitor(this));
+    connect(m_udisksMonitor.data(), &UDisks2::Monitor::status, this, &PartitionManagerPrivate::status);
+    connect(m_udisksMonitor.data(), &UDisks2::Monitor::errorMessage, this, &PartitionManagerPrivate::errorMessage);
+    connect(m_udisksMonitor.data(), &UDisks2::Monitor::mountError, this, &PartitionManagerPrivate::mountError);
+    connect(m_udisksMonitor.data(), &UDisks2::Monitor::unmountError, this, &PartitionManagerPrivate::unmountError);
+    connect(m_udisksMonitor.data(), &UDisks2::Monitor::formatError, this, &PartitionManagerPrivate::formatError);
 
     QExplicitlySharedDataPointer<PartitionPrivate> root(new PartitionPrivate(this));
     root->storageType = Partition::System;
@@ -97,6 +105,8 @@ PartitionManagerPrivate::PartitionManagerPrivate()
     if (root->status == Partition::Mounted) {
         m_root = Partition(QExplicitlySharedDataPointer<PartitionPrivate>(root));
     }
+
+    m_udisksMonitor->getBlockDevices();
 }
 
 PartitionManagerPrivate::~PartitionManagerPrivate()
@@ -156,7 +166,6 @@ void PartitionManagerPrivate::refresh()
         partitionFile.readLine();
 
         static const QRegularExpression whitespace(QStringLiteral("\\s+"));
-        static const QRegularExpression externalMedia(QString("^%1$").arg(externalDevice));
         static const QRegularExpression deviceRoot(QStringLiteral("^mmcblk\\d+$"));
 
         while (!partitionFile.atEnd()) {
@@ -234,14 +243,16 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
     for (auto partition : partitions) {
         // Reset properties to the unmounted defaults.  If the partition is mounted these will be restored
         // by the refresh.
-        partition->status = partition->activeState == QStringLiteral("activating")
-                ? Partition::Mounting
-                : Partition::Unmounted;
         partition->bytesFree = 0;
         partition->bytesAvailable = 0;
-        partition->canMount = false;
-        partition->readOnly = true;
-        partition->filesystemType.clear();
+        if (!partition->valid) {
+            partition->status = partition->activeState == QStringLiteral("activating")
+                    ? Partition::Mounting
+                    : Partition::Unmounted;
+            partition->canMount = false;
+            partition->readOnly = true;
+            partition->filesystemType.clear();
+        }
     }
 
     FILE *mtab = setmntent("/etc/mtab", "r");
@@ -256,9 +267,11 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
         const QString mountPath = QString::fromUtf8(mountEntry.mnt_dir);
         const QString devicePath = QString::fromUtf8(mountEntry.mnt_fsname);
 
+
         for (auto partition : partitions) {
-            if ((partition->status == Partition::Mounted || partition->status == Partition::Mounting)
-                    && (partition->storageType != Partition::External || partition->mountPath.startsWith(externalMountPath))) {
+            if (partition->valid || ((partition->status == Partition::Mounted || partition->status == Partition::Mounting) &&
+                                     (partition->storageType != Partition::External ||
+                                      partition->mountPath.startsWith(externalMountPath)))) {
                 continue;
             }
 
@@ -279,21 +292,6 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
     }
 
     endmntent(mtab);
-
-    blkid_cache cache = nullptr;
-
-    // Query filesystems supported by this device
-    // Note this will only find filesystems supported either directly by the
-    // kernel, or by modules already loaded.
-    QStringList supportedFs;
-    QFile filesystems(QStringLiteral("/proc/filesystems"));
-    if (filesystems.open(QIODevice::ReadOnly)) {
-        QString line = filesystems.readLine();
-        while (line.length() > 0) {
-            supportedFs << line.trimmed().split('\t').last();
-            line = filesystems.readLine();
-        }
-    }
     
     for (auto partition : partitions) {
         if (partition->status == Partition::Mounted) {
@@ -312,33 +310,54 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
                 partition->bytesFree = bytesFree;
                 partition->bytesAvailable = bytesAvailable;
             }
-        } else if (partition->storageType == Partition::External) {
-            // Presume the file system can be mounted, unless we can confirm otherwise.
-            partition->canMount = true;
-
-            // If an external partition is unmounted, query the uuid to get the prospective mount path.
-            if (!cache && blkid_get_cache(&cache, nullptr) < 0) {
-                qWarning("Failed to load blkid cache");
-                continue;
-            }
-
-            // Directly probing the device would be better but requires root permissions.
-            if (char * const uuid = blkid_get_tag_value(
-                        cache, "UUID", partition->devicePath.toUtf8().constData())) {
-                partition->mountPath = externalMountPath + QString::fromUtf8(uuid);
-
-                ::free(uuid);
-            }
-
-            if (char * const type = blkid_get_tag_value(
-                        cache, "TYPE", partition->devicePath.toUtf8().constData())) {
-                partition->filesystemType = QString::fromUtf8(type);
-                partition->canMount = !partition->filesystemType.isEmpty() && supportedFs.contains(partition->filesystemType);
-
-                ::free(type);
-            }
         }
     }
+}
+
+void PartitionManagerPrivate::mount(const Partition &partition)
+{
+    qCInfo(lcMemoryCardLog) << "Can mount:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.deviceName();
+    if (externalMedia.match(partition.deviceName()).hasMatch()) {
+        m_udisksMonitor->mount(partition.deviceName());
+    }
+}
+
+void PartitionManagerPrivate::unmount(const Partition &partition)
+{
+    qCInfo(lcMemoryCardLog) << "Can unmount:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.deviceName();
+    if (externalMedia.match(partition.deviceName()).hasMatch()) {
+        m_udisksMonitor->instance()->unmount(partition.deviceName());
+    } else {
+        qCWarning(lcMemoryCardLog) << "Unmount allowed only for external memory cards," << partition.devicePath() << "is not allowed";
+    }
+}
+
+void PartitionManagerPrivate::format(const Partition &partition, const QString &type, const QString &label)
+{
+    qCInfo(lcMemoryCardLog) << "Can format:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.deviceName();
+
+    if (externalMedia.match(partition.deviceName()).hasMatch()) {
+        m_udisksMonitor->instance()->format(partition.deviceName(), type, label);
+    } else {
+        qCWarning(lcMemoryCardLog) << "Formatting allowed only for external memory cards," << partition.devicePath() << "is not allowed";
+    }
+}
+
+QStringList PartitionManagerPrivate::supportedFileSystems() const
+{
+    // Query filesystems supported by this device
+    // Note this will only find filesystems supported either directly by the
+    // kernel, or by modules already loaded.
+    QStringList supportedFs;
+    QFile filesystems(QStringLiteral("/proc/filesystems"));
+    if (filesystems.open(QIODevice::ReadOnly)) {
+        QString line = filesystems.readLine();
+        while (line.length() > 0) {
+            supportedFs << line.trimmed().split('\t').last();
+            line = filesystems.readLine();
+        }
+    }
+    return supportedFs;
 }
 
 PartitionManager::PartitionManager(QObject *parent)

@@ -38,6 +38,7 @@ SOURCES += \
     deviceinfo.cpp \
     locationsettings.cpp \
     timezoneinfo.cpp \
+    udisks2block.cpp \
     udisks2job.cpp \
     udisks2monitor.cpp
 
@@ -69,11 +70,13 @@ HEADERS += \
     $$PUBLIC_HEADERS \
     qdbusxml2cpp_dbus_types.h \
     batterystatus_p.h \
+    logging_p.h \
     diskusage_p.h \
     locationsettings_p.h \
     logging_p.h \
     partition_p.h \
     partitionmanager_p.h \
+    udisks2block_p.h \
     udisks2defines.h \
     udisks2job_p.h \
     udisks2monitor_p.h

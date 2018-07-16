@@ -50,6 +50,7 @@ public:
         , canMount(false)
         , mountFailed(false)
         , deviceRoot(false)
+        , valid(false)
     {
     }
 
@@ -62,6 +63,7 @@ public:
 
     QString deviceName;
     QString devicePath;
+    QString deviceLabel;
     QString mountPath;
     QString filesystemType;
     QString activeState;
@@ -74,6 +76,8 @@ public:
     bool canMount;
     bool mountFailed;
     bool deviceRoot;
+    // If valid, only mount status and available bytes will be checked
+    bool valid;
 };
 
 #endif

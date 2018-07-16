@@ -44,6 +44,8 @@ class SYSTEMSETTINGS_EXPORT PartitionModel : public QAbstractListModel
     Q_FLAGS(StorageTypes)
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
     Q_PROPERTY(StorageTypes storageTypes READ storageTypes WRITE setStorageTypes NOTIFY storageTypesChanged)
+    Q_PROPERTY(QStringList supportedFormatTypes READ supportedFormatTypes CONSTANT)
+
 public:
     enum {
         ReadOnlyRole,
@@ -52,6 +54,7 @@ public:
         MountFailedRole,
         StorageTypeRole,
         FilesystemTypeRole,
+        DeviceLabelRole,
         DevicePathRole,
         DeviceNameRole,
         MountPathRole,
@@ -61,11 +64,14 @@ public:
         PartitionModelRole
     };
 
+    // For Status role
     enum Status {
         Unmounted       = Partition::Unmounted,
         Mounting        = Partition::Mounting,
         Mounted         = Partition::Mounted,
-        Unmounting      = Partition::Unmounting
+        Unmounting      = Partition::Unmounting,
+        Formatting      = Partition::Formatting,
+        Formatted       = Partition::Formatted
     };
 
     enum StorageType {
@@ -75,11 +81,30 @@ public:
         Mass            = Partition::Mass,
         External        = Partition::External,
 
-        ExcludeParents = Partition::ExcludeParents,
+        ExcludeParents  = Partition::ExcludeParents,
 
         Internal        = Partition::Internal,
         Any             = Partition::Any
     };
+
+    enum Error {
+        ErrorFailed                  = Partition::ErrorFailed,
+        ErrorCancelled               = Partition::ErrorCancelled,
+        ErrorAlreadyCancelled        = Partition::ErrorAlreadyCancelled,
+        ErrorNotAuthorized           = Partition::ErrorNotAuthorized,
+        ErrorNotAuthorizedCanObtain  = Partition::ErrorNotAuthorizedCanObtain,
+        ErrorNotAuthorizedDismissed  = Partition::ErrorNotAuthorizedDismissed,
+        ErrorAlreadyMounted          = Partition::ErrorAlreadyMounted,
+        ErrorNotMounted              = Partition::ErrorNotMounted,
+        ErrorOptionNotPermitted      = Partition::ErrorOptionNotPermitted,
+        ErrorMountedByOtherUser      = Partition::ErrorMountedByOtherUser,
+        ErrorAlreadyUnmounting       = Partition::ErrorAlreadyUnmounting,
+        ErrorNotSupported            = Partition::ErrorNotSupported,
+        ErrorTimedout                = Partition::ErrorTimedout,
+        ErrorWouldWakeup             = Partition::ErrorWouldWakeup,
+        ErrorDeviceBusy              = Partition::ErrorDeviceBusy
+    };
+    Q_ENUM(Error)
 
     Q_DECLARE_FLAGS(StorageTypes, StorageType)
 
@@ -89,8 +114,14 @@ public:
     StorageTypes storageTypes() const;
     void setStorageTypes(StorageTypes storageTypes);
 
+    QStringList supportedFormatTypes() const;
+
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void refresh(int index);
+
+    Q_INVOKABLE void mount(const QString &deviceName);
+    Q_INVOKABLE void unmount(const QString &deviceName);
+    Q_INVOKABLE void format(const QString &deviceName, const QString &type, const QString &label);
 
     QHash<int, QByteArray> roleNames() const;
 
@@ -101,13 +132,17 @@ signals:
     void countChanged();
     void storageTypesChanged();
 
+    void errorMessage(const QString &objectPath, const QString &errorName);
+    void mountError(Error error);
+    void unmountError(Error error);
+    void formatError(Error error);
+
 private:
     void update();
 
     void partitionChanged(const Partition &partition);
     void partitionAdded(const Partition &partition);
     void partitionRemoved(const Partition &partition);
-
 
     QExplicitlySharedDataPointer<PartitionManagerPrivate> m_manager;
     QVector<Partition> m_partitions;
