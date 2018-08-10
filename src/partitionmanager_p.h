@@ -66,6 +66,8 @@ public:
     void refresh(PartitionPrivate *partition);
     void refresh(const Partitions &partitions, Partitions &changedPartitions);
 
+    void lock(const Partition &partition);
+    void unlock(const Partition &partition, const QString &passphrase);
     void mount(const Partition &partition);
     void unmount(const Partition &partition);
     void format(const Partition &partition, const QString &type, const QString &label, const QString &passphrase);
@@ -79,6 +81,8 @@ signals:
 
     void status(const QString &deviceName, Partition::Status);
     void errorMessage(const QString &objectPath, const QString &errorName);
+    void lockError(Partition::Error error);
+    void unlockError(Partition::Error error);
     void mountError(Partition::Error error);
     void unmountError(Partition::Error error);
     void formatError(Partition::Error error);

@@ -51,6 +51,13 @@ PartitionModel::PartitionModel(QObject *parent)
 
     connect(m_manager.data(), &PartitionManagerPrivate::errorMessage, this, &PartitionModel::errorMessage);
 
+    connect(m_manager.data(), &PartitionManagerPrivate::lockError, this, [this](Partition::Error error) {
+        emit lockError(static_cast<PartitionModel::Error>(error));
+    });
+    connect(m_manager.data(), &PartitionManagerPrivate::unlockError, this, [this](Partition::Error error) {
+        emit unlockError(static_cast<PartitionModel::Error>(error));
+    });
+
     connect(m_manager.data(), &PartitionManagerPrivate::mountError, this, [this](Partition::Error error) {
         emit mountError(static_cast<PartitionModel::Error>(error));
     });
@@ -112,15 +119,57 @@ void PartitionModel::refresh(int index)
     }
 }
 
+void PartitionModel::lock(const QString &deviceName)
+{
+    qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << m_partitions.count();
+
+    bool found = false;
+    for (const Partition &partition : m_partitions) {
+        if (deviceName == partition.deviceName()) {
+            found = true;
+            m_manager->lock(partition);
+            break;
+        }
+    }
+
+    if (!found) {
+        qCWarning(lcMemoryCardLog) << "Unable to lock unknown device:" << deviceName;
+    }
+}
+
+void PartitionModel::unlock(const QString &deviceName, const QString &passphrase)
+{
+    qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << m_partitions.count();
+
+    bool found = false;
+    for (const Partition &partition : m_partitions) {
+        if (deviceName == partition.deviceName()) {
+            found = true;
+            m_manager->unlock(partition, passphrase);
+            break;
+        }
+    }
+
+    if (!found) {
+        qCWarning(lcMemoryCardLog) << "Unable to unlock unknown device:" << deviceName;
+    }
+}
+
 void PartitionModel::mount(const QString &deviceName)
 {
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << m_partitions.count();
 
+    bool found = false;
     for (const Partition &partition : m_partitions) {
         if (deviceName == partition.deviceName()) {
+            found = true;
             m_manager->mount(partition);
             break;
         }
+    }
+
+    if (!found) {
+        qCWarning(lcMemoryCardLog) << "Unable to mount unknown device:" << deviceName;
     }
 }
 
@@ -128,11 +177,17 @@ void PartitionModel::unmount(const QString &deviceName)
 {
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << m_partitions.count();
 
+    bool found = false;
     for (const Partition &partition : m_partitions) {
         if (deviceName == partition.deviceName()) {
+            found = true;
             m_manager->unmount(partition);
             break;
         }
+    }
+
+    if (!found) {
+        qCWarning(lcMemoryCardLog) << "Unable to unmount unknown device:" << deviceName;
     }
 }
 
@@ -140,11 +195,17 @@ void PartitionModel::format(const QString &deviceName, const QString &type, cons
 {
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << type << label << m_partitions.count();
 
+    bool found = false;
     for (const Partition &partition : m_partitions) {
         if (deviceName == partition.deviceName()) {
+            found = true;
             m_manager->format(partition, type, label, passphrase);
             break;
         }
+    }
+
+    if (!found) {
+        qCWarning(lcMemoryCardLog) << "Unable to format unknown device:" << deviceName;
     }
 }
 

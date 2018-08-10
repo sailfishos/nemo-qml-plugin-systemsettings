@@ -37,6 +37,7 @@
 #include <QExplicitlySharedDataPointer>
 #include <QRegularExpression>
 #include <QQueue>
+#include <QVariantList>
 
 #include "partitionmodel.h"
 #include "partitionmanager_p.h"
@@ -56,15 +57,17 @@ class Job;
 
 struct Operation
 {
-    Operation(const QString &command, const QString &deviceName, const QString &type, const QVariantHash &arguments)
+    Operation(const QString &command, const QString &deviceName, const QString &dbusObjectPath, const QString &type, const QVariantHash &arguments)
         : command(command)
         , deviceName(deviceName)
+        , dbusObjectPath(dbusObjectPath)
         , type(type)
         , arguments(arguments)
     {}
 
     QString command;
     QString deviceName;
+    QString dbusObjectPath;
     QString type;
     QVariantHash arguments;
 };
@@ -78,6 +81,9 @@ public:
 
     static Monitor *instance();
 
+    void lock(const QString &deviceName);
+    void unlock(const QString &deviceName, const QString &passphrase);
+
     void mount(const QString &deviceName);
     void unmount(const QString &deviceName);
 
@@ -86,6 +92,8 @@ public:
 signals:
     void status(const QString &deviceName, Partition::Status);
     void errorMessage(const QString &objectPath, const QString &errorName);
+    void lockError(Partition::Error error);
+    void unlockError(Partition::Error error);
     void mountError(Partition::Error error);
     void unmountError(Partition::Error error);
     void formatError(Partition::Error error);
@@ -100,13 +108,14 @@ private:
     void updatePartitionStatus(const UDisks2::Job *job, bool success);
     bool externalBlockDevice(const QString &objectPathStr) const;
 
-    void startMountOperation(const QString &dbusMethod, const QString &deviceName, QVariantHash arguments);
+    void startLuksOperation(const QString &deviceName, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments);
+    void startMountOperation(const QString &deviceName, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments);
     void lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartions, const QStringList &objects);
 
     void createPartition(const Block *block);
     void createBlockDevice(const QString &path, const QVariantMap &dict);
 
-    void doFormat(const QString &deviceName, const QString &type, const QVariantHash &arguments);
+    void doFormat(const QString &deviceName, const QString &dbusObjectPath, const QString &type, const QVariantHash &arguments);
     void getBlockDevices();
 
 private:

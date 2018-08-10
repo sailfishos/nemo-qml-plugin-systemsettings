@@ -53,6 +53,8 @@ public:
     Q_ENUM(Status)
 
     enum Operation {
+        Lock,
+        Unlock,
         Mount,
         Unmount,
         Format,
