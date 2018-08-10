@@ -183,6 +183,19 @@ void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const 
         m_manager->refresh();
         QVariantMap dict = interfaces.value(UDISKS2_BLOCK_INTERFACE);
         addBlockDevice(path, dict);
+        if (interfaces.contains(UDISKS2_ENCRYPTED_INTERFACE)) {
+            for (auto partition : m_manager->m_partitions) {
+                if (partition->devicePath == path) {
+                    partition->canUnlock = true;
+                    break;
+                }
+            }
+        }
+    } else if (interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE) && interfaces.contains(UDISKS2_BLOCK_INTERFACE)) {
+        // could be a LUKS volume for an unlocked Encrypted partition.
+        m_manager->refresh();
+        QVariantMap dict = interfaces.value(UDISKS2_BLOCK_INTERFACE);
+        addBlockDevice(path, dict);
     } else if (path.startsWith(QStringLiteral("/org/freedesktop/UDisks2/jobs"))) {
         QVariantMap dict = interfaces.value(UDISKS2_JOB_INTERFACE);
         QString operation = dict.value(UDISKS2_JOB_KEY_OPERATION, QString()).toString();
@@ -223,6 +236,30 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
         job->deleteLater();
     } else if (m_blockDevices.contains(path)) {
         UDisks2::Block *block = m_blockDevices.take(path);
+        if (!block->cryptoBackingDevice().isEmpty()) {
+            for (auto partition : m_manager->m_partitions) {
+                if (UDISKS2_BLOCK_DEVICE_PATH.arg(partition->deviceName) == block->cryptoBackingDevice()) {
+                    // The LUKS volume associated with this partition has been removed
+                    // (i.e. the partition has been locked).
+                    partition->status = Partition::Locked;
+                    partition->unlockedPath = QString();
+                    partition->unlockedDeviceName = QString();
+                    partition->unlockedPreferredDevice = QString();
+                    partition->unlockedMountPath = QString();
+                    // reset the partition's filesystem type and canMount values.
+                    for (auto lockedBlock : m_blockDevices) {
+                        if (lockedBlock->device() == partition->devicePath) {
+                            partition->filesystemType = lockedBlock->idType();
+                            partition->canMount = lockedBlock->value(QStringLiteral("HintAuto")).toBool()
+                                    && !partition->filesystemType.isEmpty()
+                                    && m_manager->supportedFileSystems().contains(partition->filesystemType);
+                            break;
+                        }
+                    }
+                    m_manager->refresh(partition.data());
+                }
+            }
+        }
         block->deleteLater();
         if (externalBlockDevice(path)) {
             m_manager->refresh();
@@ -251,11 +288,30 @@ void UDisks2::Monitor::updatePartitionProperties(const UDisks2::Block *blockDevi
             partition->deviceLabel = label;
             partition->filesystemType = blockDevice->idType();
             partition->readOnly = blockDevice->isReadOnly();
+            partition->canUnlock = partition->filesystemType == QStringLiteral("crypto_LUKS");
             partition->canMount = blockDevice->value(QStringLiteral("HintAuto")).toBool()
                     && !partition->filesystemType.isEmpty()
                     && m_manager->supportedFileSystems().contains(partition->filesystemType);
+            partition->status = partition->mountPath.isEmpty()
+                              ? (partition->canUnlock ? Partition::Locked : Partition::Unmounted)
+                              : Partition::Mounted;
             partition->valid = true;
 
+            m_manager->refresh(partition.data());
+        } else if (UDISKS2_BLOCK_DEVICE_PATH.arg(partition->deviceName) == blockDevice->cryptoBackingDevice()) {
+            // this blockDevice is a LUKS volume associated with an unlocked partition.
+            // it has either been newly added (i.e. the partition was just unlocked)
+            // or it has just been mounted or unmounted.
+            partition->unlockedPath = blockDevice->path();
+            partition->unlockedDeviceName = blockDevice->device();
+            partition->unlockedPreferredDevice = blockDevice->preferredDevice();
+            partition->unlockedMountPath = blockDevice->mountPath();
+            partition->filesystemType = blockDevice->idType();
+            partition->canMount = !partition->filesystemType.isEmpty()
+                    && m_manager->supportedFileSystems().contains(partition->filesystemType);
+            partition->status = partition->unlockedMountPath.isEmpty()
+                              ? Partition::Unmounted
+                              : Partition::Mounted;
             m_manager->refresh(partition.data());
         }
     }
@@ -283,6 +339,9 @@ void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool succe
 
                     partition->activeState = operation == UDisks2::Job::Mount ? QStringLiteral("active") : QStringLiteral("inactive");
                     partition->status = operation == UDisks2::Job::Mount ? Partition::Mounted : Partition::Unmounted;
+                    if (operation == UDisks2::Job::Unmount && !partition->unlockedMountPath.isEmpty()) {
+                        partition->unlockedMountPath = QString();
+                    }
                 }
             } else {
                 partition->activeState = QStringLiteral("failed");
@@ -355,7 +414,7 @@ void UDisks2::Monitor::startMountOperation(const QString &dbusMethod, const QStr
             QByteArray errorData = error.name().toLocal8Bit();
             const char *errorCStr = errorData.constData();
 
-            qCWarning(lcMemoryCardLog) << dbusMethod << "error:" << errorCStr;
+            qCWarning(lcMemoryCardLog) << dbusMethod << "error:" << errorCStr << error.message();
 
             for (uint i = 0; i < sizeof(dbus_error_entries) / sizeof(ErrorEntry); i++) {
                 if (strcmp(dbus_error_entries[i].dbusErrorName, errorCStr) == 0) {
@@ -392,13 +451,19 @@ void UDisks2::Monitor::startMountOperation(const QString &dbusMethod, const QStr
     }
 }
 
-void UDisks2::Monitor::lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartions, const QStringList &objects)
+void UDisks2::Monitor::lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartitions, const QStringList &objects)
 {
     for (const QString &object : objects) {
         QString deviceName = object.section(QChar('/'), 5);
         for (auto partition : m_manager->m_partitions) {
             if (partition->deviceName == deviceName) {
-                affectedPartions << partition;
+                if (!affectedPartitions.contains(partition)) {
+                    affectedPartitions << partition;
+                }
+            } else if (partition->unlockedPath == object) {
+                if (!affectedPartitions.contains(partition)) {
+                    affectedPartitions << partition;
+                }
             }
         }
     }
@@ -486,5 +551,11 @@ void UDisks2::Monitor::getBlockDevices()
         QString path = UDISKS2_BLOCK_DEVICE_PATH.arg(partition.deviceName());
         QVariantMap data;
         addBlockDevice(path, data);
+        if (!partition.unlockedPath().isEmpty()) {
+            addBlockDevice(partition.unlockedPath(), data);
+        }
     }
+
+    // XXX TODO: an LUKS volume may not be "known" at startup time via the partition data...
+    // so we may need to get that info some other way and add those block devices...
 }

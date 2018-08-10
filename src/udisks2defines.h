@@ -40,6 +40,7 @@
 #define UDISKS2_PATH    QLatin1String("/org/freedesktop/UDisks2")
 
 // Interfaces
+#define UDISKS2_ENCRYPTED_INTERFACE  QLatin1String("org.freedesktop.UDisks2.Encrypted")
 #define UDISKS2_BLOCK_INTERFACE      QLatin1String("org.freedesktop.UDisks2.Block")
 #define UDISKS2_FILESYSTEM_INTERFACE QLatin1String("org.freedesktop.UDisks2.Filesystem")
 #define UDISKS2_PARTITION_INTERFACE  QLatin1String("org.freedesktop.UDisks2.Partition")

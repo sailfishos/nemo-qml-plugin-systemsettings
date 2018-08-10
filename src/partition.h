@@ -57,6 +57,9 @@ public:
     };
 
     enum Status {
+        Locked,
+        Locking,
+        Unlocking,
         Unmounted,
         Mounting,
         Mounted,
@@ -97,6 +100,8 @@ public:
 
     Status status() const;
 
+    bool canUnlock() const;
+    bool unlockFailed() const;
     bool canMount() const;
     bool mountFailed() const;
 
@@ -112,6 +117,12 @@ public:
     qint64 bytesAvailable() const;
     qint64 bytesTotal() const;
     qint64 bytesFree() const;
+
+    // these properties are backed by an unlocked block device (LUKS) for the partition.
+    QString unlockedPath() const;
+    QString unlockedDeviceName() const;
+    QString unlockedPreferredDevice() const;
+    QString unlockedMountPath() const;
 
     void refresh();
 

@@ -206,6 +206,12 @@ QHash<int, QByteArray> PartitionModel::roleNames() const
         { BytesAvailableRole, "bytesAvailable" },
         { BytesTotalRole, "bytesTotal" },
         { BytesFreeRole, "bytesFree" },
+        { CanUnlockRole, "canUnlock" },
+        { UnlockFailedRole, "unlockFailed" },
+        { UnlockedPathRole, "unlockedPath" },
+        { UnlockedDeviceNameRole, "unlockedDeviceName" },
+        { UnlockedPreferredDeviceRole, "unlockedPreferredDevice" },
+        { UnlockedMountPathRole, "unlockedMountPath" },
         { PartitionModelRole, "partitionModel" }
     };
 
@@ -251,6 +257,18 @@ QVariant PartitionModel::data(const QModelIndex &index, int role) const
             return partition.bytesTotal();
         case BytesFreeRole:
             return partition.bytesFree();
+        case CanUnlockRole:
+            return partition.canUnlock();
+        case UnlockFailedRole:
+            return partition.unlockFailed();
+        case UnlockedPathRole:
+            return partition.unlockedPath();
+        case UnlockedDeviceNameRole:
+            return partition.unlockedDeviceName();
+        case UnlockedPreferredDeviceRole:
+            return partition.unlockedPreferredDevice();
+        case UnlockedMountPathRole:
+            return partition.unlockedMountPath();
         case PartitionModelRole:
             return QVariant::fromValue(static_cast<QObject*>(const_cast<PartitionModel*>((this))));
         default:

@@ -48,6 +48,7 @@ public:
 
     QString path() const;
 
+    QString cryptoBackingDevice() const;
     QString device() const;
     QString preferredDevice() const;
     QString drive() const;

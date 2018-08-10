@@ -45,8 +45,10 @@ public:
         , bytesTotal(0)
         , bytesFree(0)
         , storageType(Partition::Invalid)
-        , status(Partition::Unmounted)
+        , status(Partition::Locked)
         , readOnly(true)
+        , canUnlock(false)
+        , unlockFailed(false)
         , canMount(false)
         , mountFailed(false)
         , deviceRoot(false)
@@ -61,6 +63,11 @@ public:
 
     PartitionManagerPrivate *manager;
 
+    QString unlockedPath;
+    QString unlockedDeviceName;
+    QString unlockedPreferredDevice;
+    QString unlockedMountPath;
+
     QString deviceName;
     QString devicePath;
     QString deviceLabel;
@@ -73,6 +80,8 @@ public:
     Partition::StorageType storageType;
     Partition::Status status;
     bool readOnly;
+    bool canUnlock;
+    bool unlockFailed;
     bool canMount;
     bool mountFailed;
     bool deviceRoot;

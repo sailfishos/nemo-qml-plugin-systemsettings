@@ -61,11 +61,20 @@ public:
         BytesAvailableRole,
         BytesTotalRole,
         BytesFreeRole,
+        CanUnlockRole,
+        UnlockFailedRole,
+        UnlockedPathRole,
+        UnlockedDeviceNameRole,
+        UnlockedPreferredDeviceRole,
+        UnlockedMountPathRole,
         PartitionModelRole
     };
 
     // For Status role
     enum Status {
+        Locked          = Partition::Locked,
+        Locking         = Partition::Locking,
+        Unlocking       = Partition::Unlocking,
         Unmounted       = Partition::Unmounted,
         Mounting        = Partition::Mounting,
         Mounted         = Partition::Mounted,

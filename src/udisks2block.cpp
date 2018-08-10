@@ -6,6 +6,7 @@
 #include <QDBusInterface>
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
+#include <QDBusObjectPath>
 
 UDisks2::Block::Block(const QString &path, const QVariantMap &data, QObject *parent)
     : QObject(parent)
@@ -68,6 +69,11 @@ UDisks2::Block::~Block()
 QString UDisks2::Block::path() const
 {
     return m_path;
+}
+
+QString UDisks2::Block::cryptoBackingDevice() const
+{
+    return m_data.value(QStringLiteral("CryptoBackingDevice")).value<QDBusObjectPath>().path();
 }
 
 QString UDisks2::Block::device() const

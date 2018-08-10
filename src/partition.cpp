@@ -76,6 +76,11 @@ Partition::Status Partition::status() const
     return d ? d->status : Partition::Unmounted;
 }
 
+bool Partition::canUnlock() const
+{
+    return d && d->canUnlock;
+}
+
 bool Partition::canMount() const
 {
     return d && d->canMount;
@@ -129,6 +134,26 @@ qint64 Partition::bytesTotal() const
 qint64 Partition::bytesFree() const
 {
     return d ? d->bytesFree : 0;
+}
+
+QString Partition::unlockedPath() const
+{
+    return d ? d->unlockedPath : QString();
+}
+
+QString Partition::unlockedDeviceName() const
+{
+    return d ? d->unlockedDeviceName : QString();
+}
+
+QString Partition::unlockedPreferredDevice() const
+{
+    return d ? d->unlockedPreferredDevice : QString();
+}
+
+QString Partition::unlockedMountPath() const
+{
+    return d ? d->unlockedMountPath : QString();
 }
 
 void Partition::refresh()

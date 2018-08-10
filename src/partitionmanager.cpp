@@ -267,21 +267,30 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
         const QString mountPath = QString::fromUtf8(mountEntry.mnt_dir);
         const QString devicePath = QString::fromUtf8(mountEntry.mnt_fsname);
 
-
         for (auto partition : partitions) {
             if (partition->valid || ((partition->status == Partition::Mounted || partition->status == Partition::Mounting) &&
                                      (partition->storageType != Partition::External ||
                                       partition->mountPath.startsWith(externalMountPath)))) {
-                continue;
+                if (partition->storageType != Partition::External
+                        || partition->unlockedPreferredDevice != devicePath) {
+                    continue;
+                }
             }
 
             if (((partition->storageType & Partition::Internal)
                             && partition->mountPath == mountPath
                             && devicePath.startsWith(QLatin1Char('/')))
                         || (partition->storageType == Partition::External
-                            && partition->devicePath == devicePath)) {
-                partition->mountPath = mountPath;
-                partition->devicePath = devicePath;
+                            && (partition->devicePath == devicePath
+                                || partition->unlockedPreferredDevice == devicePath))) {
+                if (partition->unlockedPreferredDevice == devicePath) {
+                    partition->unlockedMountPath = mountPath;
+                } else {
+                    partition->mountPath = mountPath;
+                }
+                if (partition->storageType == Partition::Internal) {
+                    partition->devicePath = devicePath;
+                }
                 partition->filesystemType = QString::fromUtf8(mountEntry.mnt_type);
                 partition->status = partition->activeState == QStringLiteral("deactivating")
                         ? Partition::Unmounting
@@ -292,11 +301,14 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
     }
 
     endmntent(mtab);
-    
+
     for (auto partition : partitions) {
         if (partition->status == Partition::Mounted) {
             struct statvfs64 stat;
-            if (::statvfs64(partition->mountPath.toUtf8().constData(), &stat) == 0) {
+            int sr = partition->unlockedMountPath.isEmpty()
+                   ? ::statvfs64(partition->mountPath.toUtf8().constData(), &stat)
+                   : ::statvfs64(partition->unlockedMountPath.toUtf8().constData(), &stat);
+            if (sr == 0) {
                 partition->bytesTotal = stat.f_blocks * stat.f_frsize;
                 qint64 bytesFree = stat.f_bfree * stat.f_frsize;
                 qint64 bytesAvailable = stat.f_bavail * stat.f_frsize;
