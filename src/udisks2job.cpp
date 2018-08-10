@@ -118,7 +118,11 @@ UDisks2::Job::Status UDisks2::Job::status() const
 UDisks2::Job::Operation UDisks2::Job::operation() const
 {
     QString operation = value(UDISKS2_JOB_KEY_OPERATION).toString();
-    if (operation == UDISKS2_JOB_OP_FS_MOUNT) {
+    if (operation == UDISKS2_JOB_OP_ENC_LOCK) {
+        return Lock;
+    } else if (operation == UDISKS2_JOB_OP_ENC_UNLOCK) {
+        return Unlock;
+    } else if (operation == UDISKS2_JOB_OP_FS_MOUNT) {
         return Mount;
     } else if (operation == UDISKS2_JOB_OP_FS_UNMOUNT) {
         return Unmount;
