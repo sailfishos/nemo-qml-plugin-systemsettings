@@ -502,6 +502,11 @@ void VpnModel::deleteConnection(const QString &path)
                 });
             }
         } else {
+            const QString location(CredentialsRepository::locationForObjectPath(path));
+            if (credentials_.credentialsExist(location)) {
+                credentials_.removeCredentials(location);
+            }
+
             QDBusPendingCall call = connmanVpn_.Remove(QDBusObjectPath(path));
             QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
             connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
