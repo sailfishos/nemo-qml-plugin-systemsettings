@@ -560,8 +560,8 @@ void VpnModel::activateConnection(const QString &path)
 void VpnModel::deactivateConnection(const QString &path)
 {
     qCInfo(lcVpnLog) << "Disconnect" << path;
-    auto it = connections_.find(path);
-    if (it != connections_.end()) {
+    ConnmanServiceProxy* proxy = vpnServices_.value(path);
+    if (proxy) {
         VpnConnection *connection = this->connection(path);
         if (connection && !pendingDisconnects_.contains(path) && (connection->state() == VpnModel::Ready ||
                                                                   connection->state() == VpnModel::Configuration)) {
@@ -569,8 +569,6 @@ void VpnModel::deactivateConnection(const QString &path)
             pendingDisconnects_.insert(path, connection);
             connect(connection, &VpnConnection::stateChanged, this, &VpnModel::updatePendingDisconnectState, Qt::UniqueConnection);
         }
-
-        ConnmanVpnConnectionProxy *proxy(*it);
 
         QDBusPendingCall call = proxy->Disconnect();
 
