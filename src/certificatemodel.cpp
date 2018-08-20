@@ -326,7 +326,7 @@ private:
         return rv;
     }
 
-    friend X509List;
+    friend struct ::X509List;
 
     X509Certificate(X509 *x) : x509(x) {}
 

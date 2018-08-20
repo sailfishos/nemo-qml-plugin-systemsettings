@@ -535,9 +535,8 @@ void VpnModel::activateConnection(const QString &path)
     qCDebug(lcVpnLog) << "About to connect has pending disconnects:" << !pendingDisconnects_.isEmpty() << pendingDisconnects_.keys() << "connecting:" << path;
 
     if (pendingDisconnects_.isEmpty()) {
-        auto it = connections_.find(path);
-        if (it != connections_.end()) {
-            ConnmanVpnConnectionProxy *proxy(*it);
+        ConnmanServiceProxy* proxy = vpnServices_.value(path);
+        if (proxy) {
             QDBusPendingCall call = proxy->Connect();
             qCDebug(lcVpnLog) << "Connect to vpn" << path;
 
