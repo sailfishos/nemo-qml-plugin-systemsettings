@@ -90,9 +90,6 @@ signals:
     void bestStateChanged();
     void connectionStateChanged(const QString &path, int state);
 
-private slots:
-    void updatePendingDisconnectState();
-
 private:
     void fetchVpnList();
 
@@ -130,8 +127,6 @@ private:
     QHash<QString, ConnmanVpnConnectionProxy *> connections_;
     QHash<QString, ConnmanServiceProxy *> vpnServices_;
     QSet<QString> defaultDomains_;
-    QMap<QString, VpnConnection*> pendingDisconnects_;
-    QString pendingConnect_;
     CredentialsRepository credentials_;
     ConnectionState bestState_;
 };
