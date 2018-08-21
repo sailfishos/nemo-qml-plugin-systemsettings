@@ -537,6 +537,8 @@ void VpnModel::activateConnection(const QString &path)
     if (pendingDisconnects_.isEmpty()) {
         ConnmanServiceProxy* proxy = vpnServices_.value(path);
         if (proxy) {
+            // TODO: Maybe possible to remove after Sailfish OS 2.2.1 release.
+            proxy->SetProperty(autoConnectKey, QDBusVariant(true));
             QDBusPendingCall call = proxy->Connect();
             qCDebug(lcVpnLog) << "Connect to vpn" << path;
 
@@ -570,13 +572,13 @@ void VpnModel::deactivateConnection(const QString &path)
             connect(connection, &VpnConnection::stateChanged, this, &VpnModel::updatePendingDisconnectState, Qt::UniqueConnection);
         }
 
+        proxy->SetProperty(autoConnectKey, QDBusVariant(false));
         QDBusPendingCall call = proxy->Disconnect();
 
         QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
         connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
             QDBusPendingReply<void> reply = *watcher;
             watcher->deleteLater();
-
             if (reply.isError()) {
                 qCWarning(lcVpnLog) << "Unable to deactivate Connman VPN connection:" << path << ":" << reply.error().message();
             }
