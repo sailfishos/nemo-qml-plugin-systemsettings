@@ -47,7 +47,7 @@ UDisks2::Job::Job(const QString &path, const QVariantMap &data, QObject *parent)
     , m_success(false)
     , m_connection(QDBusConnection::systemBus())
 {
-    if (!m_connection.connect(
+    if (!m_path.isEmpty() && !m_connection.connect(
                 UDISKS2_SERVICE,
                 m_path,
                 UDISKS2_JOB_INTERFACE,
@@ -56,8 +56,6 @@ UDisks2::Job::Job(const QString &path, const QVariantMap &data, QObject *parent)
                 SLOT(updateCompleted(bool, QString)))) {
         qWarning("Failed to connect to Job's at path %p completed signal: %s: ", qPrintable(m_path), qPrintable(m_connection.lastError().message()));
     }
-
-    // TODO: Move mount / unmount via Udisks2 to PartitionManager
 
     connect(Monitor::instance(), &Monitor::errorMessage, this, [this](const QString &objectPath, const QString &errorName) {
         QStringList objects = value(UDISKS2_JOB_KEY_OBJECTS).toStringList();
@@ -72,6 +70,14 @@ UDisks2::Job::Job(const QString &path, const QVariantMap &data, QObject *parent)
 
 UDisks2::Job::~Job()
 {
+}
+
+void UDisks2::Job::complete(bool success)
+{
+    m_completed = true;
+    m_success = success;
+    m_status = UDisks2::Job::Completed;
+    emit completed(success);
 }
 
 bool UDisks2::Job::isCompleted() const
@@ -116,6 +122,8 @@ UDisks2::Job::Operation UDisks2::Job::operation() const
         return Mount;
     } else if (operation == UDISKS2_JOB_OP_FS_UNMOUNT) {
         return Unmount;
+    } else if (operation == UDISKS2_JOB_OF_FS_FORMAT) {
+        return Format;
     } else {
         return Unknown;
     }
@@ -123,12 +131,8 @@ UDisks2::Job::Operation UDisks2::Job::operation() const
 
 void UDisks2::Job::updateCompleted(bool success, const QString &message)
 {
-    m_completed = true;
-    m_success = success;
+    complete(success);
     m_message = message;
-    m_status = UDisks2::Job::Completed;
-
-    emit completed(success);
 
     QDBusConnection systemBus = QDBusConnection::systemBus();
     systemBus.disconnect(

@@ -32,6 +32,12 @@
 #include "partitionmodel.h"
 #include "partitionmanager_p.h"
 
+#include "udisks2monitor_p.h"
+#include "logging_p.h"
+
+#include <QDir>
+#include <QFileInfo>
+
 PartitionModel::PartitionModel(QObject *parent)
     : QAbstractListModel(parent)
     , m_manager(PartitionManagerPrivate::instance())
@@ -42,6 +48,18 @@ PartitionModel::PartitionModel(QObject *parent)
     connect(m_manager.data(), &PartitionManagerPrivate::partitionChanged, this, &PartitionModel::partitionChanged);
     connect(m_manager.data(), &PartitionManagerPrivate::partitionAdded, this, &PartitionModel::partitionAdded);
     connect(m_manager.data(), &PartitionManagerPrivate::partitionRemoved, this, &PartitionModel::partitionRemoved);
+
+    connect(m_manager.data(), &PartitionManagerPrivate::errorMessage, this, &PartitionModel::errorMessage);
+
+    connect(m_manager.data(), &PartitionManagerPrivate::mountError, this, [this](Partition::Error error) {
+        emit mountError(static_cast<PartitionModel::Error>(error));
+    });
+    connect(m_manager.data(), &PartitionManagerPrivate::unmountError, this, [this](Partition::Error error) {
+        emit unmountError(static_cast<PartitionModel::Error>(error));
+    });
+    connect(m_manager.data(), &PartitionManagerPrivate::formatError, this, [this](Partition::Error error) {
+        emit formatError(static_cast<PartitionModel::Error>(error));
+    });
 }
 
 PartitionModel::~PartitionModel()
@@ -64,6 +82,24 @@ void PartitionModel::setStorageTypes(StorageTypes types)
     }
 }
 
+QStringList PartitionModel::supportedFormatTypes() const
+{
+    QStringList types;
+    QDir dir("/sbin/");
+    QStringList entries = dir.entryList(QStringList() << QString("mkfs.*"));
+    for (const QString &entry : entries) {
+        QFileInfo info(QString("/sbin/%1").arg(entry));
+        if (info.exists() && info.isExecutable()) {
+            QStringList parts = entry.split('.');
+            if (!parts.isEmpty()) {
+                types << parts.takeLast();
+            }
+        }
+    }
+
+    return types;
+}
+
 void PartitionModel::refresh()
 {
     m_manager->refresh();
@@ -73,6 +109,42 @@ void PartitionModel::refresh(int index)
 {
     if (index >= 0 && index < m_partitions.count()) {
         m_partitions[index].refresh();
+    }
+}
+
+void PartitionModel::mount(const QString &deviceName)
+{
+    qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << m_partitions.count();
+
+    for (const Partition &partition : m_partitions) {
+        if (deviceName == partition.deviceName()) {
+            m_manager->mount(partition);
+            break;
+        }
+    }
+}
+
+void PartitionModel::unmount(const QString &deviceName)
+{
+    qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << m_partitions.count();
+
+    for (const Partition &partition : m_partitions) {
+        if (deviceName == partition.deviceName()) {
+            m_manager->unmount(partition);
+            break;
+        }
+    }
+}
+
+void PartitionModel::format(const QString &deviceName, const QString &type, const QString &label)
+{
+    qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << type << label << m_partitions.count();
+
+    for (const Partition &partition : m_partitions) {
+        if (deviceName == partition.deviceName()) {
+            m_manager->format(partition, type, label);
+            break;
+        }
     }
 }
 
@@ -127,6 +199,7 @@ QHash<int, QByteArray> PartitionModel::roleNames() const
         { MountFailedRole, "mountFailed" },
         { StorageTypeRole, "storageType" },
         { FilesystemTypeRole, "filesystemType" },
+        { DeviceLabelRole, "deviceLabel" },
         { DevicePathRole, "devicePath" },
         { DeviceNameRole, "deviceName" },
         { MountPathRole, "mountPath" },
@@ -164,6 +237,8 @@ QVariant PartitionModel::data(const QModelIndex &index, int role) const
             return partition.storageType();
         case FilesystemTypeRole:
             return partition.filesystemType();
+        case DeviceLabelRole:
+            return partition.deviceLabel();
         case DevicePathRole:
             return partition.devicePath();
         case DeviceNameRole:
@@ -187,6 +262,7 @@ QVariant PartitionModel::data(const QModelIndex &index, int role) const
 void PartitionModel::partitionChanged(const Partition &partition)
 {
     for (int i = 0; i < m_partitions.count(); ++i) {
+        qCInfo(lcMemoryCardLog) << "partition changed:" << partition.status() << partition.mountPath();;
         if (m_partitions.at(i) == partition) {
             QModelIndex index = createIndex(i, 0);
             emit dataChanged(index, index);

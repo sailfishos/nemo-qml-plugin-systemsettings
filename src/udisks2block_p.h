@@ -29,66 +29,63 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#ifndef UDISKS2_JOB_H
-#define UDISKS2_JOB_H
+#ifndef UDISKS2_BLOCK_H
+#define UDISKS2_BLOCK_H
 
 #include <QObject>
-#include <QDBusConnection>
-#include <QString>
 #include <QVariantMap>
+#include <QDBusConnection>
 
 namespace UDisks2 {
 
-class Job : public QObject
+class Block : public QObject
 {
     Q_OBJECT
+
 public:
-    Job(const QString &path, const QVariantMap &data, QObject *parent = nullptr);
-    ~Job();
-
-    enum Status {
-        Added,
-        Completed
-    };
-    Q_ENUM(Status)
-
-    enum Operation {
-        Mount,
-        Unmount,
-        Format,
-        Unknown
-    };
-    Q_ENUM(Operation)
-
-    void complete(bool success);
-    bool isCompleted() const;
-    bool success() const;
-    QString message() const;
-    bool deviceBusy() const;
+    Block(const QString &path, const QVariantMap &data, QObject *parent = nullptr);
+    ~Block();
 
     QString path() const;
+
+    QString device() const;
+    QString preferredDevice() const;
+    QString drive() const;
+
+    qint64 deviceNumber() const;
+    QString id() const;
+
+    qint64 size() const;
+
+    bool isReadOnly() const;
+
+    QString idType() const;
+    QString idVersion() const;
+    QString idLabel() const;
+    QString idUUID() const;
+
+    QString mountPath() const;
+
     QVariant value(const QString &key) const;
 
-    Status status() const;
-    Operation operation() const;
+    bool hasData() const;
 
 signals:
-    void completed(bool success);
+    void blockUpdated();
+    void mountPathChanged();
 
 private slots:
-    void updateCompleted(bool success, const QString &message);
+    void updateProperties(const QDBusMessage &message);
 
 private:
+    void updateMountPoint(const QVariant &mountPoints);
+
     QString m_path;
     QVariantMap m_data;
-    Status m_status;
-
-    QString m_message;
-    bool m_completed;
-    bool m_success;
-
     QDBusConnection m_connection;
+    QString m_mountPath;
 };
+
 }
 
 #endif

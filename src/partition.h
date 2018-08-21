@@ -33,6 +33,7 @@
 #define PARTITION_H
 
 #include <QSharedData>
+#include <QObject>
 
 #include <systemsettingsglobal.h>
 
@@ -59,10 +60,30 @@ public:
         Unmounted,
         Mounting,
         Mounted,
-        Unmounting
+        Unmounting,
+        Formatting,
+        Formatted
     };
 
     Q_DECLARE_FLAGS(StorageTypes, StorageType)
+
+    enum Error {
+        ErrorFailed,
+        ErrorCancelled,
+        ErrorAlreadyCancelled,
+        ErrorNotAuthorized,
+        ErrorNotAuthorizedCanObtain,
+        ErrorNotAuthorizedDismissed,
+        ErrorAlreadyMounted,
+        ErrorNotMounted,
+        ErrorOptionNotPermitted,
+        ErrorMountedByOtherUser,
+        ErrorAlreadyUnmounting,
+        ErrorNotSupported,
+        ErrorTimedout,
+        ErrorWouldWakeup,
+        ErrorDeviceBusy
+    };
 
     Partition();
     Partition(const Partition &partition);
@@ -83,6 +104,7 @@ public:
 
     QString devicePath() const;
     QString deviceName() const;
+    QString deviceLabel() const;
     QString mountPath() const;
 
     QString filesystemType() const;

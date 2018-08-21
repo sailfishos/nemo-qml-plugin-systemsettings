@@ -35,6 +35,10 @@
 #include <QObject>
 #include <QDBusObjectPath>
 #include <QExplicitlySharedDataPointer>
+#include <QQueue>
+
+#include "partitionmodel.h"
+#include "partitionmanager_p.h"
 
 class PartitionManagerPrivate;
 
@@ -44,7 +48,23 @@ Q_DECLARE_METATYPE(InterfaceAndPropertyMap)
 
 namespace UDisks2 {
 
+class Block;
 class Job;
+
+struct Operation
+{
+    Operation(const QString &command, const QString &deviceName, const QString &type, const QVariantHash &arguments)
+        : command(command)
+        , deviceName(deviceName)
+        , type(type)
+        , arguments(arguments)
+    {}
+
+    QString command;
+    QString deviceName;
+    QString type;
+    QVariantHash arguments;
+};
 
 class Monitor : public QObject
 {
@@ -55,22 +75,44 @@ public:
 
     static Monitor *instance();
 
+    void mount(const QString &deviceName);
+    void unmount(const QString &deviceName);
+
+    void format(const QString &deviceName, const QString &type, const QString &label);
+
+    void getBlockDevices();
+
 signals:
+    void status(const QString &deviceName, Partition::Status);
     void errorMessage(const QString &objectPath, const QString &errorName);
+    void mountError(Partition::Error error);
+    void unmountError(Partition::Error error);
+    void formatError(Partition::Error error);
 
 private slots:
     void interfacesAdded(const QDBusObjectPath &objectPath, const InterfaceAndPropertyMap &interfaces);
     void interfacesRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces);
 
 private:
-    void updateBlockDevState(const UDisks2::Job *job, bool success);
+    void updatePartitionProperties(const UDisks2::Block *blockDevice);
+    void updatePartitionStatus(const UDisks2::Job *job, bool success);
     bool externalBlockDevice(const QString &objectPathStr) const;
+
+    void startMountOperation(const QString &dbusMethod, const QString &deviceName, QVariantHash arguments);
+    void lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartions, const QStringList &objects);
+
+    void addBlockDevice(const QString &path, const QVariantMap &dict);
+
+    void doFormat(const QString &deviceName, const QString &type, const QVariantHash &arguments);
 
 private:
     static Monitor *sharedInstance;
 
     QExplicitlySharedDataPointer<PartitionManagerPrivate> m_manager;
-    QList<UDisks2::Job *> m_jobsToWait;
+    QMap<QString, UDisks2::Job *> m_jobsToWait;
+    QMap<QString, UDisks2::Block *> m_blockDevices;
+
+    QQueue<Operation> m_operationQueue;
 };
 
 }
