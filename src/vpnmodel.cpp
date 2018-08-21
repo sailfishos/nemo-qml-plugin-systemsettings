@@ -317,6 +317,7 @@ VpnModel::VpnModel(QObject *parent)
     : ObjectListModel(parent, true, false)
     , connmanVpn_(connmanVpnService, "/", QDBusConnection::systemBus(), this)
     , credentials_(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/system/privileged/vpn-data"))
+    , provisioningOutputPath_(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/system/privileged/vpn-provisioning"))
     , bestState_(VpnModel::Idle)
 {
     qDBusRegisterMetaType<PathProperties>();
@@ -473,10 +474,11 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
                 qCWarning(lcVpnLog) << "Modified VPN connection:" << objectPath.path();
 
                 if (canStoreCredentials != couldStoreCredentials) {
-                    if (canStoreCredentials ) {
+                    if (canStoreCredentials) {
                         credentials_.storeCredentials(location, QVariantMap());
                     } else {
                         credentials_.removeCredentials(location);
+
                     }
                 }
             }
@@ -502,9 +504,45 @@ void VpnModel::deleteConnection(const QString &path)
                 });
             }
         } else {
+
+            // Remove cached credentials
             const QString location(CredentialsRepository::locationForObjectPath(path));
             if (credentials_.credentialsExist(location)) {
                 credentials_.removeCredentials(location);
+            }
+
+            // Remove provisioned files
+            if (conn->type() == QStringLiteral("openvpn")) {
+                QVariantMap providerProperties = conn->providerProperties();
+                QStringList fileProperties;
+                fileProperties << QStringLiteral("OpenVPN.Cert") << QStringLiteral("OpenVPN.Key") << QStringLiteral("OpenVPN.CACert") << QStringLiteral("OpenVPN.ConfigFile");
+                for (const QString property : fileProperties) {
+                    const QString filename = providerProperties.value(property).toString();
+
+                    // Check if the file has been provisioned
+                    if (filename.contains(provisioningOutputPath_)) {
+                        int timesUsed = 0;
+
+                        // Check the same file is not used by other connections
+                        for (int i = 0, n = count(); i < n; ++i) {
+                            VpnConnection *c = qobject_cast<VpnConnection *>(get(i));
+                            if (filename == c->providerProperties().value(property).toString()) {
+                                timesUsed++;
+                                if (timesUsed > 1) {
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (timesUsed > 1) {
+                            continue;
+                        }
+
+                        if (!QFile::remove(filename)) {
+                            qCWarning(lcVpnLog)  << "Failed to remove provisioning file" << filename;
+                        }
+                    }
+                }
             }
 
             QDBusPendingCall call = connmanVpn_.Remove(QDBusObjectPath(path));
@@ -903,7 +941,6 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
     const QRegularExpression embeddedLeader(QStringLiteral("^\\s*<([^\\/>]+)>"));
     const QRegularExpression embeddedTrailer(QStringLiteral("^\\s*<\\/([^\\/>]+)>"));
     const QRegularExpression whitespace(QStringLiteral("\\s"));
-    const QString outputPath(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/system/privileged/vpn-provisioning"));
 
     auto normaliseProtocol = [](const QString &proto) {
         if (proto == QStringLiteral("tcp")) {
@@ -938,9 +975,9 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
                         extraOptions.append(QStringLiteral("<connection>\n") + embeddedContent + QStringLiteral("</connection>"));
                     } else {
                         // Embedded content
-                        QDir outputDir(outputPath);
-                        if (!outputDir.exists() && !outputDir.mkpath(outputPath)) {
-                            qCWarning(lcVpnLog) << "Unable to create base directory for VPN provisioning content:" << outputPath;
+                        QDir outputDir(provisioningOutputPath_);
+                        if (!outputDir.exists() && !outputDir.mkpath(provisioningOutputPath_)) {
+                            qCWarning(lcVpnLog) << "Unable to create base directory for VPN provisioning content:" << provisioningOutputPath_;
                         } else {
                             // Name the file according to content
                             QCryptographicHash hash(QCryptographicHash::Sha1);
@@ -1084,9 +1121,9 @@ QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
 
     if (!extraOptions.isEmpty()) {
         // Write a config file to contain the extra options
-        QDir outputDir(outputPath);
-        if (!outputDir.exists() && !outputDir.mkpath(outputPath)) {
-            qCWarning(lcVpnLog) << "Unable to create base directory for VPN provisioning content:" << outputPath;
+        QDir outputDir(provisioningOutputPath_);
+        if (!outputDir.exists() && !outputDir.mkpath(provisioningOutputPath_)) {
+            qCWarning(lcVpnLog) << "Unable to create base directory for VPN provisioning content:" << provisioningOutputPath_;
         } else {
             // Name the file according to content
             QCryptographicHash hash(QCryptographicHash::Sha1);

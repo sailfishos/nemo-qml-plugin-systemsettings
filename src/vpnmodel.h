@@ -133,6 +133,7 @@ private:
     QMap<QString, VpnConnection*> pendingDisconnects_;
     QString pendingConnect_;
     CredentialsRepository credentials_;
+    QString provisioningOutputPath_;
     ConnectionState bestState_;
 };
 
