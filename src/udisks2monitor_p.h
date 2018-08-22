@@ -81,7 +81,7 @@ public:
     void mount(const QString &deviceName);
     void unmount(const QString &deviceName);
 
-    void format(const QString &deviceName, const QString &type, const QString &label);
+    void format(const QString &deviceName, const QString &type, const QString &label, const QString &passphrase);
 
 signals:
     void status(const QString &deviceName, Partition::Status);

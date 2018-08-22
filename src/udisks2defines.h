@@ -42,6 +42,7 @@
 
 // Interfaces
 #define UDISKS2_MANAGER_INTERFACE    QLatin1String("org.freedesktop.UDisks2.Manager")
+#define UDISKS2_ENCRYPTED_INTERFACE  QLatin1String("org.freedesktop.UDisks2.Encrypted")
 #define UDISKS2_BLOCK_INTERFACE      QLatin1String("org.freedesktop.UDisks2.Block")
 #define UDISKS2_FILESYSTEM_INTERFACE QLatin1String("org.freedesktop.UDisks2.Filesystem")
 #define UDISKS2_PARTITION_INTERFACE  QLatin1String("org.freedesktop.UDisks2.Partition")
@@ -57,7 +58,7 @@
 #define UDISKS2_JOB_KEY_OPERATION QLatin1String("Operation")
 #define UDISKS2_JOB_KEY_OBJECTS   QLatin1String("Objects")
 
-// Mount, Unmount, Format
+// Lock, Unlock, Mount, Unmount, Format
 #define UDISKS2_BLOCK_DEVICE_PATH  QString(QLatin1String("/org/freedesktop/UDisks2/block_devices/%1"))
 #define UDISKS2_BLOCK_FORMAT       QLatin1String("Format")
 #define UDISKS2_FILESYSTEM_MOUNT   QLatin1String("Mount")
