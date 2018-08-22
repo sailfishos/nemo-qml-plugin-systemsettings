@@ -35,6 +35,7 @@
 #include <QObject>
 #include <QDBusObjectPath>
 #include <QExplicitlySharedDataPointer>
+#include <QRegularExpression>
 #include <QQueue>
 
 #include "partitionmodel.h"
@@ -43,6 +44,8 @@
 class PartitionManagerPrivate;
 
 typedef QMap<QString, QVariantMap> InterfaceAndPropertyMap;
+
+static const QRegularExpression deviceRoot(QStringLiteral("^mmcblk\\d+$"));
 
 Q_DECLARE_METATYPE(InterfaceAndPropertyMap)
 
@@ -80,8 +83,6 @@ public:
 
     void format(const QString &deviceName, const QString &type, const QString &label);
 
-    void getBlockDevices();
-
 signals:
     void status(const QString &deviceName, Partition::Status);
     void errorMessage(const QString &objectPath, const QString &errorName);
@@ -94,6 +95,7 @@ private slots:
     void interfacesRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces);
 
 private:
+    void setPartitionProperties(QExplicitlySharedDataPointer<PartitionPrivate> &partition, const UDisks2::Block *blockDevice);
     void updatePartitionProperties(const UDisks2::Block *blockDevice);
     void updatePartitionStatus(const UDisks2::Job *job, bool success);
     bool externalBlockDevice(const QString &objectPathStr) const;
@@ -101,9 +103,11 @@ private:
     void startMountOperation(const QString &dbusMethod, const QString &deviceName, QVariantHash arguments);
     void lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartions, const QStringList &objects);
 
-    void addBlockDevice(const QString &path, const QVariantMap &dict);
+    void createPartition(const Block *block);
+    void createBlockDevice(const QString &path, const QVariantMap &dict);
 
     void doFormat(const QString &deviceName, const QString &type, const QVariantHash &arguments);
+    void getBlockDevices();
 
 private:
     static Monitor *sharedInstance;

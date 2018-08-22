@@ -43,7 +43,7 @@ namespace UDisks2 {
 class Monitor;
 }
 
-static const auto externalDevice = QStringLiteral("mmcblk(?!0)\\d+(?:p\\d+$)?|(sd[a-z]\\d+)");
+static const auto externalDevice = QStringLiteral("mmcblk(?!0)\\d+(?:p\\d+$)?|(sd[a-z]\\d*)");
 
 class PartitionManagerPrivate : public QObject, public QSharedData
 {
@@ -58,6 +58,9 @@ public:
 
     Partition root() const;
     QVector<Partition> partitions(Partition::StorageTypes types) const;
+
+    void add(Partitions &partitions);
+    void remove(const Partitions &partitions);
 
     void refresh();
     void refresh(PartitionPrivate *partition);

@@ -36,10 +36,12 @@
 #define DBUS_OBJECT_PROPERTIES_INTERFACE QLatin1String("org.freedesktop.DBus.Properties")
 #define DBUS_GET_ALL                     QLatin1String("GetAll")
 
-#define UDISKS2_SERVICE QLatin1String("org.freedesktop.UDisks2")
-#define UDISKS2_PATH    QLatin1String("/org/freedesktop/UDisks2")
+#define UDISKS2_SERVICE         QLatin1String("org.freedesktop.UDisks2")
+#define UDISKS2_PATH            QLatin1String("/org/freedesktop/UDisks2")
+#define UDISKS2_MANAGER_PATH    QLatin1String("/org/freedesktop/UDisks2/Manager")
 
 // Interfaces
+#define UDISKS2_MANAGER_INTERFACE    QLatin1String("org.freedesktop.UDisks2.Manager")
 #define UDISKS2_BLOCK_INTERFACE      QLatin1String("org.freedesktop.UDisks2.Block")
 #define UDISKS2_FILESYSTEM_INTERFACE QLatin1String("org.freedesktop.UDisks2.Filesystem")
 #define UDISKS2_PARTITION_INTERFACE  QLatin1String("org.freedesktop.UDisks2.Partition")
@@ -56,7 +58,7 @@
 #define UDISKS2_JOB_KEY_OBJECTS   QLatin1String("Objects")
 
 // Mount, Unmount, Format
-#define UDISKS2_BLOCK_DEVICE_PATH  QString("/org/freedesktop/UDisks2/block_devices/%1")
+#define UDISKS2_BLOCK_DEVICE_PATH  QString(QLatin1String("/org/freedesktop/UDisks2/block_devices/%1"))
 #define UDISKS2_BLOCK_FORMAT       QLatin1String("Format")
 #define UDISKS2_FILESYSTEM_MOUNT   QLatin1String("Mount")
 #define UDISKS2_FILESYSTEM_UNMOUNT QLatin1String("Unmount")
