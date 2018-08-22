@@ -193,7 +193,7 @@ void PartitionModel::unmount(const QString &deviceName)
     }
 }
 
-void PartitionModel::format(const QString &deviceName, const QString &type, const QString &label)
+void PartitionModel::format(const QString &deviceName, const QString &type, const QString &label, const QString &passphrase)
 {
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << type << label << m_partitions.count();
 
@@ -201,7 +201,7 @@ void PartitionModel::format(const QString &deviceName, const QString &type, cons
     for (const Partition &partition : m_partitions) {
         if (deviceName == partition.deviceName()) {
             found = true;
-            m_manager->format(partition, type, label);
+            m_manager->format(partition, type, label, passphrase);
             break;
         }
     }

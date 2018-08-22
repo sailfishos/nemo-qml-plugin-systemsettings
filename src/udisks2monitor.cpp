@@ -167,7 +167,7 @@ void UDisks2::Monitor::unmount(const QString &deviceName, const QString &dbusObj
     startMountOperation(deviceName, UDISKS2_FILESYSTEM_UNMOUNT, objectPath, arguments);
 }
 
-void UDisks2::Monitor::format(const QString &deviceName, const QString &dbusObjectPath, const QString &type, const QString &label)
+void UDisks2::Monitor::format(const QString &deviceName, const QString &dbusObjectPath, const QString &type, const QString &label, const QString &passphrase)
 {
     if (deviceName.isEmpty()) {
         qCCritical(lcMemoryCardLog) << "Cannot format without device name";
@@ -184,6 +184,9 @@ void UDisks2::Monitor::format(const QString &deviceName, const QString &dbusObje
     arguments.insert(QStringLiteral("label"), QString(label));
     arguments.insert(QStringLiteral("no-block"), true);
     arguments.insert(QStringLiteral("update-partition-type"), true);
+    if (!passphrase.isEmpty()) {
+        arguments.insert(QStringLiteral("encrypt.passphrase"), passphrase);
+    }
 
     const QString objectPath(dbusObjectPath.isEmpty() ? UDISKS2_BLOCK_DEVICE_PATH.arg(deviceName) : dbusObjectPath);
     PartitionManagerPrivate::Partitions affectedPartions;
@@ -191,7 +194,7 @@ void UDisks2::Monitor::format(const QString &deviceName, const QString &dbusObje
 
     for (auto partition : affectedPartions) {
         if (partition->status == Partition::Mounted) {
-            m_operationQueue.enqueue(Operation(QString("format"), deviceName, objectPath, type, arguments));
+            m_operationQueue.enqueue(Operation(QStringLiteral("format"), deviceName, objectPath, type, arguments));
             unmount(deviceName, objectPath);
             return;
         }
@@ -637,9 +640,42 @@ void UDisks2::Monitor::doFormat(const QString &deviceName, const QString &device
     QDBusPendingCall pendingCall = blockDeviceInterface.asyncCall(UDISKS2_BLOCK_FORMAT, type, arguments);
     QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pendingCall, this);
     connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, [this, deviceName](QDBusPendingCallWatcher *watcher) {
+            this, [this, deviceName, arguments](QDBusPendingCallWatcher *watcher) {
         if (watcher->isValid() && watcher->isFinished()) {
-            emit status(deviceName, Partition::Formatted);
+            if (arguments.contains(QStringLiteral("encrypt.passphrase"))) {
+                // after formatting a partition as crypto_LUKS+ext4, the LUKS
+                // volume with ext4 filesystem is not immediately linked to the parent
+                // block device.  So, manually enumerate via GetBlockDevices().
+                QDBusInterface managerInterface(UDISKS2_SERVICE,
+                                                UDISKS2_MANAGER_PATH,
+                                                UDISKS2_MANAGER_INTERFACE,
+                                                QDBusConnection::systemBus());
+                QDBusPendingCall pendingCall = managerInterface.asyncCallWithArgumentList(
+                        QStringLiteral("GetBlockDevices"),
+                        QVariantList() << QVariantMap());
+                QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pendingCall, this);
+                connect(watcher, &QDBusPendingCallWatcher::finished,
+                        this, [this, deviceName](QDBusPendingCallWatcher *watcher) {
+                    if (watcher->isValid() && watcher->isFinished()) {
+                        QDBusPendingReply<QList<QDBusObjectPath> > reply = *watcher;
+                        const QList<QDBusObjectPath> blockDevicePaths = reply.argumentAt<0>();
+                        for (auto bdp : blockDevicePaths) {
+                            if (bdp.path().startsWith(QStringLiteral("/org/freedesktop/UDisks2/block_devices/dm"))) {
+                                // this is likely a dm-crypt (LUKS) volume which may have been added.
+                                addBlockDevice(bdp.path(), QVariantMap());
+                            }
+                        }
+                    } else if (watcher->isError()) {
+                        QDBusError error = watcher->error();
+                        qCWarning(lcMemoryCardLog) << "Unable to enumerate block devices after formatting:" << error.name() << error.message();
+                    }
+                    // we might not have been able to enumerate the block devices
+                    // but formatting succeeded earlier.
+                    emit status(deviceName, Partition::Formatted);
+                });
+            } else {
+                emit status(deviceName, Partition::Formatted);
+            }
         } else if (watcher->isError()) {
             QDBusError error = watcher->error();
             QByteArray errorData = error.name().toLocal8Bit();

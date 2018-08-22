@@ -132,7 +132,7 @@ public:
     Q_INVOKABLE void unlock(const QString &deviceName, const QString &password);
     Q_INVOKABLE void mount(const QString &deviceName);
     Q_INVOKABLE void unmount(const QString &deviceName);
-    Q_INVOKABLE void format(const QString &deviceName, const QString &type, const QString &label);
+    Q_INVOKABLE void format(const QString &deviceName, const QString &type, const QString &label, const QString &passphrase);
 
     QHash<int, QByteArray> roleNames() const;
 

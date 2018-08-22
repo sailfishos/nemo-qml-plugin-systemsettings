@@ -84,7 +84,7 @@ public:
     void mount(const QString &deviceName, const QString &dbusObjectPath);
     void unmount(const QString &deviceName, const QString &dbusObjectPath);
 
-    void format(const QString &deviceName, const QString &dbusObjectPath, const QString &type, const QString &label);
+    void format(const QString &deviceName, const QString &dbusObjectPath, const QString &type, const QString &label, const QString &passphrase);
 
     void getBlockDevices();
 
