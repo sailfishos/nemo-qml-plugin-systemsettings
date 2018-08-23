@@ -128,6 +128,7 @@ private:
     QHash<QString, ConnmanServiceProxy *> vpnServices_;
     QSet<QString> defaultDomains_;
     CredentialsRepository credentials_;
+    QString provisioningOutputPath_;
     ConnectionState bestState_;
 };
 
