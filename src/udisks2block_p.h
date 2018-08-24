@@ -36,6 +36,8 @@
 #include <QVariantMap>
 #include <QDBusConnection>
 
+class QDBusPendingCallWatcher;
+
 namespace UDisks2 {
 
 class Block : public QObject
@@ -57,6 +59,8 @@ public:
 
     qint64 size() const;
 
+    bool isMountable() const;
+
     bool isReadOnly() const;
 
     QString idType() const;
@@ -71,7 +75,8 @@ public:
     bool hasData() const;
 
 signals:
-    void blockUpdated();
+    void completed();
+    void updated();
     void mountPathChanged();
 
 private slots:
@@ -79,11 +84,16 @@ private slots:
 
 private:
     void updateMountPoint(const QVariant &mountPoints);
+    void complete();
 
     QString m_path;
     QVariantMap m_data;
     QDBusConnection m_connection;
     QString m_mountPath;
+    bool m_mountable;
+
+    QDBusPendingCallWatcher *m_pendingFileSystem;
+    QDBusPendingCallWatcher *m_pendingBlock;
 };
 
 }

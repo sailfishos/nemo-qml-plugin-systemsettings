@@ -32,9 +32,9 @@
 #include "udisks2job_p.h"
 #include "udisks2monitor_p.h"
 #include "udisks2defines.h"
+#include "logging_p.h"
 
 #include <QDBusConnection>
-#include <QDebug>
 
 #include <nemo-dbus/dbus.h>
 
@@ -54,7 +54,7 @@ UDisks2::Job::Job(const QString &path, const QVariantMap &data, QObject *parent)
                 QStringLiteral("Completed"),
                 this,
                 SLOT(updateCompleted(bool, QString)))) {
-        qWarning("Failed to connect to Job's at path %p completed signal: %s: ", qPrintable(m_path), qPrintable(m_connection.lastError().message()));
+        qCWarning(lcMemoryCardLog) << "Failed to connect to Job's at path" << qPrintable(m_path) << "completed signal" << qPrintable(m_connection.lastError().message());
     }
 
     connect(Monitor::instance(), &Monitor::errorMessage, this, [this](const QString &objectPath, const QString &errorName) {

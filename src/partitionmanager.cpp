@@ -71,8 +71,7 @@ PartitionManagerPrivate::PartitionManagerPrivate()
     home->mountPath = QStringLiteral("/home");
 
     m_partitions.append(home);
-
-    refresh();
+    refresh(m_partitions, m_partitions);
 
     // Remove any prospective internal partitions that aren't mounted.
     int internalPartitionCount = 0;
@@ -105,8 +104,6 @@ PartitionManagerPrivate::PartitionManagerPrivate()
     if (root->status == Partition::Mounted) {
         m_root = Partition(QExplicitlySharedDataPointer<PartitionPrivate>(root));
     }
-
-    m_udisksMonitor->getBlockDevices();
 }
 
 PartitionManagerPrivate::~PartitionManagerPrivate()
@@ -147,85 +144,41 @@ QVector<Partition> PartitionManagerPrivate::partitions(const Partition::StorageT
     return partitions;
 }
 
-void PartitionManagerPrivate::refresh()
+void PartitionManagerPrivate::add(Partitions &partitions)
 {
-    int index;
-    for (index = 0; index < m_partitions.count(); ++index) {
-        if (m_partitions.at(index)->storageType == Partition::External) {
-            break;
-        }
-    }
+    m_partitions.append(partitions);
+    refresh(partitions, partitions);
 
-    Partitions addedPartitions;
-    Partitions changedPartitions;
-
-    QFile partitionFile(QStringLiteral("/proc/partitions"));
-    if (partitionFile.open(QIODevice::ReadOnly)) {
-        // Read headers.
-        partitionFile.readLine();
-        partitionFile.readLine();
-
-        static const QRegularExpression whitespace(QStringLiteral("\\s+"));
-        static const QRegularExpression deviceRoot(QStringLiteral("^mmcblk\\d+$"));
-
-        while (!partitionFile.atEnd()) {
-            QStringList line = QString::fromUtf8(partitionFile.readLine()).split(whitespace, QString::SkipEmptyParts);
-
-            if (line.count() != 4) {
-                continue;
-            }
-
-            const QString deviceName = line.at(3);
-
-            if (!externalMedia.match(deviceName).hasMatch()) {
-                continue;
-            }
-
-            const auto partition = [&]() {
-                for (int i = index; i < m_partitions.count(); ++i) {
-                    const auto partition = m_partitions.at(i);
-                    if (partition->deviceName == deviceName) {
-                        if (index != i) {
-                            m_partitions.removeAt(i);
-                            m_partitions.insert(index, partition);
-                        }
-
-                        changedPartitions.append(partition);
-
-                        return partition;
-                    }
-                }
-                QExplicitlySharedDataPointer<PartitionPrivate> partition(new PartitionPrivate(this));
-                partition->storageType = Partition::External;
-                partition->deviceName = deviceName;
-                partition->devicePath = QStringLiteral("/dev/") + deviceName;
-                partition->deviceRoot = deviceRoot.match(deviceName).hasMatch();
-
-                m_partitions.insert(index, partition);
-                addedPartitions.append(partition);
-
-                return partition;
-            }();
-
-            partition->bytesTotal = line.at(2).toInt() * 1024;
-
-            ++index;
-        }
-    }
-
-    const auto removedPartitions = m_partitions.mid(index);
-    m_partitions.resize(index);
-
-    refresh(m_partitions, changedPartitions);
-
-    for (const auto partition : removedPartitions) {
-        emit partitionRemoved(Partition(partition));
-    }
-
-    for (const auto partition : addedPartitions) {
+    for (const auto partition : partitions) {
         emit partitionAdded(Partition(partition));
     }
+}
 
+void PartitionManagerPrivate::remove(const Partitions &partitions)
+{
+    for (const auto removedPartition : partitions) {
+        for (int i = m_partitions.count() - 1; i >= 0 && m_partitions.at(i)->storageType == Partition::External; --i) {
+            const auto partition = m_partitions.at(i);
+            if (removedPartition->devicePath == partition->devicePath) {
+                m_partitions.removeAt(i);
+            }
+        }
+
+        emit partitionRemoved(Partition(removedPartition));
+    }
+}
+
+void PartitionManagerPrivate::refresh()
+{
+    Partitions changedPartitions;
+    for (int index = 0; index < m_partitions.count(); ++index) {
+        const auto partition = m_partitions.at(index);
+        if (partition->storageType == Partition::External) {
+            changedPartitions.append(partition);
+        }
+    }
+
+    refresh(m_partitions, changedPartitions);
     for (const auto partition : changedPartitions) {
         emit partitionChanged(Partition(partition));
     }
@@ -246,9 +199,11 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
         partition->bytesFree = 0;
         partition->bytesAvailable = 0;
         if (!partition->valid) {
-            partition->status = partition->activeState == QStringLiteral("activating")
-                    ? Partition::Mounting
-                    : Partition::Unmounted;
+            if (partition->status != Partition::Formatting) {
+                partition->status = partition->activeState == QStringLiteral("activating")
+                        ? Partition::Mounting
+                        : Partition::Unmounted;
+            }
             partition->canMount = false;
             partition->readOnly = true;
             partition->filesystemType.clear();
@@ -266,7 +221,7 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
 
         const QString mountPath = QString::fromUtf8(mountEntry.mnt_dir);
         const QString devicePath = QString::fromUtf8(mountEntry.mnt_fsname);
-
+        const QString deviceName = devicePath.section(QChar('/'), 2);
 
         for (auto partition : partitions) {
             if (partition->valid || ((partition->status == Partition::Mounted || partition->status == Partition::Mounting) &&
@@ -282,6 +237,10 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
                             && partition->devicePath == devicePath)) {
                 partition->mountPath = mountPath;
                 partition->devicePath = devicePath;
+                // There two values wrong for system partitions as devicePath will not start with mmcblk.
+                // Currently deviceName and deviceRoot are merely informative data fields.
+                partition->deviceName = deviceName;
+                partition->deviceRoot = deviceRoot.match(deviceName).hasMatch();
                 partition->filesystemType = QString::fromUtf8(mountEntry.mnt_type);
                 partition->status = partition->activeState == QStringLiteral("deactivating")
                         ? Partition::Unmounting
@@ -292,7 +251,7 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
     }
 
     endmntent(mtab);
-    
+
     for (auto partition : partitions) {
         if (partition->status == Partition::Mounted) {
             struct statvfs64 stat;
@@ -332,12 +291,12 @@ void PartitionManagerPrivate::unmount(const Partition &partition)
     }
 }
 
-void PartitionManagerPrivate::format(const Partition &partition, const QString &type, const QString &label)
+void PartitionManagerPrivate::format(const Partition &partition, const QString &type, const QString &label, const QString &passphrase)
 {
     qCInfo(lcMemoryCardLog) << "Can format:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.deviceName();
 
     if (externalMedia.match(partition.deviceName()).hasMatch()) {
-        m_udisksMonitor->instance()->format(partition.deviceName(), type, label);
+        m_udisksMonitor->instance()->format(partition.deviceName(), type, label, passphrase);
     } else {
         qCWarning(lcMemoryCardLog) << "Formatting allowed only for external memory cards," << partition.devicePath() << "is not allowed";
     }

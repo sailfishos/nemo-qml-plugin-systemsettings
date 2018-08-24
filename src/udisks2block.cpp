@@ -12,6 +12,9 @@ UDisks2::Block::Block(const QString &path, const QVariantMap &data, QObject *par
     , m_path(path)
     , m_data(data)
     , m_connection(QDBusConnection::systemBus())
+    , m_mountable(false)
+    , m_pendingFileSystem(nullptr)
+    , m_pendingBlock(nullptr)
 {
     if (!m_connection.connect(
                 UDISKS2_SERVICE,
@@ -28,36 +31,42 @@ UDisks2::Block::Block(const QString &path, const QVariantMap &data, QObject *par
                                     DBUS_OBJECT_PROPERTIES_INTERFACE,
                                     m_connection);
     QDBusPendingCall pendingCall = dbusPropertyInterface.asyncCall(DBUS_GET_ALL, UDISKS2_FILESYSTEM_INTERFACE);
-    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pendingCall, this);
-    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
+    m_pendingFileSystem = new QDBusPendingCallWatcher(pendingCall, this);
+    connect(m_pendingFileSystem, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
         if (watcher->isValid() && watcher->isFinished()) {
             QDBusPendingReply<> reply =  *watcher;
             QDBusMessage message = reply.reply();
+            m_mountable = true;
             updateMountPoint(message.arguments().at(0));
         } else {
             QDBusError error = watcher->error();
-            qCWarning(lcMemoryCardLog) << "Error reading filesystem properties:" << error.name() << error.message();
+            qCWarning(lcMemoryCardLog) << "Error reading filesystem properties:" << error.name() << error.message() << path;
         }
         watcher->deleteLater();
+        m_pendingFileSystem = nullptr;
+        complete();
     });
 
     if (data.isEmpty()) {
         pendingCall = dbusPropertyInterface.asyncCall(DBUS_GET_ALL, UDISKS2_BLOCK_INTERFACE);
-        watcher = new QDBusPendingCallWatcher(pendingCall, this);
-        connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
+        m_pendingBlock = new QDBusPendingCallWatcher(pendingCall, this);
+        connect(m_pendingBlock, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
             if (watcher->isValid() && watcher->isFinished()) {
                 QDBusPendingReply<> reply =  *watcher;
                 QDBusMessage message = reply.reply();
                 QVariantMap blockProperties = NemoDBus::demarshallArgument<QVariantMap>(message.arguments().at(0));
                 qCInfo(lcMemoryCardLog) << "Block properties:" << blockProperties;
                 m_data = blockProperties;
-                emit blockUpdated();
             } else {
                 QDBusError error = watcher->error();
                 qCWarning(lcMemoryCardLog) << "Error reading block properties:" << error.name() << error.message();
             }
             watcher->deleteLater();
+            m_pendingBlock = nullptr;
+            complete();
         });
+    } else {
+        complete();
     }
 }
 
@@ -100,6 +109,11 @@ QString UDisks2::Block::id() const
 qint64 UDisks2::Block::size() const
 {
     return value(QStringLiteral("Size")).toLongLong();
+}
+
+bool UDisks2::Block::isMountable() const
+{
+    return m_mountable;
 }
 
 bool UDisks2::Block::isReadOnly() const
@@ -152,8 +166,9 @@ void UDisks2::Block::updateProperties(const QDBusMessage &message)
         for (QMap<QString, QVariant>::const_iterator i = changedProperties.begin(); i != changedProperties.end(); ++i) {
             m_data.insert(i.key(), i.value());
         }
-        emit blockUpdated();
+        emit updated();
     } else if (interface == UDISKS2_FILESYSTEM_INTERFACE) {
+        m_mountable = true;
         updateMountPoint(arguments.value(1));
     }
 }
@@ -173,4 +188,11 @@ void UDisks2::Block::updateMountPoint(const QVariant &mountPoints)
 
     qCInfo(lcMemoryCardLog) << "New file system mount points:" << mountPoints << "resolved mount path: " << m_mountPath;
     emit mountPathChanged();
+}
+
+void UDisks2::Block::complete()
+{
+    if (!m_pendingFileSystem && !m_pendingBlock) {
+        QMetaObject::invokeMethod(this, "completed", Qt::QueuedConnection);
+    }
 }
