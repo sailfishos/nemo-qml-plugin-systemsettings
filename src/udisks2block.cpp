@@ -13,6 +13,7 @@ UDisks2::Block::Block(const QString &path, const QVariantMap &data, QObject *par
     , m_data(data)
     , m_connection(QDBusConnection::systemBus())
     , m_mountable(false)
+    , m_formatting(false)
     , m_pendingFileSystem(nullptr)
     , m_pendingBlock(nullptr)
 {
@@ -113,7 +114,26 @@ qint64 UDisks2::Block::size() const
 
 bool UDisks2::Block::isMountable() const
 {
-    return m_mountable;
+    return m_mountable && value(QStringLiteral("HintAuto")).toBool();
+}
+
+void UDisks2::Block::setMountable(bool mountable)
+{
+    if (m_mountable != mountable) {
+        m_mountable = mountable;
+
+        if (m_mountable && m_formatting) {
+            m_formatting = false;
+            emit formatted();
+        }
+
+        emit updated();
+    }
+}
+
+void UDisks2::Block::setFormatting()
+{
+    m_formatting = true;
 }
 
 bool UDisks2::Block::isReadOnly() const

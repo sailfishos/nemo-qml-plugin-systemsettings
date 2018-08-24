@@ -60,6 +60,10 @@ public:
     qint64 size() const;
 
     bool isMountable() const;
+    void setMountable(bool mountable);
+
+    bool isFormatting() const;
+    void setFormatting();
 
     bool isReadOnly() const;
 
@@ -77,6 +81,7 @@ public:
 signals:
     void completed();
     void updated();
+    void formatted();
     void mountPathChanged();
 
 private slots:
@@ -91,6 +96,7 @@ private:
     QDBusConnection m_connection;
     QString m_mountPath;
     bool m_mountable;
+    bool m_formatting;
 
     QDBusPendingCallWatcher *m_pendingFileSystem;
     QDBusPendingCallWatcher *m_pendingBlock;
