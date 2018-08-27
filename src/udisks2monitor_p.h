@@ -41,14 +41,11 @@
 
 #include "partitionmodel.h"
 #include "partitionmanager_p.h"
+#include "udisks2block_p.h"
 
 class PartitionManagerPrivate;
 
-typedef QMap<QString, QVariantMap> InterfaceAndPropertyMap;
-
 static const QRegularExpression deviceRoot(QStringLiteral("^mmcblk\\d+$"));
-
-Q_DECLARE_METATYPE(InterfaceAndPropertyMap)
 
 namespace UDisks2 {
 
@@ -113,10 +110,12 @@ private:
     void lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartions, const QStringList &objects);
 
     void createPartition(const Block *block);
-    void createBlockDevice(const QString &path, const QVariantMap &dict);
+    void createBlockDevice(const QString &path, const InterfaceAndPropertyMap &interfacePropertyMap);
 
     void doFormat(const QString &deviceName, const QString &dbusObjectPath, const QString &type, const QVariantHash &arguments);
     void getBlockDevices();
+
+    QString objectPath(const QString &deviceName) const;
 
 private:
     static Monitor *sharedInstance;

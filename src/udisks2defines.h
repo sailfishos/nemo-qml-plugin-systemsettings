@@ -32,6 +32,12 @@
 #ifndef UDISKS2_DEFINES
 #define UDISKS2_DEFINES
 
+namespace UDisks2 {
+    static const auto propertiesChangedSignal = QStringLiteral("PropertiesChanged");
+    static const auto cryptoBackingDeviceKey = QStringLiteral("CryptoBackingDevice");
+}
+
+
 #define DBUS_OBJECT_MANAGER_INTERFACE    QLatin1String("org.freedesktop.DBus.ObjectManager")
 #define DBUS_OBJECT_PROPERTIES_INTERFACE QLatin1String("org.freedesktop.DBus.Properties")
 #define DBUS_GET_ALL                     QLatin1String("GetAll")

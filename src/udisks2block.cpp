@@ -7,21 +7,24 @@
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 
-UDisks2::Block::Block(const QString &path, const QVariantMap &data, QObject *parent)
+UDisks2::Block::Block(const QString &path, const InterfaceAndPropertyMap &interfacePropertyMap, QObject *parent)
     : QObject(parent)
     , m_path(path)
-    , m_data(data)
+    , m_interfacePropertyMap(interfacePropertyMap)
+    , m_data(interfacePropertyMap.value(UDISKS2_BLOCK_INTERFACE))
     , m_connection(QDBusConnection::systemBus())
-    , m_mountable(false)
+    , m_mountable(interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE))
+    , m_encrypted(interfacePropertyMap.contains(UDISKS2_ENCRYPTED_INTERFACE))
     , m_formatting(false)
     , m_pendingFileSystem(nullptr)
     , m_pendingBlock(nullptr)
+    , m_pendingEncrypted(nullptr)
 {
     if (!m_connection.connect(
                 UDISKS2_SERVICE,
                 m_path,
                 DBUS_OBJECT_PROPERTIES_INTERFACE,
-                QStringLiteral("PropertiesChanged"),
+                UDisks2::propertiesChangedSignal,
                 this,
                 SLOT(updateProperties(QDBusMessage)))) {
         qCWarning(lcMemoryCardLog) << "Failed to connect to Block properties change interface" << m_path << m_connection.lastError().message();
@@ -32,10 +35,11 @@ UDisks2::Block::Block(const QString &path, const QVariantMap &data, QObject *par
                                     DBUS_OBJECT_PROPERTIES_INTERFACE,
                                     m_connection);
 
-    qCInfo(lcMemoryCardLog) << "Creating a new block. Mountable:" << m_mountable << ", object path:" << m_path << ", data is empty:" << m_data.isEmpty();
-    getFileSystemInterface();
+    qCInfo(lcMemoryCardLog) << "Creating a new block. Mountable:" << m_mountable << ", encrypted:" << m_encrypted << "object path:" << m_path << "data is empty:" << m_data.isEmpty();
 
     if (m_data.isEmpty()) {
+        getFileSystemInterface();
+        getEncryptedInterface();
         QDBusPendingCall pendingCall = dbusPropertyInterface.asyncCall(DBUS_GET_ALL, UDISKS2_BLOCK_INTERFACE);
         m_pendingBlock = new QDBusPendingCallWatcher(pendingCall, this);
         connect(m_pendingBlock, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
@@ -54,8 +58,51 @@ UDisks2::Block::Block(const QString &path, const QVariantMap &data, QObject *par
             complete();
         });
     } else {
+        if (m_mountable) {
+            QVariantMap map = interfacePropertyMap.value(UDISKS2_FILESYSTEM_INTERFACE);
+            updateMountPoint(map);
+        }
+
+        // We have either org.freedesktop.UDisks2.Filesystem or org.freedesktop.UDisks2.Encrypted interface.
         complete();
     }
+}
+
+// Use when morphing a block e.g. updating encrypted block to crypto backing block device (e.i. to a block that implements file system).
+UDisks2::Block &UDisks2::Block::operator=(const UDisks2::Block &other)
+{
+    if (&other == this)
+        return *this;
+
+    if (!this->m_connection.disconnect(
+                UDISKS2_SERVICE,
+                m_path,
+                DBUS_OBJECT_PROPERTIES_INTERFACE,
+                UDisks2::propertiesChangedSignal,
+                this,
+                SLOT(updateProperties(QDBusMessage)))) {
+        qCWarning(lcMemoryCardLog) << "Failed to disconnect to Block properties change interface" << m_path << m_connection.lastError().message();
+    }
+
+    this->m_path = other.m_path;
+
+    if (!this->m_connection.connect(
+                UDISKS2_SERVICE,
+                this->m_path,
+                DBUS_OBJECT_PROPERTIES_INTERFACE,
+                UDisks2::propertiesChangedSignal,
+                this,
+                SLOT(updateProperties(QDBusMessage)))) {
+        qCWarning(lcMemoryCardLog) << "Failed to connect to Block properties change interface" << m_path << m_connection.lastError().message();
+    }
+
+    m_interfacePropertyMap = other.m_interfacePropertyMap;
+    m_data = other.m_data;
+    m_mountable = other.m_mountable;
+    m_mountPath = other.m_mountPath;
+    m_encrypted = other.m_encrypted;
+
+    return *this;
 }
 
 UDisks2::Block::~Block()
@@ -99,9 +146,43 @@ qint64 UDisks2::Block::size() const
     return value(QStringLiteral("Size")).toLongLong();
 }
 
+bool UDisks2::Block::hasCryptoBackingDevice() const
+{
+    const QString cryptoBackingDev = cryptoBackingDeviceObjectPath();
+    return cryptoBackingDev != QLatin1String("/");
+}
+
+QString UDisks2::Block::cryptoBackingDeviceName() const
+{
+    const QString object = cryptoBackingDeviceObjectPath();
+    return Block::cryptoBackingDeviceName(object);
+}
+
+QString UDisks2::Block::cryptoBackingDeviceObjectPath() const
+{
+    return value(UDisks2::cryptoBackingDeviceKey).toString();
+}
+
+bool UDisks2::Block::isEncrypted() const
+{
+    return m_encrypted;
+}
+
+void UDisks2::Block::setEncrypted(bool encrypted)
+{
+    if (m_encrypted != encrypted) {
+        m_encrypted = encrypted;
+        blockSignals(true);
+        setMountable(!m_encrypted);
+        blockSignals(false);
+
+        emit updated();
+    }
+}
+
 bool UDisks2::Block::isMountable() const
 {
-    return m_mountable && value(QStringLiteral("HintAuto")).toBool();
+    return m_mountable;
 }
 
 void UDisks2::Block::setMountable(bool mountable)
@@ -126,6 +207,12 @@ void UDisks2::Block::setFormatting()
 bool UDisks2::Block::isReadOnly() const
 {
     return value(QStringLiteral("ReadOnly")).toBool();
+}
+
+bool UDisks2::Block::isExternal() const
+{
+    const QString prefDevice = preferredDevice();
+    return prefDevice != QStringLiteral("/dev/sailfish/home") && prefDevice != QStringLiteral("/dev/sailfish/root");
 }
 
 QString UDisks2::Block::idType() const
@@ -161,6 +248,28 @@ QVariant UDisks2::Block::value(const QString &key) const
 bool UDisks2::Block::hasData() const
 {
     return !m_data.isEmpty();
+}
+
+void UDisks2::Block::dumpInfo() const
+{
+    qCInfo(lcMemoryCardLog) << "Block device:" << device() << "Preferred device:" << preferredDevice();
+    qCInfo(lcMemoryCardLog) << "- drive:" << drive() << "dNumber:" << deviceNumber();
+    qCInfo(lcMemoryCardLog) << "- id:" << id() << "size:" << size();
+    qCInfo(lcMemoryCardLog) << "- isreadonly:" << isReadOnly() << "idtype:" << idType();
+    qCInfo(lcMemoryCardLog) << "- idversion:" << idVersion() << "idlabel:" << idLabel();
+    qCInfo(lcMemoryCardLog) << "- iduuid:" << idUUID();
+    qCInfo(lcMemoryCardLog) << "- ismountable:" << isMountable() << "mount path:" << mountPath();
+    qCInfo(lcMemoryCardLog) << "- isencrypted:" << isEncrypted() << "crypto backing device:" << cryptoBackingDeviceName();
+}
+
+QString UDisks2::Block::cryptoBackingDeviceName(const QString &objectPath)
+{
+    if (objectPath == QLatin1String("/") || objectPath.isEmpty()) {
+        return QString();
+    } else {
+        QString deviceName = objectPath.section(QChar('/'), 5);
+        return QString("/dev/%1").arg(deviceName);
+    }
 }
 
 void UDisks2::Block::updateProperties(const QDBusMessage &message)
@@ -199,7 +308,7 @@ void UDisks2::Block::updateMountPoint(const QVariant &mountPoints)
 
 void UDisks2::Block::complete()
 {
-    if (!m_pendingFileSystem && !m_pendingBlock) {
+    if (!m_pendingFileSystem && !m_pendingBlock && !m_pendingEncrypted) {
         QMetaObject::invokeMethod(this, "completed", Qt::QueuedConnection);
     }
 }
@@ -225,6 +334,30 @@ void UDisks2::Block::getFileSystemInterface()
         }
         m_pendingFileSystem->deleteLater();
         m_pendingFileSystem = nullptr;
+        complete();
+    });
+}
+
+void UDisks2::Block::getEncryptedInterface()
+{
+    QDBusInterface dbusPropertyInterface(UDISKS2_SERVICE,
+                                    m_path,
+                                    DBUS_OBJECT_PROPERTIES_INTERFACE,
+                                    m_connection);
+    QDBusPendingCall pendingCall = dbusPropertyInterface.asyncCall(DBUS_GET_ALL, UDISKS2_ENCRYPTED_INTERFACE);
+    m_pendingEncrypted = new QDBusPendingCallWatcher(pendingCall, this);
+    connect(m_pendingEncrypted, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watcher) {
+        if (watcher->isValid() && watcher->isFinished()) {
+            QDBusPendingReply<> reply =  *watcher;
+            QDBusMessage message = reply.reply();
+            m_encrypted = true;
+        } else {
+            QDBusError error = watcher->error();
+            qCWarning(lcMemoryCardLog) << "Error reading encrypted properties:" << error.name() << error.message() << m_path;
+            m_encrypted = false;
+        }
+        m_pendingEncrypted->deleteLater();
+        m_pendingEncrypted = nullptr;
         complete();
     });
 }
