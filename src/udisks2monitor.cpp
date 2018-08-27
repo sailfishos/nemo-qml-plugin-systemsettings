@@ -117,7 +117,7 @@ UDisks2::Monitor::Monitor(PartitionManagerPrivate *manager, QObject *parent)
                 QStringLiteral("InterfacesRemoved"),
                 this,
                 SLOT(interfacesRemoved(QDBusObjectPath, QStringList)))) {
-        qCWarning(lcMemoryCardLog) << "Failed to connect to interfaces added signal:" << qPrintable(systemBus.lastError().message());
+        qCWarning(lcMemoryCardLog) << "Failed to connect to interfaces removed signal:" << qPrintable(systemBus.lastError().message());
     }
 
     getBlockDevices();
@@ -181,13 +181,20 @@ void UDisks2::Monitor::format(const QString &deviceName, const QString &type, co
 
 void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const InterfaceAndPropertyMap &interfaces)
 {
-    qCInfo(lcMemoryCardLog) << "Interface added:" << objectPath.path() << interfaces;
     QString path = objectPath.path();
+    qCInfo(lcMemoryCardLog) << "UDisks interface added:" << path << interfaces;
     // External device must have file system or partition so that it can added to the model.
     // Devices without partition table have filesystem interface.
     if ((interfaces.contains(UDISKS2_PARTITION_INTERFACE) || interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) && externalBlockDevice(path)) {
-        QVariantMap dict = interfaces.value(UDISKS2_BLOCK_INTERFACE);
-        createBlockDevice(path, dict);
+        if (m_blockDevices.contains(path)) {
+            if (interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
+                UDisks2::Block *block = m_blockDevices.value(path);
+                block->setMountable(true);
+            }
+        } else {
+            QVariantMap dict = interfaces.value(UDISKS2_BLOCK_INTERFACE);
+            createBlockDevice(path, dict);
+        }
     } else if (path.startsWith(QStringLiteral("/org/freedesktop/UDisks2/jobs"))) {
         QVariantMap dict = interfaces.value(UDISKS2_JOB_INTERFACE);
         QString operation = dict.value(UDISKS2_JOB_KEY_OPERATION, QString()).toString();
@@ -205,24 +212,13 @@ void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const 
             m_jobsToWait.insert(path, job);
         }
     }
-
-    //    object path "/org/freedesktop/UDisks2/block_devices/sda1"
-    //    array [
-    //       dict entry(
-    //          string "org.freedesktop.UDisks2.Filesystem"
-
-    // Register monitor for this
-    //    signal time=1521817375.168670 sender=:1.83 -> destination=(null destination) serial=199
-    //    path=/org/freedesktop/UDisks2/block_devices/sda1; interface=org.freedesktop.DBus.Properties; member=PropertiesChanged
-    //       string "org.freedesktop.UDisks2.Block"
-
 }
 
 void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces)
 {
-    Q_UNUSED(interfaces)
-
     QString path = objectPath.path();
+    qCInfo(lcMemoryCardLog) << "UDisks interface removed:" << path << interfaces;
+
     if (m_jobsToWait.contains(path)) {
         UDisks2::Job *job = m_jobsToWait.take(path);
         job->deleteLater();
@@ -235,6 +231,9 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
             lookupPartitions(removedPartitions, blockDevPaths);
             m_manager->remove(removedPartitions);
         }
+    } else if (m_blockDevices.contains(path) && interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
+        UDisks2::Block *block = m_blockDevices.value(path);
+        block->setMountable(false);
     }
 }
 
@@ -249,17 +248,16 @@ void UDisks2::Monitor::setPartitionProperties(QExplicitlySharedDataPointer<Parti
     qCInfo(lcMemoryCardLog) << "- drive:" << blockDevice->drive() << "dNumber:" << blockDevice->deviceNumber();
     qCInfo(lcMemoryCardLog) << "- id:" << blockDevice->id() << "size:" << blockDevice->size();
     qCInfo(lcMemoryCardLog) << "- isreadonly:" << blockDevice->isReadOnly() << "idtype:" << blockDevice->idType();
-    qCInfo(lcMemoryCardLog) << "- idversion" << blockDevice->idVersion() << "idlabel" << blockDevice->idLabel();
-    qCInfo(lcMemoryCardLog) << "- iduuid" << blockDevice->idUUID();
+    qCInfo(lcMemoryCardLog) << "- idversion:" << blockDevice->idVersion() << "idlabel:" << blockDevice->idLabel();
+    qCInfo(lcMemoryCardLog) << "- iduuid:" << blockDevice->idUUID();
+    qCInfo(lcMemoryCardLog) << "- ismountable:" << blockDevice->isMountable() << "mount path:" << blockDevice->mountPath();
 
     partition->devicePath = blockDevice->device();
     partition->mountPath = blockDevice->mountPath();
     partition->deviceLabel = label;
     partition->filesystemType = blockDevice->idType();
     partition->readOnly = blockDevice->isReadOnly();
-    partition->canMount = blockDevice->value(QStringLiteral("HintAuto")).toBool()
-            && !partition->filesystemType.isEmpty()
-            && m_manager->supportedFileSystems().contains(partition->filesystemType);
+    partition->canMount = blockDevice->isMountable() && m_manager->supportedFileSystems().contains(partition->filesystemType);
 }
 
 void UDisks2::Monitor::updatePartitionProperties(const UDisks2::Block *blockDevice)
@@ -319,10 +317,12 @@ void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool succe
                     partition->filesystemType.clear();
                     partition->canMount = false;
                     partition->valid = false;
-                } else {
-                    partition->activeState = QStringLiteral("inactive");
-                    partition->status = Partition::Formatted;
-                    partition->valid = true;
+
+                    QString blockDevicePath = UDISKS2_BLOCK_DEVICE_PATH.arg(partition->deviceName);
+                    if (m_blockDevices.contains(blockDevicePath)) {
+                        Block *block = m_blockDevices.value(blockDevicePath);
+                        block->setFormatting();
+                    }
                 }
             } else {
                 partition->activeState = QStringLiteral("failed");
@@ -472,7 +472,22 @@ void UDisks2::Monitor::createBlockDevice(const QString &path, const QVariantMap 
             }
         });
 
-        // When e.g. partition formatted, partition info updated
+        connect(block, &UDisks2::Block::formatted, this, [this]() {
+            UDisks2::Block *block = qobject_cast<UDisks2::Block *>(sender());
+            QString blockPath = block->path();
+            if (m_blockDevices.contains(blockPath)) {
+                for (auto partition : m_manager->m_partitions) {
+                    if (partition->devicePath == block->device()) {
+                        partition->status = Partition::Formatted;
+                        partition->activeState = QStringLiteral("inactive");
+                        partition->valid = true;
+                        m_manager->refresh(partition.data());
+                    }
+                }
+            }
+        });
+
+        // When block info updated
         connect(block, &UDisks2::Block::updated, this, [this]() {
             UDisks2::Block *block = qobject_cast<UDisks2::Block *>(sender());
             QString blockPath = block->path();
