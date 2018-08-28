@@ -107,7 +107,7 @@ private:
 
     void startLuksOperation(const QString &deviceName, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments);
     void startMountOperation(const QString &deviceName, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments);
-    void lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartions, const QStringList &objects);
+    void lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartitions, const QStringList &objects);
 
     void createPartition(const Block *block);
     void createBlockDevice(const QString &path, const InterfaceAndPropertyMap &interfacePropertyMap);

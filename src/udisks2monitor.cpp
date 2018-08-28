@@ -188,10 +188,10 @@ void UDisks2::Monitor::format(const QString &deviceName, const QString &type, co
     }
 
     const QString objectPath = this->objectPath(deviceName);
-    PartitionManagerPrivate::Partitions affectedPartions;
-    lookupPartitions(affectedPartions, QStringList() << objectPath);
+    PartitionManagerPrivate::Partitions affectedPartitions;
+    lookupPartitions(affectedPartitions, QStringList() << objectPath);
 
-    for (auto partition : affectedPartions) {
+    for (auto partition : affectedPartitions) {
         if (partition->status == Partition::Mounted) {
             m_operationQueue.enqueue(Operation(QStringLiteral("format"), deviceName, objectPath, type, arguments));
             unmount(deviceName);
@@ -309,10 +309,10 @@ void UDisks2::Monitor::updatePartitionProperties(const UDisks2::Block *blockDevi
 void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool success)
 {
     UDisks2::Job::Operation operation = job->operation();
-    PartitionManagerPrivate::Partitions affectedPartions;
-    lookupPartitions(affectedPartions, job->value(UDISKS2_JOB_KEY_OBJECTS).toStringList());
+    PartitionManagerPrivate::Partitions affectedPartitions;
+    lookupPartitions(affectedPartitions, job->value(UDISKS2_JOB_KEY_OBJECTS).toStringList());
     if (operation == UDisks2::Job::Lock || operation == UDisks2::Job::Unlock) {
-        for (auto partition : affectedPartions) {
+        for (auto partition : affectedPartitions) {
             Partition::Status oldStatus = partition->status;
             if (success) {
                 if (job->status() == UDisks2::Job::Added) {
@@ -332,7 +332,7 @@ void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool succe
             }
         }
     } else if (operation == UDisks2::Job::Mount || operation == UDisks2::Job::Unmount) {
-        for (auto partition : affectedPartions) {
+        for (auto partition : affectedPartitions) {
             Partition::Status oldStatus = partition->status;
 
             if (success) {
@@ -359,7 +359,7 @@ void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool succe
             }
         }
     } else if (operation == UDisks2::Job::Format) {
-        for (auto partition : affectedPartions) {
+        for (auto partition : affectedPartitions) {
             Partition::Status oldStatus = partition->status;
             if (success) {
                 if (job->status() == UDisks2::Job::Added) {
@@ -526,7 +526,7 @@ void UDisks2::Monitor::startMountOperation(const QString &deviceName, const QStr
     }
 }
 
-void UDisks2::Monitor::lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartions, const QStringList &objects)
+void UDisks2::Monitor::lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartitions, const QStringList &objects)
 {
     QStringList blockDevs;
     for (const QString objectPath : objects) {
@@ -541,7 +541,7 @@ void UDisks2::Monitor::lookupPartitions(PartitionManagerPrivate::Partitions &aff
     for (const QString &dev : blockDevs) {
         for (auto partition : m_manager->m_partitions) {
             if (partition->devicePath == dev) {
-                affectedPartions << partition;
+                affectedPartitions << partition;
             }
         }
     }
