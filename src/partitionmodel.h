@@ -119,6 +119,8 @@ public:
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void refresh(int index);
 
+    Q_INVOKABLE void lock(const QString &deviceName);
+    Q_INVOKABLE void unlock(const QString &deviceName, const QString &passphrase);
     Q_INVOKABLE void mount(const QString &deviceName);
     Q_INVOKABLE void unmount(const QString &deviceName);
     Q_INVOKABLE void format(const QString &deviceName, const QString &type, const QString &label, const QString &passphrase = QString());
@@ -133,6 +135,8 @@ signals:
     void storageTypesChanged();
 
     void errorMessage(const QString &objectPath, const QString &errorName);
+    void lockError(Error error);
+    void unlockError(Error error);
     void mountError(Error error);
     void unmountError(Error error);
     void formatError(Error error);

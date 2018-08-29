@@ -36,6 +36,10 @@
 #include <QVariantMap>
 #include <QDBusConnection>
 
+typedef QMap<QString, QVariantMap> InterfacePropertyMap;
+
+Q_DECLARE_METATYPE(InterfacePropertyMap)
+
 class QDBusPendingCallWatcher;
 
 namespace UDisks2 {
@@ -45,7 +49,9 @@ class Block : public QObject
     Q_OBJECT
 
 public:
-    Block(const QString &path, const QVariantMap &data, QObject *parent = nullptr);
+    Block(const QString &path, const InterfacePropertyMap &interfacePropertyMap, QObject *parent = nullptr);
+    Block& operator=(const Block& other);
+
     ~Block();
 
     QString path() const;
@@ -59,6 +65,13 @@ public:
 
     qint64 size() const;
 
+    bool hasCryptoBackingDevice() const;
+    QString cryptoBackingDeviceName() const;
+    QString cryptoBackingDeviceObjectPath() const;
+
+    bool isEncrypted() const;
+    void setEncrypted(bool encrypted);
+
     bool isMountable() const;
     void setMountable(bool mountable);
 
@@ -66,6 +79,7 @@ public:
     void setFormatting();
 
     bool isReadOnly() const;
+    bool isExternal() const;
 
     QString idType() const;
     QString idVersion() const;
@@ -77,6 +91,10 @@ public:
     QVariant value(const QString &key) const;
 
     bool hasData() const;
+
+    void dumpInfo() const;
+
+    static QString cryptoBackingDeviceName(const QString &objectPath);
 
 signals:
     void completed();
@@ -91,16 +109,20 @@ private:
     void updateMountPoint(const QVariant &mountPoints);
     void complete();
     void getFileSystemInterface();
+    void getEncryptedInterface();
 
     QString m_path;
+    InterfacePropertyMap m_interfacePropertyMap;
     QVariantMap m_data;
     QDBusConnection m_connection;
     QString m_mountPath;
     bool m_mountable;
+    bool m_encrypted;
     bool m_formatting;
 
     QDBusPendingCallWatcher *m_pendingFileSystem;
     QDBusPendingCallWatcher *m_pendingBlock;
+    QDBusPendingCallWatcher *m_pendingEncrypted;
 };
 
 }

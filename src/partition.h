@@ -62,7 +62,11 @@ public:
         Mounted,
         Unmounting,
         Formatting,
-        Formatted
+        Formatted,
+        Unlocking,
+        Unlocked,
+        Locking,
+        Locked
     };
 
     Q_DECLARE_FLAGS(StorageTypes, StorageType)

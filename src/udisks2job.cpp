@@ -124,6 +124,10 @@ UDisks2::Job::Operation UDisks2::Job::operation() const
         return Unmount;
     } else if (operation == UDISKS2_JOB_OF_FS_FORMAT) {
         return Format;
+    } else if (operation == UDISKS2_JOB_OP_ENC_LOCK) {
+        return Lock;
+    } else if (operation == UDISKS2_JOB_OP_ENC_UNLOCK) {
+        return Unlock;
     } else {
         return Unknown;
     }

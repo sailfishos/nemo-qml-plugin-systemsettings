@@ -32,6 +32,12 @@
 #ifndef UDISKS2_DEFINES
 #define UDISKS2_DEFINES
 
+namespace UDisks2 {
+    static const auto propertiesChangedSignal = QStringLiteral("PropertiesChanged");
+    static const auto cryptoBackingDeviceKey = QStringLiteral("CryptoBackingDevice");
+}
+
+
 #define DBUS_OBJECT_MANAGER_INTERFACE    QLatin1String("org.freedesktop.DBus.ObjectManager")
 #define DBUS_OBJECT_PROPERTIES_INTERFACE QLatin1String("org.freedesktop.DBus.Properties")
 #define DBUS_GET_ALL                     QLatin1String("GetAll")
@@ -49,6 +55,8 @@
 #define UDISKS2_JOB_INTERFACE        QLatin1String("org.freedesktop.UDisks2.Job")
 
 // Jobs
+#define UDISKS2_JOB_OP_ENC_LOCK   QLatin1String("encrypted-lock")
+#define UDISKS2_JOB_OP_ENC_UNLOCK QLatin1String("encrypted-unlock")
 #define UDISKS2_JOB_OP_FS_UNMOUNT QLatin1String("filesystem-unmount")
 #define UDISKS2_JOB_OP_FS_MOUNT   QLatin1String("filesystem-mount")
 #define UDISKS2_JOB_OP_CLEANUP    QLatin1String("cleanup")
@@ -61,6 +69,8 @@
 // Lock, Unlock, Mount, Unmount, Format
 #define UDISKS2_BLOCK_DEVICE_PATH  QString(QLatin1String("/org/freedesktop/UDisks2/block_devices/%1"))
 #define UDISKS2_BLOCK_FORMAT       QLatin1String("Format")
+#define UDISKS2_ENCRYPTED_LOCK     QLatin1String("Lock")
+#define UDISKS2_ENCRYPTED_UNLOCK   QLatin1String("Unlock")
 #define UDISKS2_FILESYSTEM_MOUNT   QLatin1String("Mount")
 #define UDISKS2_FILESYSTEM_UNMOUNT QLatin1String("Unmount")
 

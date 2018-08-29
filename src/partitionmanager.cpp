@@ -56,6 +56,8 @@ PartitionManagerPrivate::PartitionManagerPrivate()
     m_udisksMonitor.reset(new UDisks2::Monitor(this));
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::status, this, &PartitionManagerPrivate::status);
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::errorMessage, this, &PartitionManagerPrivate::errorMessage);
+    connect(m_udisksMonitor.data(), &UDisks2::Monitor::lockError, this, &PartitionManagerPrivate::lockError);
+    connect(m_udisksMonitor.data(), &UDisks2::Monitor::unlockError, this, &PartitionManagerPrivate::unlockError);
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::mountError, this, &PartitionManagerPrivate::mountError);
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::unmountError, this, &PartitionManagerPrivate::unmountError);
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::formatError, this, &PartitionManagerPrivate::formatError);
@@ -273,11 +275,33 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
     }
 }
 
+void PartitionManagerPrivate::lock(const Partition &partition)
+{
+    qCInfo(lcMemoryCardLog) << "Can lock:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.deviceName();
+    if (externalMedia.match(partition.deviceName()).hasMatch()) {
+        m_udisksMonitor->lock(partition.deviceName());
+    } else {
+        qCWarning(lcMemoryCardLog) << "Lock allowed only for external memory cards," << partition.devicePath() << "is not allowed";
+    }
+}
+
+void PartitionManagerPrivate::unlock(const Partition &partition, const QString &passphrase)
+{
+    qCInfo(lcMemoryCardLog) << "Can unlock:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.deviceName();
+    if (externalMedia.match(partition.deviceName()).hasMatch()) {
+        m_udisksMonitor->instance()->unlock(partition.deviceName(), passphrase);
+    } else {
+        qCWarning(lcMemoryCardLog) << "Unlock allowed only for external memory cards," << partition.devicePath() << "is not allowed";
+    }
+}
+
 void PartitionManagerPrivate::mount(const Partition &partition)
 {
     qCInfo(lcMemoryCardLog) << "Can mount:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.deviceName();
     if (externalMedia.match(partition.deviceName()).hasMatch()) {
-        m_udisksMonitor->mount(partition.deviceName());
+        m_udisksMonitor->instance()->mount(partition.deviceName());
+    } else {
+        qCWarning(lcMemoryCardLog) << "Mount allowed only for external memory cards," << partition.devicePath() << "is not allowed";
     }
 }
 
