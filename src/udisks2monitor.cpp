@@ -447,9 +447,7 @@ void UDisks2::Monitor::createBlockDevice(const QString &path, const QVariantMap 
         return;
     }
 
-    QString deviceName = path.section(QChar('/'), 5);
-
-    if (externalBlockDevice(deviceName)) {
+    if (externalBlockDevice(path)) {
         UDisks2::Block *block = new UDisks2::Block(path, dict);
         if (block->hasData()) {
             m_blockDevices.insert(path, block);
@@ -602,7 +600,10 @@ void UDisks2::Monitor::getBlockDevices()
             QDBusPendingReply<QList<QDBusObjectPath> > reply = *watcher;
             const QList<QDBusObjectPath> blockDevicePaths = reply.argumentAt<0>();
             for (const QDBusObjectPath &dbusObjectPath : blockDevicePaths) {
-                createBlockDevice(dbusObjectPath.path(), QVariantMap());
+                QString path = dbusObjectPath.path();
+                if (externalBlockDevice(path)) {
+                    createBlockDevice(path, QVariantMap());
+                }
             }
         } else if (watcher->isError()) {
             QDBusError error = watcher->error();

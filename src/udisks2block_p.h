@@ -90,6 +90,7 @@ private slots:
 private:
     void updateMountPoint(const QVariant &mountPoints);
     void complete();
+    void getFileSystemInterface();
 
     QString m_path;
     QVariantMap m_data;
