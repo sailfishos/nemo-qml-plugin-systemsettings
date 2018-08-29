@@ -96,7 +96,7 @@ signals:
     void formatError(Partition::Error error);
 
 private slots:
-    void interfacesAdded(const QDBusObjectPath &objectPath, const InterfaceAndPropertyMap &interfaces);
+    void interfacesAdded(const QDBusObjectPath &objectPath, const InterfacePropertyMap &interfaces);
     void interfacesRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces);
 
 private:
@@ -110,7 +110,7 @@ private:
     void lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartitions, const QStringList &objects);
 
     void createPartition(const Block *block);
-    void createBlockDevice(const QString &path, const InterfaceAndPropertyMap &interfacePropertyMap);
+    void createBlockDevice(const QString &path, const InterfacePropertyMap &interfacePropertyMap);
 
     void doFormat(const QString &deviceName, const QString &dbusObjectPath, const QString &type, const QVariantHash &arguments);
     void getBlockDevices();

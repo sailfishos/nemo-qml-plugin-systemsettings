@@ -85,7 +85,7 @@ UDisks2::Monitor::Monitor(PartitionManagerPrivate *manager, QObject *parent)
     Q_ASSERT(!sharedInstance);
     sharedInstance = this;
 
-    qDBusRegisterMetaType<InterfaceAndPropertyMap>();
+    qDBusRegisterMetaType<InterfacePropertyMap>();
     QDBusConnection systemBus = QDBusConnection::systemBus();
 
     connect(systemBus.interface(), &QDBusConnectionInterface::callWithCallbackFailed, this, [this](const QDBusError &error, const QDBusMessage &call) {
@@ -106,7 +106,7 @@ UDisks2::Monitor::Monitor(PartitionManagerPrivate *manager, QObject *parent)
                 DBUS_OBJECT_MANAGER_INTERFACE,
                 QStringLiteral("InterfacesAdded"),
                 this,
-                SLOT(interfacesAdded(QDBusObjectPath, InterfaceAndPropertyMap)))) {
+                SLOT(interfacesAdded(QDBusObjectPath, InterfacePropertyMap)))) {
         qCWarning(lcMemoryCardLog) << "Failed to connect to interfaces added signal:" << qPrintable(systemBus.lastError().message());
     }
 
@@ -202,7 +202,7 @@ void UDisks2::Monitor::format(const QString &deviceName, const QString &type, co
     doFormat(deviceName, objectPath, type, arguments);
 }
 
-void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const InterfaceAndPropertyMap &interfaces)
+void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const InterfacePropertyMap &interfaces)
 {
     QString path = objectPath.path();
     qCInfo(lcMemoryCardLog) << "UDisks interface added:" << path << interfaces << externalBlockDevice(path);
@@ -561,7 +561,7 @@ void UDisks2::Monitor::createPartition(const UDisks2::Block *block)
     m_manager->add(addedPartitions);
 }
 
-void UDisks2::Monitor::createBlockDevice(const QString &path, const InterfaceAndPropertyMap &interfacePropertyMap)
+void UDisks2::Monitor::createBlockDevice(const QString &path, const InterfacePropertyMap &interfacePropertyMap)
 {
     if (m_blockDevices.contains(path)) {
         return;
@@ -698,7 +698,7 @@ void UDisks2::Monitor::getBlockDevices()
             for (const QDBusObjectPath &dbusObjectPath : blockDevicePaths) {
                 QString path = dbusObjectPath.path();
                 if (externalBlockDevice(path)) {
-                    createBlockDevice(path, InterfaceAndPropertyMap());
+                    createBlockDevice(path, InterfacePropertyMap());
                 }
             }
         } else if (watcher->isError()) {

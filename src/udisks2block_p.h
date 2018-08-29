@@ -36,9 +36,9 @@
 #include <QVariantMap>
 #include <QDBusConnection>
 
-typedef QMap<QString, QVariantMap> InterfaceAndPropertyMap;
+typedef QMap<QString, QVariantMap> InterfacePropertyMap;
 
-Q_DECLARE_METATYPE(InterfaceAndPropertyMap)
+Q_DECLARE_METATYPE(InterfacePropertyMap)
 
 class QDBusPendingCallWatcher;
 
@@ -49,7 +49,7 @@ class Block : public QObject
     Q_OBJECT
 
 public:
-    Block(const QString &path, const InterfaceAndPropertyMap &interfacePropertyMap, QObject *parent = nullptr);
+    Block(const QString &path, const InterfacePropertyMap &interfacePropertyMap, QObject *parent = nullptr);
     Block& operator=(const Block& other);
 
     ~Block();
@@ -112,7 +112,7 @@ private:
     void getEncryptedInterface();
 
     QString m_path;
-    InterfaceAndPropertyMap m_interfacePropertyMap;
+    InterfacePropertyMap m_interfacePropertyMap;
     QVariantMap m_data;
     QDBusConnection m_connection;
     QString m_mountPath;
