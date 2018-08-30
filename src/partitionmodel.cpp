@@ -267,7 +267,8 @@ QHash<int, QByteArray> PartitionModel::roleNames() const
         { BytesAvailableRole, "bytesAvailable" },
         { BytesTotalRole, "bytesTotal" },
         { BytesFreeRole, "bytesFree" },
-        { PartitionModelRole, "partitionModel" }
+        { PartitionModelRole, "partitionModel" },
+        { IsCryptoDeviceRoles, "isCryptoDevice"},
     };
 
     return roleNames;
@@ -314,6 +315,8 @@ QVariant PartitionModel::data(const QModelIndex &index, int role) const
             return partition.bytesFree();
         case PartitionModelRole:
             return QVariant::fromValue(static_cast<QObject*>(const_cast<PartitionModel*>((this))));
+        case IsCryptoDeviceRoles:
+            return partition.isCryptoDevice();
         default:
             return QVariant();
         }

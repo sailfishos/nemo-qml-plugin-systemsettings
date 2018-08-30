@@ -291,6 +291,7 @@ void UDisks2::Monitor::setPartitionProperties(QExplicitlySharedDataPointer<Parti
     partition->canMount = blockDevice->isMountable() && m_manager->supportedFileSystems().contains(partition->filesystemType);
     partition->status = blockDevice->isEncrypted() ? Partition::Locked
                                                    : blockDevice->mountPath().isEmpty() ? Partition::Unmounted : Partition::Mounted;
+    partition->isCryptoDevice = blockDevice->isEncrypted() || blockDevice->hasCryptoBackingDevice();
 }
 
 void UDisks2::Monitor::updatePartitionProperties(const UDisks2::Block *blockDevice)
