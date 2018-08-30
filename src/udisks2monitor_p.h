@@ -41,7 +41,7 @@
 
 #include "partitionmodel.h"
 #include "partitionmanager_p.h"
-#include "udisks2block_p.h"
+#include "udisks2defines.h"
 
 class PartitionManagerPrivate;
 
@@ -96,7 +96,7 @@ signals:
     void formatError(Partition::Error error);
 
 private slots:
-    void interfacesAdded(const QDBusObjectPath &objectPath, const InterfacePropertyMap &interfaces);
+    void interfacesAdded(const QDBusObjectPath &objectPath, const UDisks2::InterfacePropertyMap &interfaces);
     void interfacesRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces);
 
 private:
@@ -110,7 +110,7 @@ private:
     void lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartitions, const QStringList &objects);
 
     void createPartition(const Block *block);
-    void createBlockDevice(const QString &path, const InterfacePropertyMap &interfacePropertyMap);
+    void createBlockDevice(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap);
 
     void doFormat(const QString &deviceName, const QString &dbusObjectPath, const QString &type, const QVariantHash &arguments);
     void getBlockDevices();

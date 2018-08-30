@@ -7,7 +7,7 @@
 #include <QDBusPendingCallWatcher>
 #include <QDBusPendingReply>
 
-UDisks2::Block::Block(const QString &path, const InterfacePropertyMap &interfacePropertyMap, QObject *parent)
+UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap, QObject *parent)
     : QObject(parent)
     , m_path(path)
     , m_interfacePropertyMap(interfacePropertyMap)
