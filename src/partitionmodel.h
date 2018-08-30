@@ -71,7 +71,11 @@ public:
         Mounted         = Partition::Mounted,
         Unmounting      = Partition::Unmounting,
         Formatting      = Partition::Formatting,
-        Formatted       = Partition::Formatted
+        Formatted       = Partition::Formatted,
+        Unlocking       = Partition::Unlocking,
+        Unlocked        = Partition::Unlocked,
+        Locking         = Partition::Locking,
+        Locked          = Partition::Locked,
     };
 
     enum StorageType {
