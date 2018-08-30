@@ -86,6 +86,11 @@ bool Partition::mountFailed() const
     return d && d->mountFailed;
 }
 
+bool Partition::isCryptoDevice() const
+{
+    return d ? d->isCryptoDevice : false;
+}
+
 Partition::StorageType Partition::storageType() const
 {
     return d ? d->storageType : Invalid;
