@@ -61,7 +61,8 @@ public:
         BytesAvailableRole,
         BytesTotalRole,
         BytesFreeRole,
-        PartitionModelRole
+        PartitionModelRole,
+        IsCryptoDeviceRoles,
     };
 
     // For Status role

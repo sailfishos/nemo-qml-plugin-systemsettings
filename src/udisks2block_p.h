@@ -36,9 +36,7 @@
 #include <QVariantMap>
 #include <QDBusConnection>
 
-typedef QMap<QString, QVariantMap> InterfacePropertyMap;
-
-Q_DECLARE_METATYPE(InterfacePropertyMap)
+#include "udisks2defines.h"
 
 class QDBusPendingCallWatcher;
 
@@ -49,7 +47,7 @@ class Block : public QObject
     Q_OBJECT
 
 public:
-    Block(const QString &path, const InterfacePropertyMap &interfacePropertyMap, QObject *parent = nullptr);
+    Block(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap, QObject *parent = nullptr);
     Block& operator=(const Block& other);
 
     ~Block();
@@ -112,7 +110,7 @@ private:
     void getEncryptedInterface();
 
     QString m_path;
-    InterfacePropertyMap m_interfacePropertyMap;
+    UDisks2::InterfacePropertyMap m_interfacePropertyMap;
     QVariantMap m_data;
     QDBusConnection m_connection;
     QString m_mountPath;

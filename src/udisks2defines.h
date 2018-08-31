@@ -32,11 +32,18 @@
 #ifndef UDISKS2_DEFINES
 #define UDISKS2_DEFINES
 
+#include <QVariantMap>
+
 namespace UDisks2 {
     static const auto propertiesChangedSignal = QStringLiteral("PropertiesChanged");
-    static const auto cryptoBackingDeviceKey = QStringLiteral("CryptoBackingDevice");
+    static const auto interfacesAddedSignal   = QStringLiteral("InterfacesAdded");
+    static const auto interfacesRemovedSignal = QStringLiteral("InterfacesRemoved");
+    static const auto cryptoBackingDeviceKey  = QStringLiteral("CryptoBackingDevice");
+
+    typedef QMap<QString, QVariantMap> InterfacePropertyMap;
 }
 
+Q_DECLARE_METATYPE(UDisks2::InterfacePropertyMap)
 
 #define DBUS_OBJECT_MANAGER_INTERFACE    QLatin1String("org.freedesktop.DBus.ObjectManager")
 #define DBUS_OBJECT_PROPERTIES_INTERFACE QLatin1String("org.freedesktop.DBus.Properties")
@@ -49,6 +56,7 @@ namespace UDisks2 {
 // Interfaces
 #define UDISKS2_MANAGER_INTERFACE    QLatin1String("org.freedesktop.UDisks2.Manager")
 #define UDISKS2_ENCRYPTED_INTERFACE  QLatin1String("org.freedesktop.UDisks2.Encrypted")
+#define UDISKS2_DRIVE_INTERFACE      QLatin1String("org.freedesktop.UDisks2.Drive")
 #define UDISKS2_BLOCK_INTERFACE      QLatin1String("org.freedesktop.UDisks2.Block")
 #define UDISKS2_FILESYSTEM_INTERFACE QLatin1String("org.freedesktop.UDisks2.Filesystem")
 #define UDISKS2_PARTITION_INTERFACE  QLatin1String("org.freedesktop.UDisks2.Partition")

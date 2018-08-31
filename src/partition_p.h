@@ -48,6 +48,7 @@ public:
         , status(Partition::Unmounted)
         , readOnly(true)
         , canMount(false)
+        , isCryptoDevice(false)
         , mountFailed(false)
         , deviceRoot(false)
         , valid(false)
@@ -74,6 +75,7 @@ public:
     Partition::Status status;
     bool readOnly;
     bool canMount;
+    bool isCryptoDevice;
     bool mountFailed;
     bool deviceRoot;
     // If valid, only mount status and available bytes will be checked

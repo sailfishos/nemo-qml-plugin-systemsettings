@@ -103,6 +103,7 @@ public:
 
     bool canMount() const;
     bool mountFailed() const;
+    bool isCryptoDevice() const;
 
     StorageType storageType() const;
 

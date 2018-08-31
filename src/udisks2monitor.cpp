@@ -85,7 +85,7 @@ UDisks2::Monitor::Monitor(PartitionManagerPrivate *manager, QObject *parent)
     Q_ASSERT(!sharedInstance);
     sharedInstance = this;
 
-    qDBusRegisterMetaType<InterfacePropertyMap>();
+    qDBusRegisterMetaType<UDisks2::InterfacePropertyMap>();
     QDBusConnection systemBus = QDBusConnection::systemBus();
 
     connect(systemBus.interface(), &QDBusConnectionInterface::callWithCallbackFailed, this, [this](const QDBusError &error, const QDBusMessage &call) {
@@ -104,9 +104,9 @@ UDisks2::Monitor::Monitor(PartitionManagerPrivate *manager, QObject *parent)
                 UDISKS2_SERVICE,
                 UDISKS2_PATH,
                 DBUS_OBJECT_MANAGER_INTERFACE,
-                QStringLiteral("InterfacesAdded"),
+                interfacesAddedSignal,
                 this,
-                SLOT(interfacesAdded(QDBusObjectPath, InterfacePropertyMap)))) {
+                SLOT(interfacesAdded(QDBusObjectPath, UDisks2::InterfacePropertyMap)))) {
         qCWarning(lcMemoryCardLog) << "Failed to connect to interfaces added signal:" << qPrintable(systemBus.lastError().message());
     }
 
@@ -114,7 +114,7 @@ UDisks2::Monitor::Monitor(PartitionManagerPrivate *manager, QObject *parent)
                 UDISKS2_SERVICE,
                 UDISKS2_PATH,
                 DBUS_OBJECT_MANAGER_INTERFACE,
-                QStringLiteral("InterfacesRemoved"),
+                interfacesRemovedSignal,
                 this,
                 SLOT(interfacesRemoved(QDBusObjectPath, QStringList)))) {
         qCWarning(lcMemoryCardLog) << "Failed to connect to interfaces removed signal:" << qPrintable(systemBus.lastError().message());
@@ -202,7 +202,7 @@ void UDisks2::Monitor::format(const QString &deviceName, const QString &type, co
     doFormat(deviceName, objectPath, type, arguments);
 }
 
-void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const InterfacePropertyMap &interfaces)
+void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const UDisks2::InterfacePropertyMap &interfaces)
 {
     QString path = objectPath.path();
     qCInfo(lcMemoryCardLog) << "UDisks interface added:" << path << interfaces << externalBlockDevice(path);
@@ -291,6 +291,7 @@ void UDisks2::Monitor::setPartitionProperties(QExplicitlySharedDataPointer<Parti
     partition->canMount = blockDevice->isMountable() && m_manager->supportedFileSystems().contains(partition->filesystemType);
     partition->status = blockDevice->isEncrypted() ? Partition::Locked
                                                    : blockDevice->mountPath().isEmpty() ? Partition::Unmounted : Partition::Mounted;
+    partition->isCryptoDevice = blockDevice->isEncrypted() || blockDevice->hasCryptoBackingDevice();
 }
 
 void UDisks2::Monitor::updatePartitionProperties(const UDisks2::Block *blockDevice)
@@ -561,7 +562,7 @@ void UDisks2::Monitor::createPartition(const UDisks2::Block *block)
     m_manager->add(addedPartitions);
 }
 
-void UDisks2::Monitor::createBlockDevice(const QString &path, const InterfacePropertyMap &interfacePropertyMap)
+void UDisks2::Monitor::createBlockDevice(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap)
 {
     if (m_blockDevices.contains(path)) {
         return;
@@ -698,7 +699,7 @@ void UDisks2::Monitor::getBlockDevices()
             for (const QDBusObjectPath &dbusObjectPath : blockDevicePaths) {
                 QString path = dbusObjectPath.path();
                 if (externalBlockDevice(path)) {
-                    createBlockDevice(path, InterfacePropertyMap());
+                    createBlockDevice(path, UDisks2::InterfacePropertyMap());
                 }
             }
         } else if (watcher->isError()) {

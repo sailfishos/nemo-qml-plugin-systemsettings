@@ -57,6 +57,7 @@ PUBLIC_HEADERS = \
     connmanvpnconnectionproxy.h \
     developermodesettings.h \
     batterystatus.h \
+    udisks2defines.h \
     diskusage.h \
     partition.h \
     partitionmanager.h \
@@ -77,7 +78,6 @@ HEADERS += \
     partition_p.h \
     partitionmanager_p.h \
     udisks2block_p.h \
-    udisks2defines.h \
     udisks2job_p.h \
     udisks2monitor_p.h
 
