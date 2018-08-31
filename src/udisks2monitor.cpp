@@ -44,6 +44,24 @@
 #include <QDBusInterface>
 #include <QDBusMetaType>
 
+#include <QFileInfo>
+#include <QFile>
+#include <QTimer>
+
+namespace {
+    QString filePermissionsString(QFile::Permissions perms) {
+        return ((perms & QFileDevice::ReadOwner)  ? QLatin1String("r") : QLatin1String("-"))
+             + ((perms & QFileDevice::WriteOwner) ? QLatin1String("w") : QLatin1String("-"))
+             + ((perms & QFileDevice::ExeOwner)   ? QLatin1String("x") : QLatin1String("-"))
+             + ((perms & QFileDevice::ReadGroup)  ? QLatin1String("r") : QLatin1String("-"))
+             + ((perms & QFileDevice::WriteGroup) ? QLatin1String("w") : QLatin1String("-"))
+             + ((perms & QFileDevice::ExeGroup)   ? QLatin1String("x") : QLatin1String("-"))
+             + ((perms & QFileDevice::ReadOther)  ? QLatin1String("r") : QLatin1String("-"))
+             + ((perms & QFileDevice::WriteOther) ? QLatin1String("w") : QLatin1String("-"))
+             + ((perms & QFileDevice::ExeOther)   ? QLatin1String("x") : QLatin1String("-"));
+    }
+}
+
 struct ErrorEntry {
     Partition::Error errorCode;
     const char *dbusErrorName;
@@ -482,6 +500,13 @@ void UDisks2::Monitor::startMountOperation(const QString &deviceName, const QStr
         if (watcher->isValid() && watcher->isFinished()) {
             if (dbusMethod == UDISKS2_FILESYSTEM_MOUNT) {
                 emit status(deviceName, Partition::Mounted);
+                // Unfortunately, it can take some time for the mount path
+                // to be updated for the device, so even invoking this
+                // via a Qt::QueuedConnection can fail.
+                // So, wait for a small amount of time.
+                QTimer::singleShot(250, this, [this, deviceName] {
+                    this->checkMountPathOwnership(deviceName);
+                });
             } else {
                 emit status(deviceName, Partition::Unmounted);
             }
@@ -525,6 +550,84 @@ void UDisks2::Monitor::startMountOperation(const QString &deviceName, const QStr
     } else {
         emit status(deviceName, Partition::Unmounting);
     }
+}
+
+void UDisks2::Monitor::checkMountPathOwnership(const QString &deviceName)
+{
+    QString mountPath, devicePath;
+    for (auto partition : m_manager->m_partitions) {
+        if (partition->deviceName == deviceName) {
+            mountPath = partition->mountPath;
+            devicePath = partition->devicePath;
+        }
+    }
+
+    if (mountPath.isEmpty()) {
+        QString cryptoBackingDevice;
+        for (QMap<QString, Block *>::const_iterator i = m_blockDevices.begin(); i != m_blockDevices.end(); ++i) {
+            Block *block = i.value();
+            if (block->device() == devicePath) {
+                cryptoBackingDevice = block->cryptoBackingDeviceName();
+                mountPath = block->mountPath();
+            }
+        }
+
+        if (mountPath.isEmpty() && !cryptoBackingDevice.isEmpty()) {
+            for (auto partition : m_manager->m_partitions) {
+                if (partition->devicePath == cryptoBackingDevice) {
+                    mountPath = partition->mountPath;
+                }
+            }
+        }
+    }
+
+    if (mountPath.isEmpty()) {
+        qCWarning(lcMemoryCardLog) << "Unable to check mount-path permissions for unknown device:" << deviceName;
+        return;
+    }
+
+    QFileInfo mountPathInfo(mountPath);
+    const QString permsStr = filePermissionsString(mountPathInfo.permissions());
+    if (mountPathInfo.isReadable() && mountPathInfo.isWritable() && mountPathInfo.isExecutable()) {
+        qCDebug(lcMemoryCardLog) << "No need to change mount-path permissions for device:" << deviceName << "(" << mountPath << ")" << "- currently:"
+                                 << permsStr << mountPathInfo.owner() << mountPathInfo.group();
+        return;
+    }
+
+    qCWarning(lcMemoryCardLog) << "Need to change mount-path permissions for device:" << deviceName << "(" << mountPath << ")" << "- currently:"
+                               << permsStr << mountPathInfo.owner() << mountPathInfo.group();
+
+    QDBusInterface udisks2Interface(UDISKS2_SERVICE,
+                                    objectPath(deviceName),
+                                    UDISKS2_FILESYSTEM_INTERFACE,
+                                    QDBusConnection::systemBus());
+
+    QDBusPendingCall pendingCall = udisks2Interface.asyncCallWithArgumentList(UDISKS2_FILESYSTEM_TAKEOWNERSHIP, QVariantList() << QVariantMap());
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pendingCall, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished,
+            this, [this, deviceName, mountPath](QDBusPendingCallWatcher *watcher) {
+        if (watcher->isValid() && watcher->isFinished()) {
+            QFileInfo mountPathInfo(mountPath);
+            QFile::Permissions perms = mountPathInfo.permissions();
+            perms = perms | QFileDevice::ReadOwner
+                          | QFileDevice::WriteOwner
+                          | QFileDevice::ExeOwner
+                          | QFileDevice::ReadGroup
+                          | QFileDevice::ExeGroup
+                          | QFileDevice::ReadOther
+                          | QFileDevice::ExeOther;
+            QFile::setPermissions(mountPath, perms);
+            perms = mountPathInfo.permissions();
+            qCDebug(lcMemoryCardLog) << "Changed mount-path permissions for device:" << deviceName << "(" << mountPath << ")" << "to:"
+                                     << filePermissionsString(perms) << mountPathInfo.owner() << mountPathInfo.group();
+        } else if (watcher->isError()) {
+            QDBusError error = watcher->error();
+            qCWarning(lcMemoryCardLog) << "Unable to change mount-path permissions for device:" << deviceName << "(" << mountPath << ")"
+                                       << "TakeOwnership error:" << error.name() << error.message();
+        }
+
+        watcher->deleteLater();
+    });
 }
 
 void UDisks2::Monitor::lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartitions, const QStringList &objects)

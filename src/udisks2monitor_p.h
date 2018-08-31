@@ -98,6 +98,7 @@ signals:
 private slots:
     void interfacesAdded(const QDBusObjectPath &objectPath, const UDisks2::InterfacePropertyMap &interfaces);
     void interfacesRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces);
+    void checkMountPathOwnership(const QString &deviceName);
 
 private:
     void setPartitionProperties(QExplicitlySharedDataPointer<PartitionPrivate> &partition, const UDisks2::Block *blockDevice);
