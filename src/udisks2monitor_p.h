@@ -86,6 +86,8 @@ public:
 
     void format(const QString &deviceName, const QString &type, const QString &label, const QString &passphrase);
 
+    QString objectPath(const QString &deviceName) const;
+
 signals:
     void status(const QString &deviceName, Partition::Status);
     void errorMessage(const QString &objectPath, const QString &errorName);
@@ -114,8 +116,6 @@ private:
 
     void doFormat(const QString &deviceName, const QString &dbusObjectPath, const QString &type, const QVariantHash &arguments);
     void getBlockDevices();
-
-    QString objectPath(const QString &deviceName) const;
 
 private:
     static Monitor *sharedInstance;

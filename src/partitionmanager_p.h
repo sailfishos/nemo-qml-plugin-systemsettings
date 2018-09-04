@@ -72,6 +72,8 @@ public:
     void unmount(const Partition &partition);
     void format(const Partition &partition, const QString &type, const QString &label, const QString &passphrase);
 
+    QString objectPath(const Partition &partition) const;
+
     QStringList supportedFileSystems() const;
 
 signals:

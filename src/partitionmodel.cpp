@@ -169,6 +169,17 @@ void PartitionModel::format(const QString &deviceName, const QString &type, cons
     }
 }
 
+QString PartitionModel::objectPath(const QString &deviceName) const
+{
+    qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName;
+    if (const Partition *partition = getPartition(deviceName)) {
+        return m_manager->objectPath(*partition);
+    } else {
+        qCWarning(lcMemoryCardLog) << "Unable to get object path for unknown device:" << deviceName;
+        return QString();
+    }
+}
+
 void PartitionModel::update()
 {
     const int count = m_partitions.count();
