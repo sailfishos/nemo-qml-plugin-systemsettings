@@ -63,6 +63,7 @@ public:
         BytesFreeRole,
         PartitionModelRole,
         IsCryptoDeviceRoles,
+        IsSupportedFileSystemType,
     };
 
     // For Status role

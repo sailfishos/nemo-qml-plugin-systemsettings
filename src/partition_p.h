@@ -49,6 +49,7 @@ public:
         , readOnly(true)
         , canMount(false)
         , isCryptoDevice(false)
+        , isSupportedFileSystemType(false)
         , mountFailed(false)
         , deviceRoot(false)
         , valid(false)
@@ -76,6 +77,7 @@ public:
     bool readOnly;
     bool canMount;
     bool isCryptoDevice;
+    bool isSupportedFileSystemType;
     bool mountFailed;
     bool deviceRoot;
     // If valid, only mount status and available bytes will be checked
