@@ -121,6 +121,12 @@ QString Partition::filesystemType() const
     return d ? d->filesystemType : QString();
 }
 
+bool Partition::isSupportedFileSystemType() const
+{
+
+    return d ? d->isSupportedFileSystemType : false;
+}
+
 qint64 Partition::bytesAvailable() const
 {
     return d ? d->bytesAvailable : 0;

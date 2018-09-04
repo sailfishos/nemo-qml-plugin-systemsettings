@@ -113,6 +113,7 @@ public:
     QString mountPath() const;
 
     QString filesystemType() const;
+    bool isSupportedFileSystemType() const;
 
     qint64 bytesAvailable() const;
     qint64 bytesTotal() const;

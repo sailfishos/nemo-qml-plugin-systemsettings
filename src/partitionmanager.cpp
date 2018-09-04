@@ -244,6 +244,7 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
                 partition->deviceName = deviceName;
                 partition->deviceRoot = deviceRoot.match(deviceName).hasMatch();
                 partition->filesystemType = QString::fromUtf8(mountEntry.mnt_type);
+                partition->isSupportedFileSystemType = supportedFileSystems().contains(partition->filesystemType);
                 partition->status = partition->activeState == QStringLiteral("deactivating")
                         ? Partition::Unmounting
                         : Partition::Mounted;

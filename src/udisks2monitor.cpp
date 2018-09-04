@@ -287,6 +287,7 @@ void UDisks2::Monitor::setPartitionProperties(QExplicitlySharedDataPointer<Parti
     partition->mountPath = blockDevice->mountPath();
     partition->deviceLabel = label;
     partition->filesystemType = blockDevice->idType();
+    partition->isSupportedFileSystemType = m_manager->supportedFileSystems().contains(partition->filesystemType);
     partition->readOnly = blockDevice->isReadOnly();
     partition->canMount = blockDevice->isMountable() && m_manager->supportedFileSystems().contains(partition->filesystemType);
     partition->status = blockDevice->isEncrypted() ? Partition::Locked
