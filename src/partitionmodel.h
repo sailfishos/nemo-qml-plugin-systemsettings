@@ -150,6 +150,8 @@ signals:
 private:
     void update();
 
+    const Partition *getPartition(const QString &deviceName) const;
+
     void partitionChanged(const Partition &partition);
     void partitionAdded(const Partition &partition);
     void partitionRemoved(const Partition &partition);
