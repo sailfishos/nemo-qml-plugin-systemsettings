@@ -327,6 +327,16 @@ void PartitionManagerPrivate::format(const Partition &partition, const QString &
     }
 }
 
+QString PartitionManagerPrivate::objectPath(const Partition &partition) const
+{
+    if (externalMedia.match(partition.deviceName()).hasMatch()) {
+        return m_udisksMonitor->instance()->objectPath(partition.deviceName());
+    } else {
+        qCWarning(lcMemoryCardLog) << "Object path existing only for external memory cards:" << partition.devicePath();
+        return QString();
+    }
+}
+
 QStringList PartitionManagerPrivate::supportedFileSystems() const
 {
     // Query filesystems supported by this device

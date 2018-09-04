@@ -122,17 +122,9 @@ void PartitionModel::refresh(int index)
 void PartitionModel::lock(const QString &deviceName)
 {
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << m_partitions.count();
-
-    bool found = false;
-    for (const Partition &partition : m_partitions) {
-        if (deviceName == partition.deviceName()) {
-            found = true;
-            m_manager->lock(partition);
-            break;
-        }
-    }
-
-    if (!found) {
+    if (const Partition *partition = getPartition(deviceName)) {
+        m_manager->lock(*partition);
+    } else {
         qCWarning(lcMemoryCardLog) << "Unable to lock unknown device:" << deviceName;
     }
 }
@@ -140,17 +132,9 @@ void PartitionModel::lock(const QString &deviceName)
 void PartitionModel::unlock(const QString &deviceName, const QString &passphrase)
 {
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << m_partitions.count();
-
-    bool found = false;
-    for (const Partition &partition : m_partitions) {
-        if (deviceName == partition.deviceName()) {
-            found = true;
-            m_manager->unlock(partition, passphrase);
-            break;
-        }
-    }
-
-    if (!found) {
+    if (const Partition *partition = getPartition(deviceName)) {
+        m_manager->unlock(*partition, passphrase);
+    } else {
         qCWarning(lcMemoryCardLog) << "Unable to unlock unknown device:" << deviceName;
     }
 }
@@ -158,17 +142,9 @@ void PartitionModel::unlock(const QString &deviceName, const QString &passphrase
 void PartitionModel::mount(const QString &deviceName)
 {
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << m_partitions.count();
-
-    bool found = false;
-    for (const Partition &partition : m_partitions) {
-        if (deviceName == partition.deviceName()) {
-            found = true;
-            m_manager->mount(partition);
-            break;
-        }
-    }
-
-    if (!found) {
+    if (const Partition *partition = getPartition(deviceName)) {
+        m_manager->mount(*partition);
+    } else {
         qCWarning(lcMemoryCardLog) << "Unable to mount unknown device:" << deviceName;
     }
 }
@@ -176,17 +152,9 @@ void PartitionModel::mount(const QString &deviceName)
 void PartitionModel::unmount(const QString &deviceName)
 {
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << m_partitions.count();
-
-    bool found = false;
-    for (const Partition &partition : m_partitions) {
-        if (deviceName == partition.deviceName()) {
-            found = true;
-            m_manager->unmount(partition);
-            break;
-        }
-    }
-
-    if (!found) {
+    if (const Partition *partition = getPartition(deviceName)) {
+        m_manager->unmount(*partition);
+    } else {
         qCWarning(lcMemoryCardLog) << "Unable to unmount unknown device:" << deviceName;
     }
 }
@@ -194,18 +162,21 @@ void PartitionModel::unmount(const QString &deviceName)
 void PartitionModel::format(const QString &deviceName, const QString &type, const QString &label, const QString &passphrase)
 {
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName << type << label << m_partitions.count();
-
-    bool found = false;
-    for (const Partition &partition : m_partitions) {
-        if (deviceName == partition.deviceName()) {
-            found = true;
-            m_manager->format(partition, type, label, passphrase);
-            break;
-        }
-    }
-
-    if (!found) {
+    if (const Partition *partition = getPartition(deviceName)) {
+        m_manager->format(*partition, type, label, passphrase);
+    } else {
         qCWarning(lcMemoryCardLog) << "Unable to format unknown device:" << deviceName;
+    }
+}
+
+QString PartitionModel::objectPath(const QString &deviceName) const
+{
+    qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << deviceName;
+    if (const Partition *partition = getPartition(deviceName)) {
+        return m_manager->objectPath(*partition);
+    } else {
+        qCWarning(lcMemoryCardLog) << "Unable to get object path for unknown device:" << deviceName;
+        return QString();
     }
 }
 
@@ -249,6 +220,17 @@ void PartitionModel::update()
     if (count != m_partitions.count()) {
         emit countChanged();
     }
+}
+
+const Partition *PartitionModel::getPartition(const QString &deviceName) const
+{
+    for (const Partition &partition : m_partitions) {
+        if (deviceName == partition.deviceName()) {
+            return &partition;
+        }
+    }
+
+    return nullptr;
 }
 
 QHash<int, QByteArray> PartitionModel::roleNames() const
