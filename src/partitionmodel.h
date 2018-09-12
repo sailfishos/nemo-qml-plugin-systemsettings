@@ -64,6 +64,7 @@ public:
         PartitionModelRole,
         IsCryptoDeviceRoles,
         IsSupportedFileSystemType,
+        IsEncryptedRoles,
     };
 
     // For Status role

@@ -48,6 +48,7 @@ public:
         , status(Partition::Unmounted)
         , readOnly(true)
         , canMount(false)
+        , isEncrypted(false)
         , isCryptoDevice(false)
         , isSupportedFileSystemType(false)
         , mountFailed(false)
@@ -76,6 +77,7 @@ public:
     Partition::Status status;
     bool readOnly;
     bool canMount;
+    bool isEncrypted;
     bool isCryptoDevice;
     bool isSupportedFileSystemType;
     bool mountFailed;

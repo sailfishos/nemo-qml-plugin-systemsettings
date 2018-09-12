@@ -252,6 +252,7 @@ QHash<int, QByteArray> PartitionModel::roleNames() const
         { PartitionModelRole, "partitionModel" },
         { IsCryptoDeviceRoles, "isCryptoDevice"},
         { IsSupportedFileSystemType, "isSupportedFileSystemType"},
+        { IsEncryptedRoles, "isEncrypted"},
     };
 
     return roleNames;
@@ -302,6 +303,8 @@ QVariant PartitionModel::data(const QModelIndex &index, int role) const
             return partition.isCryptoDevice();
         case IsSupportedFileSystemType:
             return partition.isSupportedFileSystemType();
+        case IsEncryptedRoles:
+            return partition.isEncrypted();
         default:
             return QVariant();
         }
