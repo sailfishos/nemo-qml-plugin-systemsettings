@@ -182,6 +182,7 @@ void UDisks2::Monitor::format(const QString &deviceName, const QString &type, co
     QVariantHash arguments;
     arguments.insert(QStringLiteral("label"), QString(label));
     arguments.insert(QStringLiteral("no-block"), true);
+    arguments.insert(QStringLiteral("take-ownership"), true);
     arguments.insert(QStringLiteral("update-partition-type"), true);
     if (!passphrase.isEmpty()) {
         arguments.insert(QStringLiteral("encrypt.passphrase"), passphrase);
