@@ -93,7 +93,7 @@ bool Partition::isEncrypted() const
 
 bool Partition::isCryptoDevice() const
 {
-    return d ? d->isCryptoDevice : false;
+    return d && d->isCryptoDevice;
 }
 
 Partition::StorageType Partition::storageType() const
@@ -129,7 +129,7 @@ QString Partition::filesystemType() const
 bool Partition::isSupportedFileSystemType() const
 {
 
-    return d ? d->isSupportedFileSystemType : false;
+    return d && d->isSupportedFileSystemType;
 }
 
 qint64 Partition::bytesAvailable() const
