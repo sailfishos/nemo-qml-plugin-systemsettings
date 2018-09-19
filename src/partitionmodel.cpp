@@ -168,12 +168,7 @@ void PartitionModel::format(const QString &devicePath, const QString &type, cons
 QString PartitionModel::objectPath(const QString &devicePath) const
 {
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << devicePath;
-    if (const Partition *partition = getPartition(devicePath)) {
-        return m_manager->objectPath(*partition);
-    } else {
-        qCWarning(lcMemoryCardLog) << "Unable to get object path for unknown device:" << devicePath;
-        return QString();
-    }
+    return m_manager->objectPath(devicePath);
 }
 
 void PartitionModel::update()
