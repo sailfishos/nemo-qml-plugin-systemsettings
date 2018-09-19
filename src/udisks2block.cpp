@@ -16,6 +16,7 @@ UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &
     , m_mountable(interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE))
     , m_encrypted(interfacePropertyMap.contains(UDISKS2_ENCRYPTED_INTERFACE))
     , m_formatting(false)
+    , m_locking(false)
     , m_pendingFileSystem(nullptr)
     , m_pendingBlock(nullptr)
     , m_pendingEncrypted(nullptr)
@@ -202,6 +203,16 @@ void UDisks2::Block::setMountable(bool mountable)
 void UDisks2::Block::setFormatting()
 {
     m_formatting = true;
+}
+
+bool UDisks2::Block::isLocking() const
+{
+    return m_locking;
+}
+
+void UDisks2::Block::setLocking()
+{
+    m_locking = true;
 }
 
 bool UDisks2::Block::isReadOnly() const

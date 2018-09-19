@@ -276,13 +276,14 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
     }
 }
 
-void PartitionManagerPrivate::lock(const Partition &partition)
+void PartitionManagerPrivate::lock(const QString &devicePath)
 {
-    qCInfo(lcMemoryCardLog) << "Can lock:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.devicePath();
-    if (externalMedia.match(partition.deviceName()).hasMatch()) {
-        m_udisksMonitor->lock(partition.devicePath());
+    QString deviceName = devicePath.section(QChar('/'), 2);
+    qCInfo(lcMemoryCardLog) << "Can lock:" << externalMedia.match(deviceName) << devicePath;
+    if (externalMedia.match(deviceName).hasMatch()) {
+        m_udisksMonitor->lock(devicePath);
     } else {
-        qCWarning(lcMemoryCardLog) << "Lock allowed only for external memory cards," << partition.devicePath() << "is not allowed";
+        qCWarning(lcMemoryCardLog) << "Lock allowed only for external memory cards," << devicePath << "is not allowed";
     }
 }
 

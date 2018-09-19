@@ -66,7 +66,7 @@ public:
     void refresh(PartitionPrivate *partition);
     void refresh(const Partitions &partitions, Partitions &changedPartitions);
 
-    void lock(const Partition &partition);
+    void lock(const QString &devicePath);
     void unlock(const Partition &partition, const QString &passphrase);
     void mount(const Partition &partition);
     void unmount(const Partition &partition);
