@@ -72,7 +72,7 @@ public:
     void unmount(const Partition &partition);
     void format(const QString &devicePath, const QString &type, const QString &label, const QString &passphrase);
 
-    QString objectPath(const Partition &partition) const;
+    QString objectPath(const QString &devicePath) const;
 
     QStringList supportedFileSystems() const;
 

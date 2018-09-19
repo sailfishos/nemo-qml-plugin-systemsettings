@@ -327,12 +327,13 @@ void PartitionManagerPrivate::format(const QString &devicePath, const QString &t
     }
 }
 
-QString PartitionManagerPrivate::objectPath(const Partition &partition) const
+QString PartitionManagerPrivate::objectPath(const QString &devicePath) const
 {
-    if (externalMedia.match(partition.deviceName()).hasMatch()) {
-        return m_udisksMonitor->instance()->objectPath(partition.devicePath());
+    QString deviceName = devicePath.section(QChar('/'), 2);
+    if (externalMedia.match(deviceName).hasMatch()) {
+        return m_udisksMonitor->instance()->objectPath(devicePath);
     } else {
-        qCWarning(lcMemoryCardLog) << "Object path existing only for external memory cards:" << partition.devicePath();
+        qCWarning(lcMemoryCardLog) << "Object path existing only for external memory cards:" << devicePath;
         return QString();
     }
 }
