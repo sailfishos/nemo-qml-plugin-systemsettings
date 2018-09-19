@@ -105,6 +105,7 @@ public:
     bool mountFailed() const;
     bool isCryptoDevice() const;
     bool isEncrypted() const;
+    QString cryptoBackingDevicePath() const;
 
     StorageType storageType() const;
 

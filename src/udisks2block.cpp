@@ -152,10 +152,10 @@ bool UDisks2::Block::hasCryptoBackingDevice() const
     return cryptoBackingDev != QLatin1String("/");
 }
 
-QString UDisks2::Block::cryptoBackingDeviceName() const
+QString UDisks2::Block::cryptoBackingDevicePath() const
 {
     const QString object = cryptoBackingDeviceObjectPath();
-    return Block::cryptoBackingDeviceName(object);
+    return Block::cryptoBackingDevicePath(object);
 }
 
 QString UDisks2::Block::cryptoBackingDeviceObjectPath() const
@@ -259,10 +259,10 @@ void UDisks2::Block::dumpInfo() const
     qCInfo(lcMemoryCardLog) << "- idversion:" << idVersion() << "idlabel:" << idLabel();
     qCInfo(lcMemoryCardLog) << "- iduuid:" << idUUID();
     qCInfo(lcMemoryCardLog) << "- ismountable:" << isMountable() << "mount path:" << mountPath();
-    qCInfo(lcMemoryCardLog) << "- isencrypted:" << isEncrypted() << "crypto backing device:" << cryptoBackingDeviceName();
+    qCInfo(lcMemoryCardLog) << "- isencrypted:" << isEncrypted() << "crypto backing device:" << cryptoBackingDevicePath();
 }
 
-QString UDisks2::Block::cryptoBackingDeviceName(const QString &objectPath)
+QString UDisks2::Block::cryptoBackingDevicePath(const QString &objectPath)
 {
     if (objectPath == QLatin1String("/") || objectPath.isEmpty()) {
         return QString();
