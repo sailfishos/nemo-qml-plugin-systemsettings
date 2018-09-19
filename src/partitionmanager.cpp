@@ -316,14 +316,14 @@ void PartitionManagerPrivate::unmount(const Partition &partition)
     }
 }
 
-void PartitionManagerPrivate::format(const Partition &partition, const QString &type, const QString &label, const QString &passphrase)
+void PartitionManagerPrivate::format(const QString &devicePath, const QString &type, const QString &label, const QString &passphrase)
 {
-    qCInfo(lcMemoryCardLog) << "Can format:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.devicePath();
-
-    if (externalMedia.match(partition.deviceName()).hasMatch()) {
-        m_udisksMonitor->instance()->format(partition.devicePath(), type, label, passphrase);
+    QString deviceName = devicePath.section(QChar('/'), 2);
+    qCInfo(lcMemoryCardLog) << "Can format:" << externalMedia.match(deviceName).hasMatch() << devicePath;
+    if (externalMedia.match(deviceName).hasMatch()) {
+        m_udisksMonitor->instance()->format(devicePath, type, label, passphrase);
     } else {
-        qCWarning(lcMemoryCardLog) << "Formatting allowed only for external memory cards," << partition.devicePath() << "is not allowed";
+        qCWarning(lcMemoryCardLog) << "Formatting allowed only for external memory cards," << devicePath << "is not allowed";
     }
 }
 
