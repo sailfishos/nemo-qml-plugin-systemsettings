@@ -295,14 +295,16 @@ void UDisks2::Monitor::setPartitionProperties(QExplicitlySharedDataPointer<Parti
                                                    : blockDevice->mountPath().isEmpty() ? Partition::Unmounted : Partition::Mounted;
     partition->isCryptoDevice = blockDevice->isEncrypted() || blockDevice->hasCryptoBackingDevice();
     partition->isEncrypted = blockDevice->isEncrypted();
+    partition->cryptoBackingDevicePath = blockDevice->cryptoBackingDevicePath();
 }
 
 void UDisks2::Monitor::updatePartitionProperties(const UDisks2::Block *blockDevice)
 {
     bool hasCryptoBackingDevice = blockDevice->hasCryptoBackingDevice();
-    const QString cryptoBackingDevice = blockDevice->cryptoBackingDeviceName();
+    const QString cryptoBackingDevicePath = blockDevice->cryptoBackingDevicePath();
+
     for (auto partition : m_manager->m_partitions) {
-        if ((partition->devicePath == blockDevice->device()) || (hasCryptoBackingDevice && (partition->devicePath == cryptoBackingDevice))) {
+        if ((partition->devicePath == blockDevice->device()) || (hasCryptoBackingDevice && (partition->devicePath == cryptoBackingDevicePath))) {
             setPartitionProperties(partition, blockDevice);
             partition->valid = true;
             m_manager->refresh(partition.data());

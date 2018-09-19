@@ -65,6 +65,7 @@ public:
         IsCryptoDeviceRoles,
         IsSupportedFileSystemType,
         IsEncryptedRoles,
+        CryptoBackingDevicePath
     };
 
     // For Status role

@@ -64,7 +64,7 @@ public:
     qint64 size() const;
 
     bool hasCryptoBackingDevice() const;
-    QString cryptoBackingDeviceName() const;
+    QString cryptoBackingDevicePath() const;
     QString cryptoBackingDeviceObjectPath() const;
 
     bool isEncrypted() const;
@@ -92,7 +92,7 @@ public:
 
     void dumpInfo() const;
 
-    static QString cryptoBackingDeviceName(const QString &objectPath);
+    static QString cryptoBackingDevicePath(const QString &objectPath);
 
 signals:
     void completed();
