@@ -162,11 +162,7 @@ void PartitionModel::unmount(const QString &devicePath)
 void PartitionModel::format(const QString &devicePath, const QString &type, const QString &label, const QString &passphrase)
 {
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << devicePath << type << label << m_partitions.count();
-    if (const Partition *partition = getPartition(devicePath)) {
-        m_manager->format(*partition, type, label, passphrase);
-    } else {
-        qCWarning(lcMemoryCardLog) << "Unable to format unknown device:" << devicePath;
-    }
+    m_manager->format(devicePath, type, label, passphrase);
 }
 
 QString PartitionModel::objectPath(const QString &devicePath) const
