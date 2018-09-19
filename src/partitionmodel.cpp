@@ -122,11 +122,7 @@ void PartitionModel::refresh(int index)
 void PartitionModel::lock(const QString &devicePath)
 {
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << devicePath << m_partitions.count();
-    if (const Partition *partition = getPartition(devicePath)) {
-        m_manager->lock(*partition);
-    } else {
-        qCWarning(lcMemoryCardLog) << "Unable to lock unknown device:" << devicePath;
-    }
+    m_manager->lock(devicePath);
 }
 
 void PartitionModel::unlock(const QString &devicePath, const QString &passphrase)

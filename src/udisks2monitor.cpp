@@ -137,7 +137,23 @@ void UDisks2::Monitor::lock(const QString &devicePath)
     QVariantList arguments;
     QVariantMap options;
     arguments << options;
-    startLuksOperation(devicePath, UDISKS2_ENCRYPTED_LOCK, objectPath(devicePath), arguments);
+
+    for (QMap<QString, Block *>::const_iterator i = m_blockDevices.begin(); i != m_blockDevices.end(); ++i) {
+        Block *block = i.value();
+        if (block->device() == devicePath || block->cryptoBackingDevicePath() == devicePath) {
+            block->dumpInfo();
+            block->setLocking();
+
+            // Unmount if mounted.
+            if (!block->mountPath().isEmpty()) {
+                m_operationQueue.enqueue(Operation(UDISKS2_ENCRYPTED_LOCK, devicePath));
+                unmount(block->device());
+            } else {
+                startLuksOperation(devicePath, UDISKS2_ENCRYPTED_LOCK, objectPath(devicePath), arguments);
+            }
+            break;
+        }
+    }
 }
 
 void UDisks2::Monitor::unlock(const QString &devicePath, const QString &passphrase)
@@ -194,7 +210,7 @@ void UDisks2::Monitor::format(const QString &devicePath, const QString &type, co
 
     for (auto partition : affectedPartitions) {
         if (partition->status == Partition::Mounted) {
-            m_operationQueue.enqueue(Operation(QStringLiteral("format"), devicePath, objectPath, type, arguments));
+            m_operationQueue.enqueue(Operation(UDISKS2_BLOCK_FORMAT, devicePath, objectPath, type, arguments));
             unmount(devicePath);
             return;
         }
@@ -263,6 +279,13 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
         }
 
         UDisks2::Block *block = m_blockDevices.take(path);
+
+        // Crypto device got removed
+        bool deviceMapped = path.startsWith(QStringLiteral("/org/freedesktop/UDisks2/block_devices/dm_"));
+        if (deviceMapped && block->isLocking()) {
+            createBlockDevice(block->cryptoBackingDeviceObjectPath(), UDisks2::InterfacePropertyMap());
+        }
+
         block->deleteLater();
     } else if (m_blockDevices.contains(path) && interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
         UDisks2::Block *block = m_blockDevices.value(path);
@@ -648,9 +671,12 @@ void UDisks2::Monitor::createBlockDevice(const QString &dbusObjectPath, const UD
 
             if (!m_operationQueue.isEmpty()) {
                 Operation op = m_operationQueue.head();
-                if (op.command == QStringLiteral("format") && block->mountPath().isEmpty()) {
+                if (op.command == UDISKS2_BLOCK_FORMAT && block->mountPath().isEmpty()) {
                     m_operationQueue.dequeue();
                     doFormat(op.devicePath, op.dbusObjectPath, op.type, op.arguments);
+                } else if (op.command == UDISKS2_ENCRYPTED_LOCK && block->mountPath().isEmpty()) {
+                    m_operationQueue.dequeue();
+                    lock(op.devicePath);
                 }
             }
         });
@@ -720,6 +746,8 @@ QString UDisks2::Monitor::objectPath(const QString &devicePath) const
         Block *block = i.value();
         if (block->device() == devicePath) {
             return block->path();
+        } else if (block->cryptoBackingDevicePath() == devicePath) {
+            return block->cryptoBackingDeviceObjectPath();
         }
     }
 

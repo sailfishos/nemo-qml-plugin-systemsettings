@@ -76,6 +76,9 @@ public:
     bool isFormatting() const;
     void setFormatting();
 
+    bool isLocking() const;
+    void setLocking();
+
     bool isReadOnly() const;
     bool isExternal() const;
 
@@ -117,6 +120,7 @@ private:
     bool m_mountable;
     bool m_encrypted;
     bool m_formatting;
+    bool m_locking;
 
     QDBusPendingCallWatcher *m_pendingFileSystem;
     QDBusPendingCallWatcher *m_pendingBlock;

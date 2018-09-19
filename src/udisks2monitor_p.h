@@ -54,7 +54,7 @@ class Job;
 
 struct Operation
 {
-    Operation(const QString &command, const QString &devicePath, const QString &dbusObjectPath, const QString &type, const QVariantHash &arguments)
+    Operation(const QString &command, const QString &devicePath, const QString &dbusObjectPath = QString(), const QString &type = QString(), const QVariantHash &arguments  = QVariantHash())
         : command(command)
         , devicePath(devicePath)
         , dbusObjectPath(dbusObjectPath)
