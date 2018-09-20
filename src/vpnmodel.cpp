@@ -572,8 +572,6 @@ void VpnModel::activateConnection(const QString &path)
 
     ConnmanServiceProxy* proxy = vpnServices_.value(path);
     if (proxy) {
-        // TODO: Maybe possible to remove after Sailfish OS 2.2.1 release.
-        proxy->SetProperty(autoConnectKey, QDBusVariant(true));
         QDBusPendingCall call = proxy->Connect();
         qCDebug(lcVpnLog) << "Connect to vpn" << path;
 
@@ -596,7 +594,6 @@ void VpnModel::deactivateConnection(const QString &path)
     qCInfo(lcVpnLog) << "Disconnect" << path;
     ConnmanServiceProxy* proxy = vpnServices_.value(path);
     if (proxy) {
-        proxy->SetProperty(autoConnectKey, QDBusVariant(false));
         QDBusPendingCall call = proxy->Disconnect();
         QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
         connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
@@ -808,6 +805,14 @@ VpnConnection *VpnModel::newConnection(const QString &path)
             QVariantMap properties;
             properties.insert(name, value.variant());
             updateConnection(conn, propertiesToQml(properties));
+        }
+    });
+
+    connect(conn, &VpnConnection::autoConnectChanged, conn, [this, conn]() {
+        qCInfo(lcVpnLog) << "VPN autoconnect changed:" << conn->name() << conn->autoConnect();
+        ConnmanServiceProxy* proxy = vpnServices_.value(conn->path());
+        if (proxy) {
+            proxy->SetProperty(autoConnectKey, QDBusVariant(conn->autoConnect()));
         }
     });
 
