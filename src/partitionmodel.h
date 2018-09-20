@@ -65,6 +65,7 @@ public:
         IsCryptoDeviceRoles,
         IsSupportedFileSystemType,
         IsEncryptedRoles,
+        CryptoBackingDevicePath
     };
 
     // For Status role
@@ -126,13 +127,13 @@ public:
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void refresh(int index);
 
-    Q_INVOKABLE void lock(const QString &deviceName);
-    Q_INVOKABLE void unlock(const QString &deviceName, const QString &passphrase);
-    Q_INVOKABLE void mount(const QString &deviceName);
-    Q_INVOKABLE void unmount(const QString &deviceName);
-    Q_INVOKABLE void format(const QString &deviceName, const QString &type, const QString &label, const QString &passphrase = QString());
+    Q_INVOKABLE void lock(const QString &devicePath);
+    Q_INVOKABLE void unlock(const QString &devicePath, const QString &passphrase);
+    Q_INVOKABLE void mount(const QString &devicePath);
+    Q_INVOKABLE void unmount(const QString &devicePath);
+    Q_INVOKABLE void format(const QString &devicePath, const QString &type, const QString &label, const QString &passphrase = QString());
 
-    Q_INVOKABLE QString objectPath(const QString &deviceName) const;
+    Q_INVOKABLE QString objectPath(const QString &devicePath) const;
 
     QHash<int, QByteArray> roleNames() const;
 
@@ -153,7 +154,7 @@ signals:
 private:
     void update();
 
-    const Partition *getPartition(const QString &deviceName) const;
+    const Partition *getPartition(const QString &devicePath) const;
 
     void partitionChanged(const Partition &partition);
     void partitionAdded(const Partition &partition);

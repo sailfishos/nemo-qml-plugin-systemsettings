@@ -126,6 +126,11 @@ QString Partition::filesystemType() const
     return d ? d->filesystemType : QString();
 }
 
+QString Partition::cryptoBackingDevicePath() const
+{
+    return d ? d->cryptoBackingDevicePath : QString();
+}
+
 bool Partition::isSupportedFileSystemType() const
 {
 

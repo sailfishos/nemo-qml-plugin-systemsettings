@@ -54,16 +54,16 @@ class Job;
 
 struct Operation
 {
-    Operation(const QString &command, const QString &deviceName, const QString &dbusObjectPath, const QString &type, const QVariantHash &arguments)
+    Operation(const QString &command, const QString &devicePath, const QString &dbusObjectPath = QString(), const QString &type = QString(), const QVariantHash &arguments  = QVariantHash())
         : command(command)
-        , deviceName(deviceName)
+        , devicePath(devicePath)
         , dbusObjectPath(dbusObjectPath)
         , type(type)
         , arguments(arguments)
     {}
 
     QString command;
-    QString deviceName;
+    QString devicePath;
     QString dbusObjectPath;
     QString type;
     QVariantHash arguments;
@@ -78,18 +78,18 @@ public:
 
     static Monitor *instance();
 
-    void lock(const QString &deviceName);
-    void unlock(const QString &deviceName, const QString &passphrase);
+    void lock(const QString &devicePath);
+    void unlock(const QString &devicePath, const QString &passphrase);
 
-    void mount(const QString &deviceName);
-    void unmount(const QString &deviceName);
+    void mount(const QString &devicePath);
+    void unmount(const QString &devicePath);
 
-    void format(const QString &deviceName, const QString &type, const QString &label, const QString &passphrase);
+    void format(const QString &devicePath, const QString &type, const QString &label, const QString &passphrase);
 
-    QString objectPath(const QString &deviceName) const;
+    QString objectPath(const QString &devicePath) const;
 
 signals:
-    void status(const QString &deviceName, Partition::Status);
+    void status(const QString &devicePath, Partition::Status);
     void errorMessage(const QString &objectPath, const QString &errorName);
     void lockError(Partition::Error error);
     void unlockError(Partition::Error error);
@@ -107,14 +107,14 @@ private:
     void updatePartitionStatus(const UDisks2::Job *job, bool success);
     bool externalBlockDevice(const QString &objectPathStr) const;
 
-    void startLuksOperation(const QString &deviceName, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments);
-    void startMountOperation(const QString &deviceName, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments);
+    void startLuksOperation(const QString &devicePath, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments);
+    void startMountOperation(const QString &devicePath, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments);
     void lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartitions, const QStringList &objects);
 
     void createPartition(const Block *block);
-    void createBlockDevice(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap);
+    void createBlockDevice(const QString &dbusObjectPath, const UDisks2::InterfacePropertyMap &interfacePropertyMap);
 
-    void doFormat(const QString &deviceName, const QString &dbusObjectPath, const QString &type, const QVariantHash &arguments);
+    void doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &type, const QVariantHash &arguments);
     void getBlockDevices();
 
 private:

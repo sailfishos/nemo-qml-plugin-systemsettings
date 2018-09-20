@@ -66,13 +66,13 @@ public:
     void refresh(PartitionPrivate *partition);
     void refresh(const Partitions &partitions, Partitions &changedPartitions);
 
-    void lock(const Partition &partition);
+    void lock(const QString &devicePath);
     void unlock(const Partition &partition, const QString &passphrase);
     void mount(const Partition &partition);
     void unmount(const Partition &partition);
-    void format(const Partition &partition, const QString &type, const QString &label, const QString &passphrase);
+    void format(const QString &devicePath, const QString &type, const QString &label, const QString &passphrase);
 
-    QString objectPath(const Partition &partition) const;
+    QString objectPath(const QString &devicePath) const;
 
     QStringList supportedFileSystems() const;
 

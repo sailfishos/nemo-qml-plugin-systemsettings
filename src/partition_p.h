@@ -70,6 +70,7 @@ public:
     QString mountPath;
     QString filesystemType;
     QString activeState;
+    QString cryptoBackingDevicePath;
     qint64 bytesAvailable;
     qint64 bytesTotal;
     qint64 bytesFree;

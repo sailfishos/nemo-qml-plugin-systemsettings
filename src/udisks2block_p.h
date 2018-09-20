@@ -64,7 +64,7 @@ public:
     qint64 size() const;
 
     bool hasCryptoBackingDevice() const;
-    QString cryptoBackingDeviceName() const;
+    QString cryptoBackingDevicePath() const;
     QString cryptoBackingDeviceObjectPath() const;
 
     bool isEncrypted() const;
@@ -75,6 +75,9 @@ public:
 
     bool isFormatting() const;
     void setFormatting();
+
+    bool isLocking() const;
+    void setLocking();
 
     bool isReadOnly() const;
     bool isExternal() const;
@@ -92,7 +95,7 @@ public:
 
     void dumpInfo() const;
 
-    static QString cryptoBackingDeviceName(const QString &objectPath);
+    static QString cryptoBackingDevicePath(const QString &objectPath);
 
 signals:
     void completed();
@@ -117,6 +120,7 @@ private:
     bool m_mountable;
     bool m_encrypted;
     bool m_formatting;
+    bool m_locking;
 
     QDBusPendingCallWatcher *m_pendingFileSystem;
     QDBusPendingCallWatcher *m_pendingBlock;
