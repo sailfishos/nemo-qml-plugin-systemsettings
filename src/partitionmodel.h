@@ -131,7 +131,7 @@ public:
     Q_INVOKABLE void unlock(const QString &devicePath, const QString &passphrase);
     Q_INVOKABLE void mount(const QString &devicePath);
     Q_INVOKABLE void unmount(const QString &devicePath);
-    Q_INVOKABLE void format(const QString &devicePath, const QString &type, const QString &label, const QString &passphrase = QString());
+    Q_INVOKABLE void format(const QString &devicePath, const QVariantMap &arguments);
 
     Q_INVOKABLE QString objectPath(const QString &devicePath) const;
 
