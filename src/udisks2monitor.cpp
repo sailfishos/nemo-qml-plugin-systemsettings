@@ -222,7 +222,8 @@ void UDisks2::Monitor::format(const QString &devicePath, const QString &type, co
 void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const UDisks2::InterfacePropertyMap &interfaces)
 {
     QString path = objectPath.path();
-    qCInfo(lcMemoryCardLog) << "UDisks interface added:" << path << interfaces << externalBlockDevice(path);
+    qCDebug(lcMemoryCardLog) << "UDisks interface added:" << path << externalBlockDevice(path);
+    qCInfo(lcMemoryCardLog) << "UDisks dump interface:" << interfaces;
     // External device must have file system or partition so that it can added to the model.
     // Devices without partition table have filesystem interface.
 
@@ -264,7 +265,8 @@ void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const 
 void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces)
 {
     QString path = objectPath.path();
-    qCInfo(lcMemoryCardLog) << "UDisks interface removed:" << path << interfaces;
+    qCDebug(lcMemoryCardLog) << "UDisks interface removed:" << path;
+    qCInfo(lcMemoryCardLog) << "UDisks dump interface:" << interfaces;
 
     if (m_jobsToWait.contains(path)) {
         UDisks2::Job *job = m_jobsToWait.take(path);
@@ -300,7 +302,7 @@ void UDisks2::Monitor::setPartitionProperties(QExplicitlySharedDataPointer<Parti
         label = blockDevice->idUUID();
     }
 
-    qCInfo(lcMemoryCardLog) << "Set partition properties";
+    qCDebug(lcMemoryCardLog) << "Set partition properties";
     blockDevice->dumpInfo();
 
     partition->devicePath = blockDevice->device();
@@ -581,9 +583,7 @@ void UDisks2::Monitor::createPartition(const UDisks2::Block *block)
     QExplicitlySharedDataPointer<PartitionPrivate> partition(new PartitionPrivate(m_manager.data()));
     partition->storageType = Partition::External;
     partition->devicePath = block->device();
-
     partition->bytesTotal = block->size();
-
     setPartitionProperties(partition, block);
     partition->valid = true;
     PartitionManagerPrivate::Partitions addedPartitions = { partition };
@@ -661,7 +661,7 @@ void UDisks2::Monitor::createBlockDevice(const QString &dbusObjectPath, const UD
             QVariantMap data;
             data.insert(UDISKS2_JOB_KEY_OPERATION, block->mountPath().isEmpty() ? UDISKS2_JOB_OP_FS_UNMOUNT : UDISKS2_JOB_OP_FS_MOUNT);
             data.insert(UDISKS2_JOB_KEY_OBJECTS, QStringList() << block->path());
-            qCInfo(lcMemoryCardLog) << "New partition status:" << data;
+            qCDebug(lcMemoryCardLog) << "New partition status:" << data;
             UDisks2::Job tmpJob(QString(), data);
             tmpJob.complete(true);
             updatePartitionStatus(&tmpJob, true);
