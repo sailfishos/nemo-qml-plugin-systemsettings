@@ -54,7 +54,7 @@ class Job;
 
 struct Operation
 {
-    Operation(const QString &command, const QString &devicePath, const QString &dbusObjectPath = QString(), const QString &type = QString(), const QVariantHash &arguments  = QVariantHash())
+    Operation(const QString &command, const QString &devicePath, const QString &dbusObjectPath = QString(), const QString &type = QString(), const QVariantMap &arguments  = QVariantMap())
         : command(command)
         , devicePath(devicePath)
         , dbusObjectPath(dbusObjectPath)
@@ -66,7 +66,7 @@ struct Operation
     QString devicePath;
     QString dbusObjectPath;
     QString type;
-    QVariantHash arguments;
+    QVariantMap arguments;
 };
 
 class Monitor : public QObject
@@ -84,7 +84,7 @@ public:
     void mount(const QString &devicePath);
     void unmount(const QString &devicePath);
 
-    void format(const QString &devicePath, const QString &type, const QString &label, const QString &passphrase);
+    void format(const QString &devicePath, const QString &type, const QVariantMap &arguments);
 
     QString objectPath(const QString &devicePath) const;
 
@@ -114,7 +114,7 @@ private:
     void createPartition(const Block *block);
     void createBlockDevice(const QString &dbusObjectPath, const UDisks2::InterfacePropertyMap &interfacePropertyMap);
 
-    void doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &type, const QVariantHash &arguments);
+    void doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &type, const QVariantMap &arguments);
     void getBlockDevices();
 
 private:

@@ -182,7 +182,7 @@ void UDisks2::Monitor::unmount(const QString &devicePath)
     startMountOperation(devicePath, UDISKS2_FILESYSTEM_UNMOUNT, objectPath(devicePath), arguments);
 }
 
-void UDisks2::Monitor::format(const QString &devicePath, const QString &type, const QString &label, const QString &passphrase)
+void UDisks2::Monitor::format(const QString &devicePath, const QString &type, const QVariantMap &arguments)
 {
     if (devicePath.isEmpty()) {
         qCCritical(lcMemoryCardLog) << "Cannot format without device name";
@@ -193,15 +193,6 @@ void UDisks2::Monitor::format(const QString &devicePath, const QString &type, co
     if (!fsList.contains(type)) {
         qCWarning(lcMemoryCardLog) << "Can only format" << fsList.join(", ") << "filesystems.";
         return;
-    }
-
-    QVariantHash arguments;
-    arguments.insert(QStringLiteral("label"), QString(label));
-    arguments.insert(QStringLiteral("no-block"), true);
-    arguments.insert(QStringLiteral("take-ownership"), true);
-    arguments.insert(QStringLiteral("update-partition-type"), true);
-    if (!passphrase.isEmpty()) {
-        arguments.insert(QStringLiteral("encrypt.passphrase"), passphrase);
     }
 
     const QString objectPath = this->objectPath(devicePath);
@@ -695,7 +686,7 @@ void UDisks2::Monitor::createBlockDevice(const QString &dbusObjectPath, const UD
     }
 }
 
-void UDisks2::Monitor::doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &type, const QVariantHash &arguments)
+void UDisks2::Monitor::doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &type, const QVariantMap &arguments)
 {
     QDBusInterface blockDeviceInterface(UDISKS2_SERVICE,
                                     dbusObjectPath,
