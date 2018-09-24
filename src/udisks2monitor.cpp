@@ -603,28 +603,40 @@ void UDisks2::Monitor::createBlockDevice(const QString &dbusObjectPath, const UD
 
         // Upon creation.
         connect(block, &UDisks2::Block::completed, this, [this]() {
-            UDisks2::Block *block = qobject_cast<UDisks2::Block *>(sender());
-            if (block->isExternal() && (block->isMountable() || block->isEncrypted())) {
-                const QString cryptoBackingDeviceObjectPath = block->cryptoBackingDeviceObjectPath();
-                if (block->hasCryptoBackingDevice() && m_blockDevices.contains(cryptoBackingDeviceObjectPath)) {
+            UDisks2::Block *completedBlock = qobject_cast<UDisks2::Block *>(sender());
+            bool unlocked = false;
+
+            // Check if device is already unlocked.
+            if (completedBlock->isEncrypted()) {
+                for (const Block *b : m_blockDevices.values()) {
+                    if (b->cryptoBackingDeviceObjectPath() == completedBlock->path()) {
+                        unlocked = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!unlocked && completedBlock->isExternal() && (completedBlock->isMountable() || completedBlock->isEncrypted())) {
+                const QString cryptoBackingDeviceObjectPath = completedBlock->cryptoBackingDeviceObjectPath();
+                if (completedBlock->hasCryptoBackingDevice() && m_blockDevices.contains(cryptoBackingDeviceObjectPath)) {
                     // Update crypto backing device to file system device.
                     UDisks2::Block *cryptoBackingDev = m_blockDevices.value(cryptoBackingDeviceObjectPath);
-                    *cryptoBackingDev = *block;
+                    *cryptoBackingDev = *completedBlock;
 
                     m_blockDevices.remove(cryptoBackingDeviceObjectPath);
                     m_blockDevices.insert(cryptoBackingDev->path(), cryptoBackingDev);
 
                     updatePartitionProperties(cryptoBackingDev);
 
-                    block->deleteLater();
-                } else if (!m_blockDevices.contains(block->path())) {
-                    m_blockDevices.insert(block->path(), block);
-                    createPartition(block);
+                    completedBlock->deleteLater();
+                } else if (!m_blockDevices.contains(completedBlock->path())) {
+                    m_blockDevices.insert(completedBlock->path(), completedBlock);
+                    createPartition(completedBlock);
                 }
             } else {
                 // This is garbage block device that should not be exposed
                 // from the partition model.
-                block->deleteLater();
+                completedBlock->deleteLater();
             }
         });
 
