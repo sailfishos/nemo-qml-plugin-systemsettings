@@ -54,18 +54,18 @@ class Job;
 
 struct Operation
 {
-    Operation(const QString &command, const QString &devicePath, const QString &dbusObjectPath = QString(), const QString &type = QString(), const QVariantMap &arguments  = QVariantMap())
+    Operation(const QString &command, const QString &devicePath, const QString &dbusObjectPath = QString(), const QString &filesystemType = QString(), const QVariantMap &arguments  = QVariantMap())
         : command(command)
         , devicePath(devicePath)
         , dbusObjectPath(dbusObjectPath)
-        , type(type)
+        , filesystemType(filesystemType)
         , arguments(arguments)
     {}
 
     QString command;
     QString devicePath;
     QString dbusObjectPath;
-    QString type;
+    QString filesystemType;
     QVariantMap arguments;
 };
 
@@ -84,7 +84,7 @@ public:
     void mount(const QString &devicePath);
     void unmount(const QString &devicePath);
 
-    void format(const QString &devicePath, const QString &type, const QVariantMap &arguments);
+    void format(const QString &devicePath, const QString &filesystemType, const QVariantMap &arguments);
 
     QString objectPath(const QString &devicePath) const;
 
@@ -100,11 +100,12 @@ signals:
 private slots:
     void interfacesAdded(const QDBusObjectPath &objectPath, const UDisks2::InterfacePropertyMap &interfaces);
     void interfacesRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces);
+    void doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &filesystemType, const QVariantMap &arguments);
 
 private:
-    void setPartitionProperties(QExplicitlySharedDataPointer<PartitionPrivate> &partition, const UDisks2::Block *blockDevice);
-    void updatePartitionProperties(const UDisks2::Block *blockDevice);
-    void updatePartitionStatus(const UDisks2::Job *job, bool success);
+    void setPartitionProperties(QExplicitlySharedDataPointer<PartitionPrivate> &partition, const Block *blockDevice);
+    void updatePartitionProperties(const Block *blockDevice);
+    void updatePartitionStatus(const Job *job, bool success);
     bool externalBlockDevice(const QString &objectPathStr) const;
 
     void startLuksOperation(const QString &devicePath, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments);
@@ -112,17 +113,18 @@ private:
     void lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartitions, const QStringList &objects);
 
     void createPartition(const Block *block);
-    void createBlockDevice(const QString &dbusObjectPath, const UDisks2::InterfacePropertyMap &interfacePropertyMap);
+    Block *createBlockDevice(const QString &dbusObjectPath, const UDisks2::InterfacePropertyMap &interfacePropertyMap);
 
-    void doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &type, const QVariantMap &arguments);
     void getBlockDevices();
+
+    Block *findBlock(const QString &devicePath) const;
 
 private:
     static Monitor *sharedInstance;
 
     QExplicitlySharedDataPointer<PartitionManagerPrivate> m_manager;
-    QMap<QString, UDisks2::Job *> m_jobsToWait;
-    QMap<QString, UDisks2::Block *> m_blockDevices;
+    QMap<QString, Job *> m_jobsToWait;
+    QMap<QString, Block *> m_blockDevices;
 
     QQueue<Operation> m_operationQueue;
 };
