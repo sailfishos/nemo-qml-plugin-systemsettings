@@ -158,8 +158,8 @@ void PartitionModel::unmount(const QString &devicePath)
 
 void PartitionModel::format(const QString &devicePath, const QVariantMap &arguments)
 {
-    QString type = arguments.value(QLatin1String("filesystemType"), QString()).toString();
-    if (type.isEmpty()) {
+    QString filesystemType = arguments.value(QLatin1String("filesystemType"), QString()).toString();
+    if (filesystemType.isEmpty()) {
         qmlInfo(this) << "Missing or empty filesystemType argument, cannot format.";
         return;
     }
@@ -177,8 +177,8 @@ void PartitionModel::format(const QString &devicePath, const QVariantMap &argume
         args.insert(QLatin1String("encrypt.passphrase"), passphrase);
     }
 
-    qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << devicePath << type << args << m_partitions.count();
-    m_manager->format(devicePath, type, args);
+    qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << devicePath << filesystemType << args << m_partitions.count();
+    m_manager->format(devicePath, filesystemType, args);
 }
 
 QString PartitionModel::objectPath(const QString &devicePath) const

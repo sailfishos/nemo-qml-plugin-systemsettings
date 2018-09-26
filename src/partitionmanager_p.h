@@ -70,7 +70,7 @@ public:
     void unlock(const Partition &partition, const QString &passphrase);
     void mount(const Partition &partition);
     void unmount(const Partition &partition);
-    void format(const QString &devicePath, const QString &type, const QVariantMap &arguments);
+    void format(const QString &devicePath, const QString &filesystemType, const QVariantMap &arguments);
 
     QString objectPath(const QString &devicePath) const;
 
