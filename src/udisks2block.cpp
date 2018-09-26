@@ -102,6 +102,8 @@ UDisks2::Block &UDisks2::Block::operator=(const UDisks2::Block &other)
     m_mountable = other.m_mountable;
     m_mountPath = other.m_mountPath;
     m_encrypted = other.m_encrypted;
+    m_formatting = other.m_formatting;
+    m_locking = other.m_locking;
 
     return *this;
 }
