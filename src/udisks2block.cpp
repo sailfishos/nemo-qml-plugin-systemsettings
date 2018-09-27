@@ -392,8 +392,6 @@ void UDisks2::Block::getEncryptedInterface()
     m_pendingEncrypted = new QDBusPendingCallWatcher(pendingCall, this);
     connect(m_pendingEncrypted, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watcher) {
         if (watcher->isValid() && watcher->isFinished()) {
-            QDBusPendingReply<> reply =  *watcher;
-            QDBusMessage message = reply.reply();
             m_encrypted = true;
         } else {
             QDBusError error = watcher->error();
