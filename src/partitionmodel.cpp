@@ -37,6 +37,7 @@
 
 #include <QDir>
 #include <QFileInfo>
+#include <QtQml/qqmlinfo.h>
 
 PartitionModel::PartitionModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -155,10 +156,29 @@ void PartitionModel::unmount(const QString &devicePath)
     }
 }
 
-void PartitionModel::format(const QString &devicePath, const QString &type, const QString &label, const QString &passphrase)
+void PartitionModel::format(const QString &devicePath, const QVariantMap &arguments)
 {
-    qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << devicePath << type << label << m_partitions.count();
-    m_manager->format(devicePath, type, label, passphrase);
+    QString filesystemType = arguments.value(QLatin1String("filesystemType"), QString()).toString();
+    if (filesystemType.isEmpty()) {
+        qmlInfo(this) << "Missing or empty filesystemType argument, cannot format.";
+        return;
+    }
+
+    // Only fixing invalid args would be enough. Udisks don't care if key is unknown like auto-mount.
+    QVariantMap args;
+    args.insert(QLatin1String("label"), arguments.value(QLatin1String("label"), QString()).toString());
+    args.insert(QLatin1String("no-block"), true);
+    args.insert(QLatin1String("take-ownership"), true);
+    args.insert(QLatin1String("update-partition-type"), true);
+    args.insert(QLatin1String("auto-mount"), arguments.value(QLatin1String("auto-mount"), false).toBool());
+
+    QString passphrase = arguments.value(QLatin1String("encrypt-passphrase"), QString()).toString();
+    if (!passphrase.isEmpty()) {
+        args.insert(QLatin1String("encrypt.passphrase"), passphrase);
+    }
+
+    qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << devicePath << filesystemType << args << m_partitions.count();
+    m_manager->format(devicePath, filesystemType, args);
 }
 
 QString PartitionModel::objectPath(const QString &devicePath) const

@@ -68,13 +68,13 @@ public:
     QString cryptoBackingDeviceObjectPath() const;
 
     bool isEncrypted() const;
-    void setEncrypted(bool encrypted);
+    bool setEncrypted(bool encrypted);
 
     bool isMountable() const;
-    void setMountable(bool mountable);
+    bool setMountable(bool mountable);
 
     bool isFormatting() const;
-    void setFormatting();
+    bool setFormatting(bool formatting);
 
     bool isLocking() const;
     void setLocking();
@@ -107,8 +107,11 @@ private slots:
     void updateProperties(const QDBusMessage &message);
 
 private:
+    bool isCompleted() const;
     void updateMountPoint(const QVariant &mountPoints);
     void complete();
+    bool clearFormattingState();
+
     void getFileSystemInterface();
     void getEncryptedInterface();
 

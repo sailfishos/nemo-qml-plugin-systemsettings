@@ -67,6 +67,10 @@ UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &
         // We have either org.freedesktop.UDisks2.Filesystem or org.freedesktop.UDisks2.Encrypted interface.
         complete();
     }
+
+    connect(this, &Block::completed, this, [this]() {
+        clearFormattingState();
+    });
 }
 
 // Use when morphing a block e.g. updating encrypted block to crypto backing block device (e.i. to a block that implements file system).
@@ -102,6 +106,8 @@ UDisks2::Block &UDisks2::Block::operator=(const UDisks2::Block &other)
     m_mountable = other.m_mountable;
     m_mountPath = other.m_mountPath;
     m_encrypted = other.m_encrypted;
+    m_formatting = other.m_formatting;
+    m_locking = other.m_locking;
 
     return *this;
 }
@@ -169,16 +175,14 @@ bool UDisks2::Block::isEncrypted() const
     return m_encrypted;
 }
 
-void UDisks2::Block::setEncrypted(bool encrypted)
+bool UDisks2::Block::setEncrypted(bool encrypted)
 {
     if (m_encrypted != encrypted) {
         m_encrypted = encrypted;
-        blockSignals(true);
-        setMountable(!m_encrypted);
-        blockSignals(false);
-
         emit updated();
+        return true;
     }
+    return false;
 }
 
 bool UDisks2::Block::isMountable() const
@@ -186,23 +190,29 @@ bool UDisks2::Block::isMountable() const
     return m_mountable;
 }
 
-void UDisks2::Block::setMountable(bool mountable)
+bool UDisks2::Block::setMountable(bool mountable)
 {
     if (m_mountable != mountable) {
         m_mountable = mountable;
-
-        if (m_mountable && m_formatting) {
-            m_formatting = false;
-            emit formatted();
-        }
-
         emit updated();
+        return true;
     }
+    return false;
 }
 
-void UDisks2::Block::setFormatting()
+bool UDisks2::Block::isFormatting() const
 {
-    m_formatting = true;
+    return m_formatting;
+}
+
+bool UDisks2::Block::setFormatting(bool formatting)
+{
+    if (m_formatting != formatting) {
+        m_formatting = formatting;
+        emit updated();
+        return true;
+    }
+    return false;
 }
 
 bool UDisks2::Block::isLocking() const
@@ -289,15 +299,21 @@ void UDisks2::Block::updateProperties(const QDBusMessage &message)
     QString interface = arguments.value(0).toString();
     if (interface == UDISKS2_BLOCK_INTERFACE) {
         QVariantMap changedProperties = NemoDBus::demarshallArgument<QVariantMap>(arguments.value(1));
-        qCInfo(lcMemoryCardLog) << "Changed properties:" << changedProperties;
-        for (QMap<QString, QVariant>::const_iterator i = changedProperties.begin(); i != changedProperties.end(); ++i) {
+        for (QMap<QString, QVariant>::const_iterator i = changedProperties.constBegin(); i != changedProperties.constEnd(); ++i) {
             m_data.insert(i.key(), i.value());
         }
-        emit updated();
+
+        if (!clearFormattingState()) {
+            emit updated();
+        }
     } else if (interface == UDISKS2_FILESYSTEM_INTERFACE) {
-        m_mountable = true;
         updateMountPoint(arguments.value(1));
     }
+}
+
+bool UDisks2::Block::isCompleted() const
+{
+    return !m_pendingFileSystem && !m_pendingBlock && !m_pendingEncrypted;
 }
 
 void UDisks2::Block::updateMountPoint(const QVariant &mountPoints)
@@ -313,15 +329,33 @@ void UDisks2::Block::updateMountPoint(const QVariant &mountPoints)
         }
     }
 
-    qCInfo(lcMemoryCardLog) << "New file system mount points:" << mountPoints << "resolved mount path: " << m_mountPath;
+    bool triggerUpdate = false;
+    blockSignals(true);
+    triggerUpdate = setMountable(true);
+    triggerUpdate |= clearFormattingState();
+    blockSignals(false);
+
+    if (triggerUpdate) {
+        emit updated();
+    }
+
+    qCInfo(lcMemoryCardLog) << "New file system mount points:" << mountPoints << "resolved mount path: " << m_mountPath << "trigger update:" << triggerUpdate;
     emit mountPathChanged();
 }
 
 void UDisks2::Block::complete()
 {
-    if (!m_pendingFileSystem && !m_pendingBlock && !m_pendingEncrypted) {
+    if (isCompleted()) {
         QMetaObject::invokeMethod(this, "completed", Qt::QueuedConnection);
     }
+}
+
+bool UDisks2::Block::clearFormattingState()
+{
+    if (isCompleted() && isMountable() && isFormatting()) {
+        return setFormatting(false);
+    }
+    return false;
 }
 
 void UDisks2::Block::getFileSystemInterface()
@@ -336,7 +370,6 @@ void UDisks2::Block::getFileSystemInterface()
         if (watcher->isValid() && watcher->isFinished()) {
             QDBusPendingReply<> reply =  *watcher;
             QDBusMessage message = reply.reply();
-            m_mountable = true;
             updateMountPoint(message.arguments().at(0));
         } else {
             QDBusError error = watcher->error();
@@ -359,8 +392,6 @@ void UDisks2::Block::getEncryptedInterface()
     m_pendingEncrypted = new QDBusPendingCallWatcher(pendingCall, this);
     connect(m_pendingEncrypted, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watcher) {
         if (watcher->isValid() && watcher->isFinished()) {
-            QDBusPendingReply<> reply =  *watcher;
-            QDBusMessage message = reply.reply();
             m_encrypted = true;
         } else {
             QDBusError error = watcher->error();
