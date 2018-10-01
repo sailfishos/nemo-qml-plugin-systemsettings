@@ -480,6 +480,7 @@ void VpnModel::deleteConnection(const QString &path)
         if (conn->state() == VpnModel::Ready || conn->state() == VpnModel::Configuration) {
             ConnmanServiceProxy* proxy = vpnServices_.value(path);
             if (proxy) {
+                proxy->SetProperty(autoConnectKey, QDBusVariant(false));
                 QDBusPendingCall call = proxy->Disconnect();
                 QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
                 connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
