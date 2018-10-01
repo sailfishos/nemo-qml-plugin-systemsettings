@@ -429,13 +429,13 @@ void VpnModel::createConnection(const QVariantMap &createProperties)
 
 void VpnModel::modifyConnection(const QString &path, const QVariantMap &properties)
 {
-    if (VpnConnection *conn = connection(path)) {
+    auto it = connections_.find(path);
+    if (it != connections_.end()) {
         // ConnmanVpnConnectionProxy provides the SetProperty interface to modify a connection,
         // but as far as I can tell, the only way to cause Connman to store the configuration to
         // disk is to create a new connection...  Work around this by removing the existing
         // connection and recreating it with the updated properties.
-        qCWarning(lcVpnLog) << "Removing VPN connection for modification:" << conn->path();
-        deleteConnection(conn->path());
+        qCWarning(lcVpnLog) << "Updating VPN connection for modification:" << path;
 
         // Remove properties that connman doesn't know about
         QVariantMap updatedProperties(properties);
@@ -454,29 +454,21 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
         const bool couldStoreCredentials(credentials_.credentialsExist(location));
         const bool canStoreCredentials(properties.value(QString("storeCredentials")).toBool());
 
-        QDBusPendingCall call = connmanVpn_.Create(propertiesToDBus(updatedProperties));
+        ConnmanVpnConnectionProxy *proxy(*it);
+        QVariantMap dbusProps = propertiesToDBus(updatedProperties);
+        for (QMap<QString, QVariant>::const_iterator i = dbusProps.constBegin(); i != dbusProps.constEnd(); ++i) {
+            proxy->SetProperty(i.key(), QDBusVariant(i.value()));
+        }
 
-        QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
-        connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, conn, location, canStoreCredentials, couldStoreCredentials](QDBusPendingCallWatcher *watcher) {
-            QDBusPendingReply<QDBusObjectPath> reply = *watcher;
-            watcher->deleteLater();
-
-            if (reply.isError()) {
-                qCWarning(lcVpnLog) << "Unable to recreate Connman VPN connection:" << reply.error().message();
+        if (canStoreCredentials != couldStoreCredentials) {
+            if (canStoreCredentials) {
+                credentials_.storeCredentials(location, QVariantMap());
             } else {
-                const QDBusObjectPath &objectPath(reply.value());
-                qCWarning(lcVpnLog) << "Modified VPN connection:" << objectPath.path();
-
-                if (canStoreCredentials != couldStoreCredentials) {
-                    if (canStoreCredentials) {
-                        credentials_.storeCredentials(location, QVariantMap());
-                    } else {
-                        credentials_.removeCredentials(location);
-
-                    }
-                }
+                credentials_.removeCredentials(location);
             }
-        });
+        }
+
+
     } else {
         qCWarning(lcVpnLog) << "Unable to update unknown VPN connection:" << path;
     }
@@ -488,6 +480,7 @@ void VpnModel::deleteConnection(const QString &path)
         if (conn->state() == VpnModel::Ready || conn->state() == VpnModel::Configuration) {
             ConnmanServiceProxy* proxy = vpnServices_.value(path);
             if (proxy) {
+                proxy->SetProperty(autoConnectKey, QDBusVariant(false));
                 QDBusPendingCall call = proxy->Disconnect();
                 QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
                 connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
@@ -572,8 +565,6 @@ void VpnModel::activateConnection(const QString &path)
 
     ConnmanServiceProxy* proxy = vpnServices_.value(path);
     if (proxy) {
-        // TODO: Maybe possible to remove after Sailfish OS 2.2.1 release.
-        proxy->SetProperty(autoConnectKey, QDBusVariant(true));
         QDBusPendingCall call = proxy->Connect();
         qCDebug(lcVpnLog) << "Connect to vpn" << path;
 
@@ -596,7 +587,6 @@ void VpnModel::deactivateConnection(const QString &path)
     qCInfo(lcVpnLog) << "Disconnect" << path;
     ConnmanServiceProxy* proxy = vpnServices_.value(path);
     if (proxy) {
-        proxy->SetProperty(autoConnectKey, QDBusVariant(false));
         QDBusPendingCall call = proxy->Disconnect();
         QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
         connect(watcher, &QDBusPendingCallWatcher::finished, this, [this, path](QDBusPendingCallWatcher *watcher) {
@@ -808,6 +798,14 @@ VpnConnection *VpnModel::newConnection(const QString &path)
             QVariantMap properties;
             properties.insert(name, value.variant());
             updateConnection(conn, propertiesToQml(properties));
+        }
+    });
+
+    connect(conn, &VpnConnection::autoConnectChanged, conn, [this, conn]() {
+        qCInfo(lcVpnLog) << "VPN autoconnect changed:" << conn->name() << conn->autoConnect();
+        ConnmanServiceProxy* proxy = vpnServices_.value(conn->path());
+        if (proxy) {
+            proxy->SetProperty(autoConnectKey, QDBusVariant(conn->autoConnect()));
         }
     });
 
