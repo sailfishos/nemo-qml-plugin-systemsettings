@@ -169,8 +169,13 @@ QString AboutSettings::serial() const
     QStringList serialFiles;
 
     serialFiles
-        // This file is specific to the Jolla Tablet;
+        // Old location for serial number that was used by e.g. 
+        // Jolla Tablet, that should not be used anymore.
         << "/config/serial/serial.txt"
+        // Location for serialnumber file that should be preferred if no /sys 
+        // node or something for it. The means how the serialnumber ends to 
+        // this file are device specific.
+        << "/run/config/serial"
         // Some devices have serialno in this path.
         << "/sys/firmware/devicetree/base/firmware/android/serialno";
 
