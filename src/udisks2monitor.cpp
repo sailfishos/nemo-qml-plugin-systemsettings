@@ -673,8 +673,7 @@ UDisks2::Block *UDisks2::Monitor::createBlockDevice(const QString &dbusObjectPat
 
         connect(block, &UDisks2::Block::formatted, this, [this]() {
             UDisks2::Block *block = qobject_cast<UDisks2::Block *>(sender());
-            QString blockPath = block->path();
-            if (m_blockDevices.contains(blockPath)) {
+            if (m_blockDevices.contains(block->path())) {
                 for (auto partition : m_manager->m_partitions) {
                     if (partition->devicePath == block->device()) {
                         partition->status = Partition::Formatted;
@@ -689,8 +688,7 @@ UDisks2::Block *UDisks2::Monitor::createBlockDevice(const QString &dbusObjectPat
         // When block info updated
         connect(block, &UDisks2::Block::updated, this, [this]() {
             UDisks2::Block *block = qobject_cast<UDisks2::Block *>(sender());
-            QString blockPath = block->path();
-            if (m_blockDevices.contains(blockPath)) {
+            if (m_blockDevices.contains(block->path())) {
                 updatePartitionProperties(block);
             }
         });
