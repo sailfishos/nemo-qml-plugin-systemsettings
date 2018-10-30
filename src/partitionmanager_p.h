@@ -59,7 +59,7 @@ public:
     Partition root() const;
     QVector<Partition> partitions(Partition::StorageTypes types) const;
 
-    void add(Partitions &partitions);
+    void add(QExplicitlySharedDataPointer<PartitionPrivate> partition);
     void remove(const Partitions &partitions);
 
     void refresh();

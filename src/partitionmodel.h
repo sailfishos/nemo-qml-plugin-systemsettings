@@ -65,7 +65,8 @@ public:
         IsCryptoDeviceRoles,
         IsSupportedFileSystemType,
         IsEncryptedRoles,
-        CryptoBackingDevicePath
+        CryptoBackingDevicePath,
+        ConnectionBusRole,
     };
 
     // For Status role
@@ -94,6 +95,14 @@ public:
         Internal        = Partition::Internal,
         Any             = Partition::Any
     };
+
+    enum ConnectionBus {
+        SDIO = Partition::SDIO,
+        USB = Partition::USB,
+        IEEE1394 = Partition::IEEE1394,
+        UnknownBus = Partition::UnknownBus
+    };
+    Q_ENUM(ConnectionBus)
 
     enum Error {
         ErrorFailed                  = Partition::ErrorFailed,

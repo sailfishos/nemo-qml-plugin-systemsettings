@@ -45,6 +45,7 @@ public:
         , bytesTotal(0)
         , bytesFree(0)
         , storageType(Partition::Invalid)
+        , connectionBus(Partition::UnknownBus)
         , status(Partition::Unmounted)
         , readOnly(true)
         , canMount(false)
@@ -75,6 +76,7 @@ public:
     qint64 bytesTotal;
     qint64 bytesFree;
     Partition::StorageType storageType;
+    Partition::ConnectionBus connectionBus;
     Partition::Status status;
     bool readOnly;
     bool canMount;

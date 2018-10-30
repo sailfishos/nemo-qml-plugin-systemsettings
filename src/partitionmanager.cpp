@@ -64,12 +64,14 @@ PartitionManagerPrivate::PartitionManagerPrivate()
 
     QExplicitlySharedDataPointer<PartitionPrivate> root(new PartitionPrivate(this));
     root->storageType = Partition::System;
+    root->connectionBus = Partition::SDIO;
     root->mountPath = QStringLiteral("/");
 
     m_partitions.append(root);
 
     QExplicitlySharedDataPointer<PartitionPrivate> home(new PartitionPrivate(this));
     home->storageType = Partition::User;
+    home->connectionBus = Partition::SDIO;
     home->mountPath = QStringLiteral("/home");
 
     m_partitions.append(home);
@@ -146,14 +148,20 @@ QVector<Partition> PartitionManagerPrivate::partitions(const Partition::StorageT
     return partitions;
 }
 
-void PartitionManagerPrivate::add(Partitions &partitions)
+void PartitionManagerPrivate::add(QExplicitlySharedDataPointer<PartitionPrivate> partition)
 {
-    m_partitions.append(partitions);
-    refresh(partitions, partitions);
-
-    for (const auto partition : partitions) {
-        emit partitionAdded(Partition(partition));
+    int insertIndex = 0;
+    for (const auto existingPartition : m_partitions) {
+        if (existingPartition->connectionBus <= partition->connectionBus)
+            ++insertIndex;
+        else
+            break;
     }
+
+    m_partitions.insert(insertIndex, partition);
+    Partitions addedPartitions = { partition };
+    refresh(addedPartitions, addedPartitions);
+    emit partitionAdded(Partition(partition));
 }
 
 void PartitionManagerPrivate::remove(const Partitions &partitions)

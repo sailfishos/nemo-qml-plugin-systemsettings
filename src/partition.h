@@ -56,6 +56,13 @@ public:
         Any = System | User | Mass | External
     };
 
+    enum ConnectionBus {
+        SDIO,
+        USB,
+        IEEE1394,
+        UnknownBus
+    };
+
     enum Status {
         Unmounted,
         Mounting,
@@ -108,6 +115,7 @@ public:
     QString cryptoBackingDevicePath() const;
 
     StorageType storageType() const;
+    ConnectionBus connectionBus() const;
 
     QString devicePath() const;
     QString deviceName() const;

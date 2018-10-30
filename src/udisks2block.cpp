@@ -20,6 +20,7 @@ UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &
     , m_pendingFileSystem(nullptr)
     , m_pendingBlock(nullptr)
     , m_pendingEncrypted(nullptr)
+    , m_pendingDrive(nullptr)
 {
     if (!m_connection.connect(
                 UDISKS2_SERVICE,
@@ -50,6 +51,7 @@ UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &
                 QVariantMap blockProperties = NemoDBus::demarshallArgument<QVariantMap>(message.arguments().at(0));
                 qCInfo(lcMemoryCardLog) << "Block properties:" << blockProperties;
                 m_data = blockProperties;
+                getDriveProperties();
             } else {
                 QDBusError error = watcher->error();
                 qCWarning(lcMemoryCardLog) << "Error reading block properties:" << error.name() << error.message();
@@ -63,6 +65,7 @@ UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &
             QVariantMap map = interfacePropertyMap.value(UDISKS2_FILESYSTEM_INTERFACE);
             updateMountPoint(map);
         }
+        getDriveProperties();
 
         // We have either org.freedesktop.UDisks2.Filesystem or org.freedesktop.UDisks2.Encrypted interface.
         complete();
@@ -103,6 +106,7 @@ UDisks2::Block &UDisks2::Block::operator=(const UDisks2::Block &other)
 
     m_interfacePropertyMap = other.m_interfacePropertyMap;
     m_data = other.m_data;
+    m_drive = other.m_drive;
     m_mountable = other.m_mountable;
     m_mountPath = other.m_mountPath;
     m_encrypted = other.m_encrypted;
@@ -138,6 +142,25 @@ QString UDisks2::Block::drive() const
     return value(QStringLiteral("Drive")).toString();
 }
 
+QString UDisks2::Block::connectionBus() const
+{
+    QString bus = NemoDBus::demarshallDBusArgument(m_drive.value(QStringLiteral("ConnectionBus"))).toString();
+
+    // Do a bit of guesswork as we're missing connection between unlocked crypto block to crypto backing block device
+    // from where we could see the drive where this block belongs to.
+    if (bus != QLatin1String("/") && hasCryptoBackingDevice()) {
+        QString cryptoBackingPath = cryptoBackingDevicePath();
+        if (cryptoBackingPath.contains(QLatin1String("mmcblk"))) {
+            return QStringLiteral("sdio");
+        } else if (cryptoBackingPath.startsWith(QLatin1String("/dev/sd"))) {
+            return QStringLiteral("usb");
+        }
+        return QStringLiteral("ieee1394");
+    }
+
+    return bus;
+}
+
 qint64 UDisks2::Block::deviceNumber() const
 {
     return value(QStringLiteral("DeviceNumber")).toLongLong();
@@ -151,6 +174,11 @@ QString UDisks2::Block::id() const
 qint64 UDisks2::Block::size() const
 {
     return value(QStringLiteral("Size")).toLongLong();
+}
+
+bool UDisks2::Block::isCryptoBlock() const
+{
+     return isEncrypted() || hasCryptoBackingDevice();
 }
 
 bool UDisks2::Block::hasCryptoBackingDevice() const
@@ -274,7 +302,7 @@ bool UDisks2::Block::hasData() const
 void UDisks2::Block::dumpInfo() const
 {
     qCInfo(lcMemoryCardLog) << "Block device:" << device() << "Preferred device:" << preferredDevice();
-    qCInfo(lcMemoryCardLog) << "- drive:" << drive() << "dNumber:" << deviceNumber();
+    qCInfo(lcMemoryCardLog) << "- drive:" << drive() << "device number:" << deviceNumber() << "connection bus:" << connectionBus();
     qCInfo(lcMemoryCardLog) << "- id:" << id() << "size:" << size();
     qCInfo(lcMemoryCardLog) << "- isreadonly:" << isReadOnly() << "idtype:" << idType();
     qCInfo(lcMemoryCardLog) << "- idversion:" << idVersion() << "idlabel:" << idLabel();
@@ -313,7 +341,7 @@ void UDisks2::Block::updateProperties(const QDBusMessage &message)
 
 bool UDisks2::Block::isCompleted() const
 {
-    return !m_pendingFileSystem && !m_pendingBlock && !m_pendingEncrypted;
+    return !m_pendingFileSystem && !m_pendingBlock && !m_pendingEncrypted && !m_pendingDrive;
 }
 
 void UDisks2::Block::updateMountPoint(const QVariant &mountPoints)
@@ -400,6 +428,33 @@ void UDisks2::Block::getEncryptedInterface()
         }
         m_pendingEncrypted->deleteLater();
         m_pendingEncrypted = nullptr;
+        complete();
+    });
+}
+
+void UDisks2::Block::getDriveProperties()
+{
+    QDBusInterface drivePropertyInterface(UDISKS2_SERVICE,
+                                    drive(),
+                                    DBUS_OBJECT_PROPERTIES_INTERFACE,
+                                    m_connection);
+    QDBusPendingCall pendingCall = drivePropertyInterface.asyncCall(DBUS_GET_ALL, UDISKS2_DRIVE_INTERFACE);
+    m_pendingDrive = new QDBusPendingCallWatcher(pendingCall, this);
+    connect(m_pendingDrive, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watcher) {
+        if (watcher->isValid() && watcher->isFinished()) {
+            QDBusPendingReply<> reply = *watcher;
+            QDBusMessage message = reply.reply();
+            QVariantMap driveProperties = NemoDBus::demarshallArgument<QVariantMap>(message.arguments().at(0));
+            qCInfo(lcMemoryCardLog) << "Drive properties:" << driveProperties;
+            m_drive = driveProperties;
+        } else {
+            QDBusError error = watcher->error();
+            qCWarning(lcMemoryCardLog) << "Error reading drive properties:" << error.name() << error.message();
+            m_drive.clear();
+        }
+
+        m_pendingDrive->deleteLater();
+        m_pendingDrive = nullptr;
         complete();
     });
 }
