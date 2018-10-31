@@ -43,6 +43,11 @@ class DeviceInfoPrivate;
 class SYSTEMSETTINGS_EXPORT DeviceInfo: public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QString model READ model CONSTANT)
+    Q_PROPERTY(QString baseModel READ baseModel CONSTANT)
+    Q_PROPERTY(QString designation READ designation CONSTANT)
+    Q_PROPERTY(QString manufacturer READ manufacturer CONSTANT)
+    Q_PROPERTY(QString prettyName READ prettyName CONSTANT)
 
 public:
     enum Feature {
@@ -99,6 +104,12 @@ public:
     ~DeviceInfo();
     Q_INVOKABLE bool hasFeature(DeviceInfo::Feature feature) const;
     Q_INVOKABLE bool hasHardwareKey(Qt::Key key) const;
+
+    QString model() const;
+    QString baseModel() const;
+    QString designation() const;
+    QString manufacturer() const;
+    QString prettyName() const;
 
 private:
 
