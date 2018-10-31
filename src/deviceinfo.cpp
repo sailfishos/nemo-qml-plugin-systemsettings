@@ -43,6 +43,11 @@ public:
 
     QSet<DeviceInfo::Feature> m_features;
     QSet<Qt::Key> m_keys;
+    QString m_model;
+    QString m_baseModel;
+    QString m_designation;
+    QString m_manufacturer;
+    QString m_prettyName;
 };
 
 DeviceInfoPrivate::DeviceInfoPrivate()
@@ -64,6 +69,13 @@ DeviceInfoPrivate::DeviceInfoPrivate()
         }
         free(keys);
     }
+
+    /* Note: These queries always return non-null C string */
+    m_model = ssusysinfo_device_model(si);
+    m_baseModel = ssusysinfo_device_base_model(si);
+    m_designation = ssusysinfo_device_designation(si);
+    m_manufacturer = ssusysinfo_device_manufacturer(si);
+    m_prettyName = ssusysinfo_device_pretty_name(si);
 
     ssusysinfo_delete(si);
 }
@@ -94,4 +106,34 @@ bool DeviceInfo::hasHardwareKey(Qt::Key key) const
 {
     Q_D(const DeviceInfo);
     return d->m_keys.contains(key);
+}
+
+QString DeviceInfo::model() const
+{
+    Q_D(const DeviceInfo);
+    return d->m_model;
+}
+
+QString DeviceInfo::baseModel() const
+{
+    Q_D(const DeviceInfo);
+    return d->m_baseModel;
+}
+
+QString DeviceInfo::designation() const
+{
+    Q_D(const DeviceInfo);
+    return d->m_designation;
+}
+
+QString DeviceInfo::manufacturer() const
+{
+    Q_D(const DeviceInfo);
+    return d->m_manufacturer;
+}
+
+QString DeviceInfo::prettyName() const
+{
+    Q_D(const DeviceInfo);
+    return d->m_prettyName;
 }
