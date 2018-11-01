@@ -45,6 +45,7 @@ namespace UDisks2 {
 class Block : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(QString connectionBus READ connectionBus NOTIFY updated)
 
 public:
     Block(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap, QObject *parent = nullptr);
@@ -57,11 +58,14 @@ public:
     QString device() const;
     QString preferredDevice() const;
     QString drive() const;
+    QString connectionBus() const;
 
     qint64 deviceNumber() const;
     QString id() const;
 
     qint64 size() const;
+
+    bool isCryptoBlock() const;
 
     bool hasCryptoBackingDevice() const;
     QString cryptoBackingDevicePath() const;
@@ -114,10 +118,12 @@ private:
 
     void getFileSystemInterface();
     void getEncryptedInterface();
+    void getDriveProperties();
 
     QString m_path;
     UDisks2::InterfacePropertyMap m_interfacePropertyMap;
     QVariantMap m_data;
+    QVariantMap m_drive;
     QDBusConnection m_connection;
     QString m_mountPath;
     bool m_mountable;
@@ -128,6 +134,7 @@ private:
     QDBusPendingCallWatcher *m_pendingFileSystem;
     QDBusPendingCallWatcher *m_pendingBlock;
     QDBusPendingCallWatcher *m_pendingEncrypted;
+    QDBusPendingCallWatcher *m_pendingDrive;
 };
 
 }

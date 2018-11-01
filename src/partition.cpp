@@ -101,6 +101,11 @@ Partition::StorageType Partition::storageType() const
     return d ? d->storageType : Invalid;
 }
 
+Partition::ConnectionBus Partition::connectionBus() const
+{
+    return d ? d->connectionBus : UnknownBus;
+}
+
 QString Partition::devicePath() const
 {
     return d ? d->devicePath : QString();

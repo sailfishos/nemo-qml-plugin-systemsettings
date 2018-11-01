@@ -335,9 +335,20 @@ void UDisks2::Monitor::setPartitionProperties(QExplicitlySharedDataPointer<Parti
     } else {
         partition->status = Partition::Mounted;
     }
-    partition->isCryptoDevice = blockDevice->isEncrypted() || blockDevice->hasCryptoBackingDevice();
+    partition->isCryptoDevice = blockDevice->isCryptoBlock();
     partition->isEncrypted = blockDevice->isEncrypted();
     partition->cryptoBackingDevicePath = blockDevice->cryptoBackingDevicePath();
+
+    QString connectionBus = blockDevice->connectionBus();
+    if (connectionBus == QLatin1String("sdio")) {
+        partition->connectionBus = Partition::SDIO;
+    } else if (connectionBus == QLatin1String("usb")) {
+        partition->connectionBus = Partition::USB;
+    } else if (connectionBus == QLatin1String("ieee1394")) {
+        partition->connectionBus = Partition::IEEE1394;
+    } else {
+        partition->connectionBus = Partition::UnknownBus;
+    }
 }
 
 void UDisks2::Monitor::updatePartitionProperties(const UDisks2::Block *blockDevice)
@@ -603,8 +614,7 @@ void UDisks2::Monitor::createPartition(const UDisks2::Block *block)
     partition->bytesTotal = block->size();
     setPartitionProperties(partition, block);
     partition->valid = true;
-    PartitionManagerPrivate::Partitions addedPartitions = { partition };
-    m_manager->add(addedPartitions);
+    m_manager->add(partition);
 }
 
 UDisks2::Block *UDisks2::Monitor::createBlockDevice(const QString &dbusObjectPath, const UDisks2::InterfacePropertyMap &interfacePropertyMap)
@@ -673,8 +683,7 @@ UDisks2::Block *UDisks2::Monitor::createBlockDevice(const QString &dbusObjectPat
 
         connect(block, &UDisks2::Block::formatted, this, [this]() {
             UDisks2::Block *block = qobject_cast<UDisks2::Block *>(sender());
-            QString blockPath = block->path();
-            if (m_blockDevices.contains(blockPath)) {
+            if (m_blockDevices.contains(block->path())) {
                 for (auto partition : m_manager->m_partitions) {
                     if (partition->devicePath == block->device()) {
                         partition->status = Partition::Formatted;
@@ -689,8 +698,7 @@ UDisks2::Block *UDisks2::Monitor::createBlockDevice(const QString &dbusObjectPat
         // When block info updated
         connect(block, &UDisks2::Block::updated, this, [this]() {
             UDisks2::Block *block = qobject_cast<UDisks2::Block *>(sender());
-            QString blockPath = block->path();
-            if (m_blockDevices.contains(blockPath)) {
+            if (m_blockDevices.contains(block->path())) {
                 updatePartitionProperties(block);
             }
         });
