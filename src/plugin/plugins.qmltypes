@@ -216,6 +216,11 @@ Module {
                 "FeatureReboot": 42
             }
         }
+        Property { name: "model"; type: "string"; isReadonly: true }
+        Property { name: "baseModel"; type: "string"; isReadonly: true }
+        Property { name: "designation"; type: "string"; isReadonly: true }
+        Property { name: "manufacturer"; type: "string"; isReadonly: true }
+        Property { name: "prettyName"; type: "string"; isReadonly: true }
         Method {
             name: "hasFeature"
             type: "bool"
@@ -393,7 +398,11 @@ Module {
                 "Mounted": 2,
                 "Unmounting": 3,
                 "Formatting": 4,
-                "Formatted": 5
+                "Formatted": 5,
+                "Unlocking": 6,
+                "Unlocked": 7,
+                "Locking": 8,
+                "Locked": 9
             }
         }
         Enum {
@@ -420,6 +429,15 @@ Module {
                 "ExcludeParents": 4096,
                 "Internal": 7,
                 "Any": 15
+            }
+        }
+        Enum {
+            name: "ConnectionBus"
+            values: {
+                "SDIO": 0,
+                "USB": 1,
+                "IEEE1394": 2,
+                "UnknownBus": 3
             }
         }
         Enum {
@@ -451,6 +469,14 @@ Module {
             Parameter { name: "errorName"; type: "string" }
         }
         Signal {
+            name: "lockError"
+            Parameter { name: "error"; type: "Error" }
+        }
+        Signal {
+            name: "unlockError"
+            Parameter { name: "error"; type: "Error" }
+        }
+        Signal {
             name: "mountError"
             Parameter { name: "error"; type: "Error" }
         }
@@ -468,18 +494,31 @@ Module {
             Parameter { name: "index"; type: "int" }
         }
         Method {
+            name: "lock"
+            Parameter { name: "devicePath"; type: "string" }
+        }
+        Method {
+            name: "unlock"
+            Parameter { name: "devicePath"; type: "string" }
+            Parameter { name: "passphrase"; type: "string" }
+        }
+        Method {
             name: "mount"
-            Parameter { name: "deviceName"; type: "string" }
+            Parameter { name: "devicePath"; type: "string" }
         }
         Method {
             name: "unmount"
-            Parameter { name: "deviceName"; type: "string" }
+            Parameter { name: "devicePath"; type: "string" }
         }
         Method {
             name: "format"
-            Parameter { name: "deviceName"; type: "string" }
-            Parameter { name: "type"; type: "string" }
-            Parameter { name: "label"; type: "string" }
+            Parameter { name: "devicePath"; type: "string" }
+            Parameter { name: "arguments"; type: "QVariantMap" }
+        }
+        Method {
+            name: "objectPath"
+            type: "string"
+            Parameter { name: "devicePath"; type: "string" }
         }
     }
     Component {
@@ -794,6 +833,11 @@ Module {
         Property { name: "DATA_IN_USE"; type: "string"; isReadonly: true }
         Property { name: "USB_DISCONNECTED"; type: "string"; isReadonly: true }
         Property { name: "USB_CONNECTED_DIALOG_SHOW"; type: "string"; isReadonly: true }
+        Property { name: "USB_PRE_UNMOUNT"; type: "string"; isReadonly: true }
+        Property { name: "RE_MOUNT_FAILED"; type: "string"; isReadonly: true }
+        Property { name: "MODE_SETTING_FAILED"; type: "string"; isReadonly: true }
+        Property { name: "CHARGER_CONNECTED"; type: "string"; isReadonly: true }
+        Property { name: "CHARGER_DISCONNECTED"; type: "string"; isReadonly: true }
         Property { name: "MODE_UNDEFINED"; type: "string"; isReadonly: true }
         Property { name: "MODE_ASK"; type: "string"; isReadonly: true }
         Property { name: "MODE_MASS_STORAGE"; type: "string"; isReadonly: true }
@@ -806,6 +850,38 @@ Module {
         Property { name: "MODE_PC_SUITE"; type: "string"; isReadonly: true }
         Property { name: "MODE_CHARGING"; type: "string"; isReadonly: true }
         Property { name: "MODE_CHARGER"; type: "string"; isReadonly: true }
+        Property { name: "MODE_CHARGING_FALLBACK"; type: "string"; isReadonly: true }
+        Property { name: "MODE_BUSY"; type: "string"; isReadonly: true }
+        Method {
+            name: "isEvent"
+            type: "bool"
+            Parameter { name: "modeName"; type: "string" }
+        }
+        Method {
+            name: "isState"
+            type: "bool"
+            Parameter { name: "modeName"; type: "string" }
+        }
+        Method {
+            name: "isWaitingState"
+            type: "bool"
+            Parameter { name: "modeName"; type: "string" }
+        }
+        Method {
+            name: "isFinalState"
+            type: "bool"
+            Parameter { name: "modeName"; type: "string" }
+        }
+        Method {
+            name: "isConnected"
+            type: "bool"
+            Parameter { name: "modeName"; type: "string" }
+        }
+        Method {
+            name: "isDisconnected"
+            type: "bool"
+            Parameter { name: "modeName"; type: "string" }
+        }
     }
     Component {
         name: "QUsbModed"
@@ -818,6 +894,10 @@ Module {
         Property { name: "hiddenModes"; type: "QStringList"; isReadonly: true }
         Property { name: "currentMode"; type: "string" }
         Property { name: "configMode"; type: "string" }
+        Signal {
+            name: "eventReceived"
+            Parameter { name: "event"; type: "string" }
+        }
         Signal {
             name: "usbStateError"
             Parameter { name: "error"; type: "string" }
