@@ -369,7 +369,7 @@ void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool succe
 {
     UDisks2::Job::Operation operation = job->operation();
     PartitionManagerPrivate::Partitions affectedPartitions;
-    lookupPartitions(affectedPartitions, job->value(UDISKS2_JOB_KEY_OBJECTS).toStringList());
+    lookupPartitions(affectedPartitions, job->objects());
     if (operation == UDisks2::Job::Lock || operation == UDisks2::Job::Unlock) {
         for (auto partition : affectedPartitions) {
             Partition::Status oldStatus = partition->status;
