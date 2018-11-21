@@ -321,6 +321,30 @@ QString UDisks2::Block::cryptoBackingDevicePath(const QString &objectPath)
     }
 }
 
+void UDisks2::Block::addInterface(const QString &interface, QVariantMap propertyMap)
+{
+    m_interfacePropertyMap.insert(interface, propertyMap);
+    if (interface == UDISKS2_FILESYSTEM_INTERFACE) {
+        setMountable(true);
+    } else if (interface == UDISKS2_ENCRYPTED_INTERFACE) {
+        setEncrypted(true);
+    }
+}
+
+void UDisks2::Block::removeInterface(const QString &interface)
+{
+    m_interfacePropertyMap.remove(interface);
+    if (interface == UDISKS2_BLOCK_INTERFACE) {
+        m_data.clear();
+    } else if (interface == UDISKS2_DRIVE_INTERFACE) {
+        m_drive.clear();
+    } else if (interface == UDISKS2_FILESYSTEM_INTERFACE) {
+        setMountable(false);
+    }else if (interface == UDISKS2_ENCRYPTED_INTERFACE) {
+        setEncrypted(false);
+    }
+}
+
 void UDisks2::Block::updateProperties(const QDBusMessage &message)
 {
     QList<QVariant> arguments = message.arguments();

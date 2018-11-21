@@ -232,10 +232,10 @@ void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const 
         if (m_blockDevices.contains(path)) {
             UDisks2::Block *block = m_blockDevices.value(path);
             if (interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
-                block->setMountable(true);
+                block->addInterface(UDISKS2_FILESYSTEM_INTERFACE, interfaces.value(UDISKS2_FILESYSTEM_INTERFACE));
             }
             if (interfaces.contains(UDISKS2_ENCRYPTED_INTERFACE)) {
-                block->setEncrypted(true);
+                block->addInterface(UDISKS2_ENCRYPTED_INTERFACE, interfaces.value(UDISKS2_ENCRYPTED_INTERFACE));
             }
         } else {
             QVariantMap dict = interfaces.value(UDISKS2_BLOCK_INTERFACE);
@@ -296,10 +296,10 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
     } else if (m_blockDevices.contains(path)) {
         UDisks2::Block *block = m_blockDevices.value(path);
         if (interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
-            block->setMountable(false);
+            block->removeInterface(UDISKS2_FILESYSTEM_INTERFACE);
         }
         if (interfaces.contains(UDISKS2_ENCRYPTED_INTERFACE)) {
-            block->setEncrypted(false);
+            block->removeInterface(UDISKS2_ENCRYPTED_INTERFACE);
         }
     }
 }
