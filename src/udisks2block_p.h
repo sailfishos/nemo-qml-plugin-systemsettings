@@ -49,7 +49,6 @@ class Block : public QObject
 
 public:
     Block(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap, QObject *parent = nullptr);
-    Block& operator=(const Block& other);
 
     virtual ~Block();
 
@@ -83,6 +82,8 @@ public:
     bool isReadOnly() const;
     bool isExternal() const;
 
+    bool isValid() const;
+
     QString idType() const;
     QString idVersion() const;
     QString idLabel() const;
@@ -101,6 +102,8 @@ public:
     void addInterface(const QString &interface, QVariantMap propertyMap);
     void removeInterface(const QString &interface);
 
+    void morph(const Block& other);
+
 signals:
     void completed();
     void updated();
@@ -111,6 +114,8 @@ private slots:
     void updateProperties(const QDBusMessage &message);
 
 private:
+    Block& operator=(const Block& other);
+
     bool setEncrypted(bool encrypted);
     bool setMountable(bool mountable);
 

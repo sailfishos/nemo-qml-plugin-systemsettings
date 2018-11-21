@@ -76,44 +76,8 @@ UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &
     });
 }
 
-// Use when morphing a block e.g. updating encrypted block to crypto backing block device (e.i. to a block that implements file system).
-UDisks2::Block &UDisks2::Block::operator=(const UDisks2::Block &other)
+UDisks2::Block &UDisks2::Block::operator=(const UDisks2::Block &)
 {
-    if (&other == this)
-        return *this;
-
-    if (!this->m_connection.disconnect(
-                UDISKS2_SERVICE,
-                m_path,
-                DBUS_OBJECT_PROPERTIES_INTERFACE,
-                UDisks2::propertiesChangedSignal,
-                this,
-                SLOT(updateProperties(QDBusMessage)))) {
-        qCWarning(lcMemoryCardLog) << "Failed to disconnect to Block properties change interface" << m_path << m_connection.lastError().message();
-    }
-
-    this->m_path = other.m_path;
-
-    if (!this->m_connection.connect(
-                UDISKS2_SERVICE,
-                this->m_path,
-                DBUS_OBJECT_PROPERTIES_INTERFACE,
-                UDisks2::propertiesChangedSignal,
-                this,
-                SLOT(updateProperties(QDBusMessage)))) {
-        qCWarning(lcMemoryCardLog) << "Failed to connect to Block properties change interface" << m_path << m_connection.lastError().message();
-    }
-
-    m_interfacePropertyMap = other.m_interfacePropertyMap;
-    m_data = other.m_data;
-    m_drive = other.m_drive;
-    m_mountable = other.m_mountable;
-    m_mountPath = other.m_mountPath;
-    m_encrypted = other.m_encrypted;
-    m_formatting = other.m_formatting;
-    m_locking = other.m_locking;
-
-    return *this;
 }
 
 UDisks2::Block::~Block()
@@ -184,7 +148,7 @@ bool UDisks2::Block::isCryptoBlock() const
 bool UDisks2::Block::hasCryptoBackingDevice() const
 {
     const QString cryptoBackingDev = cryptoBackingDeviceObjectPath();
-    return cryptoBackingDev != QLatin1String("/");
+    return !cryptoBackingDev.isEmpty() && cryptoBackingDev != QLatin1String("/");
 }
 
 QString UDisks2::Block::cryptoBackingDevicePath() const
@@ -262,6 +226,11 @@ bool UDisks2::Block::isExternal() const
 {
     const QString prefDevice = preferredDevice();
     return prefDevice != QStringLiteral("/dev/sailfish/home") && prefDevice != QStringLiteral("/dev/sailfish/root");
+}
+
+bool UDisks2::Block::isValid() const
+{
+    return m_interfacePropertyMap.contains(UDISKS2_BLOCK_INTERFACE);
 }
 
 QString UDisks2::Block::idType() const
@@ -342,6 +311,48 @@ void UDisks2::Block::removeInterface(const QString &interface)
         setMountable(false);
     }else if (interface == UDISKS2_ENCRYPTED_INTERFACE) {
         setEncrypted(false);
+    }
+}
+
+void UDisks2::Block::morph(const UDisks2::Block &other)
+{
+    if (&other == this)
+        return;
+
+    if (!this->m_connection.disconnect(
+                UDISKS2_SERVICE,
+                m_path,
+                DBUS_OBJECT_PROPERTIES_INTERFACE,
+                UDisks2::propertiesChangedSignal,
+                this,
+                SLOT(updateProperties(QDBusMessage)))) {
+        qCWarning(lcMemoryCardLog) << "Failed to disconnect to Block properties change interface" << m_path << m_connection.lastError().message();
+    }
+
+    this->m_path = other.m_path;
+
+    if (!this->m_connection.connect(
+                UDISKS2_SERVICE,
+                this->m_path,
+                DBUS_OBJECT_PROPERTIES_INTERFACE,
+                UDisks2::propertiesChangedSignal,
+                this,
+                SLOT(updateProperties(QDBusMessage)))) {
+        qCWarning(lcMemoryCardLog) << "Failed to connect to Block properties change interface" << m_path << m_connection.lastError().message();
+    }
+
+    m_interfacePropertyMap = other.m_interfacePropertyMap;
+    m_data = other.m_data;
+    m_drive = other.m_drive;
+    m_mountPath = other.m_mountPath;
+    m_mountable = other.m_mountable;
+    m_encrypted = other.m_encrypted;
+    bool wasFormatting = m_formatting;
+    m_formatting = other.m_formatting;
+    m_locking = other.m_locking;
+
+    if (wasFormatting && hasCryptoBackingDevice()) {
+        rescan(cryptoBackingDeviceObjectPath());
     }
 }
 
@@ -480,5 +491,28 @@ void UDisks2::Block::getDriveProperties()
         m_pendingDrive->deleteLater();
         m_pendingDrive = nullptr;
         complete();
+    });
+}
+
+void UDisks2::Block::rescan(const QString &dbusObjectPath)
+{
+    QVariantList arguments;
+    QVariantMap options;
+    arguments << options;
+
+    QDBusInterface blockDeviceInterface(UDISKS2_SERVICE,
+                                    dbusObjectPath,
+                                    UDISKS2_BLOCK_INTERFACE,
+                                    m_connection);
+
+    QDBusPendingCall pendingCall = blockDeviceInterface.asyncCallWithArgumentList(UDISKS2_BLOCK_RESCAN, arguments);
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pendingCall, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished,
+            this, [dbusObjectPath](QDBusPendingCallWatcher *watcher) {
+        if (watcher->isError()) {
+            QDBusError error = watcher->error();
+            qCDebug(lcMemoryCardLog) << "UDisks failed to rescan object path" << dbusObjectPath << ", error type:" << error.type() << ",name:" << error.name() << ", message:" << error.message();
+        }
+        watcher->deleteLater();
     });
 }
