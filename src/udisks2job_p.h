@@ -68,6 +68,8 @@ public:
     QString message() const;
     bool deviceBusy() const;
 
+    QStringList objects() const;
+
     QString path() const;
     QVariant value(const QString &key) const;
 

@@ -58,8 +58,7 @@ UDisks2::Job::Job(const QString &path, const QVariantMap &data, QObject *parent)
     }
 
     connect(Monitor::instance(), &Monitor::errorMessage, this, [this](const QString &objectPath, const QString &errorName) {
-        QStringList objects = value(UDISKS2_JOB_KEY_OBJECTS).toStringList();
-        if (objects.contains(objectPath) && errorName == UDISKS2_ERROR_DEVICE_BUSY) {
+        if (objects().contains(objectPath) && errorName == UDISKS2_ERROR_DEVICE_BUSY) {
             m_message = errorName;
             if (!isCompleted() && deviceBusy()) {
                 updateCompleted(false, m_message);
@@ -98,6 +97,11 @@ QString UDisks2::Job::message() const
 bool UDisks2::Job::deviceBusy() const
 {
     return m_message == UDISKS2_ERROR_TARGET_BUSY || m_message == UDISKS2_ERROR_DEVICE_BUSY;
+}
+
+QStringList UDisks2::Job::objects() const
+{
+    return value(UDISKS2_JOB_KEY_OBJECTS).toStringList();
 }
 
 QString UDisks2::Job::path() const

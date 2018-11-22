@@ -49,9 +49,8 @@ class Block : public QObject
 
 public:
     Block(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap, QObject *parent = nullptr);
-    Block& operator=(const Block& other);
 
-    ~Block();
+    virtual ~Block();
 
     QString path() const;
 
@@ -72,10 +71,7 @@ public:
     QString cryptoBackingDeviceObjectPath() const;
 
     bool isEncrypted() const;
-    bool setEncrypted(bool encrypted);
-
     bool isMountable() const;
-    bool setMountable(bool mountable);
 
     bool isFormatting() const;
     bool setFormatting(bool formatting);
@@ -85,6 +81,8 @@ public:
 
     bool isReadOnly() const;
     bool isExternal() const;
+
+    bool isValid() const;
 
     QString idType() const;
     QString idVersion() const;
@@ -101,6 +99,11 @@ public:
 
     static QString cryptoBackingDevicePath(const QString &objectPath);
 
+    void addInterface(const QString &interface, QVariantMap propertyMap);
+    void removeInterface(const QString &interface);
+
+    void morph(const Block& other);
+
 signals:
     void completed();
     void updated();
@@ -111,6 +114,11 @@ private slots:
     void updateProperties(const QDBusMessage &message);
 
 private:
+    Block& operator=(const Block& other);
+
+    bool setEncrypted(bool encrypted);
+    bool setMountable(bool mountable);
+
     bool isCompleted() const;
     void updateMountPoint(const QVariant &mountPoints);
     void complete();
@@ -119,6 +127,8 @@ private:
     void getFileSystemInterface();
     void getEncryptedInterface();
     void getDriveProperties();
+
+    void rescan(const QString &dbusObjectPath);
 
     QString m_path;
     UDisks2::InterfacePropertyMap m_interfacePropertyMap;

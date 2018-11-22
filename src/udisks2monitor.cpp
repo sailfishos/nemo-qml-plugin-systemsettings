@@ -226,20 +226,18 @@ void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const 
     // External device must have file system or partition so that it can added to the model.
     // Devices without partition table have filesystem interface.
 
-    if ((interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE) ||
-         interfaces.contains(UDISKS2_ENCRYPTED_INTERFACE)) && externalBlockDevice(path)) {
-
+    if (path.startsWith(QStringLiteral("/org/freedesktop/UDisks2/block_devices/")) && externalBlockDevice(path)) {
         if (m_blockDevices.contains(path)) {
             UDisks2::Block *block = m_blockDevices.value(path);
             if (interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
-                block->setMountable(true);
+                block->addInterface(UDISKS2_FILESYSTEM_INTERFACE, interfaces.value(UDISKS2_FILESYSTEM_INTERFACE));
             }
             if (interfaces.contains(UDISKS2_ENCRYPTED_INTERFACE)) {
-                block->setEncrypted(true);
+                block->addInterface(UDISKS2_ENCRYPTED_INTERFACE, interfaces.value(UDISKS2_ENCRYPTED_INTERFACE));
             }
         } else {
-            QVariantMap dict = interfaces.value(UDISKS2_BLOCK_INTERFACE);
-            createBlockDevice(path, interfaces);
+            UDisks2::Block *block = createBlockDevice(path, interfaces);
+            updateFormattingState(block);
         }
     } else if (path.startsWith(QStringLiteral("/org/freedesktop/UDisks2/jobs"))) {
         QVariantMap dict = interfaces.value(UDISKS2_JOB_INTERFACE);
@@ -257,6 +255,17 @@ void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const 
                 UDisks2::Job *job = qobject_cast<UDisks2::Job *>(sender());
                 updatePartitionStatus(job, success);
             });
+
+            if (job->operation() == Job::Format) {
+                for (const QString &objectPath : job->objects()) {
+                    if (UDisks2::Block *block = m_blockDevices.value(objectPath, nullptr)) {
+                        block->blockSignals(true);
+                        block->setFormatting(true);
+                        block->blockSignals(false);
+                    }
+                }
+            }
+
             m_jobsToWait.insert(path, job);
         }
     }
@@ -296,10 +305,10 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
     } else if (m_blockDevices.contains(path)) {
         UDisks2::Block *block = m_blockDevices.value(path);
         if (interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
-            block->setMountable(false);
+            block->removeInterface(UDISKS2_FILESYSTEM_INTERFACE);
         }
         if (interfaces.contains(UDISKS2_ENCRYPTED_INTERFACE)) {
-            block->setEncrypted(false);
+            block->removeInterface(UDISKS2_ENCRYPTED_INTERFACE);
         }
     }
 }
@@ -369,7 +378,7 @@ void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool succe
 {
     UDisks2::Job::Operation operation = job->operation();
     PartitionManagerPrivate::Partitions affectedPartitions;
-    lookupPartitions(affectedPartitions, job->value(UDISKS2_JOB_KEY_OBJECTS).toStringList());
+    lookupPartitions(affectedPartitions, job->objects());
     if (operation == UDisks2::Job::Lock || operation == UDisks2::Job::Unlock) {
         for (auto partition : affectedPartitions) {
             Partition::Status oldStatus = partition->status;
@@ -648,13 +657,10 @@ UDisks2::Block *UDisks2::Monitor::createBlockDevice(const QString &dbusObjectPat
                 if (completedBlock->hasCryptoBackingDevice() && m_blockDevices.contains(cryptoBackingDeviceObjectPath)) {
                     // Update crypto backing device to file system device.
                     UDisks2::Block *cryptoBackingDev = m_blockDevices.value(cryptoBackingDeviceObjectPath);
-                    *cryptoBackingDev = *completedBlock;
-
+                    cryptoBackingDev->morph(*completedBlock);
                     m_blockDevices.remove(cryptoBackingDeviceObjectPath);
                     m_blockDevices.insert(cryptoBackingDev->path(), cryptoBackingDev);
-
                     updatePartitionProperties(cryptoBackingDev);
-
                     completedBlock->deleteLater();
                 } else if (!m_blockDevices.contains(completedBlock->path())) {
                     m_blockDevices.insert(completedBlock->path(), completedBlock);
@@ -677,6 +683,7 @@ UDisks2::Block *UDisks2::Monitor::createBlockDevice(const QString &dbusObjectPat
             } else {
                 // This is garbage block device that should not be exposed
                 // from the partition model.
+                completedBlock->removeInterface(UDISKS2_BLOCK_INTERFACE);
                 completedBlock->deleteLater();
             }
         });
@@ -807,6 +814,19 @@ UDisks2::Block *UDisks2::Monitor::findBlock(const QString &devicePath) const
     }
 
     return nullptr;
+}
+
+void UDisks2::Monitor::updateFormattingState(UDisks2::Block *block)
+{
+    UDisks2::Block *cryptoBackingDevice = nullptr;
+    QString cryptoBackingDevicePath = block->cryptoBackingDeviceObjectPath();
+
+    // If we have crypto backing device, copy over formatting state.
+    if (cryptoBackingDevicePath != QLatin1String("/") && (cryptoBackingDevice = m_blockDevices.value(cryptoBackingDevicePath, nullptr))) {
+        block->blockSignals(true);
+        block->setFormatting(cryptoBackingDevice->isFormatting());
+        block->blockSignals(false);
+    }
 }
 
 QString UDisks2::Monitor::objectPath(const QString &devicePath) const

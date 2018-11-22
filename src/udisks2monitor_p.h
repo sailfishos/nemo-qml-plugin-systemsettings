@@ -118,6 +118,7 @@ private:
     void getBlockDevices();
 
     Block *findBlock(const QString &devicePath) const;
+    void updateFormattingState(UDisks2::Block *block);
 
 private:
     static Monitor *sharedInstance;

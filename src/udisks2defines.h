@@ -81,6 +81,7 @@ Q_DECLARE_METATYPE(UDisks2::InterfacePropertyMap)
 #define UDISKS2_ENCRYPTED_UNLOCK   QLatin1String("Unlock")
 #define UDISKS2_FILESYSTEM_MOUNT   QLatin1String("Mount")
 #define UDISKS2_FILESYSTEM_UNMOUNT QLatin1String("Unmount")
+#define UDISKS2_BLOCK_RESCAN       QLatin1String("Rescan")
 
 // Errors
 #define UDISKS2_ERROR_DEVICE_BUSY        QLatin1String("org.freedesktop.UDisks2.Error.DeviceBusy")
