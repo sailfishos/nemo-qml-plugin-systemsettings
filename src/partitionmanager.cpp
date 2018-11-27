@@ -300,7 +300,7 @@ void PartitionManagerPrivate::unlock(const Partition &partition, const QString &
 {
     qCInfo(lcMemoryCardLog) << "Can unlock:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.devicePath();
     if (externalMedia.match(partition.deviceName()).hasMatch()) {
-        m_udisksMonitor->instance()->unlock(partition.devicePath(), passphrase);
+        m_udisksMonitor->unlock(partition.devicePath(), passphrase);
     } else {
         qCWarning(lcMemoryCardLog) << "Unlock allowed only for external memory cards," << partition.devicePath() << "is not allowed";
     }
@@ -310,7 +310,7 @@ void PartitionManagerPrivate::mount(const Partition &partition)
 {
     qCInfo(lcMemoryCardLog) << "Can mount:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.devicePath();
     if (externalMedia.match(partition.deviceName()).hasMatch()) {
-        m_udisksMonitor->instance()->mount(partition.devicePath());
+        m_udisksMonitor->mount(partition.devicePath());
     } else {
         qCWarning(lcMemoryCardLog) << "Mount allowed only for external memory cards," << partition.devicePath() << "is not allowed";
     }
@@ -320,7 +320,7 @@ void PartitionManagerPrivate::unmount(const Partition &partition)
 {
     qCInfo(lcMemoryCardLog) << "Can unmount:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.devicePath();
     if (externalMedia.match(partition.deviceName()).hasMatch()) {
-        m_udisksMonitor->instance()->unmount(partition.devicePath());
+        m_udisksMonitor->unmount(partition.devicePath());
     } else {
         qCWarning(lcMemoryCardLog) << "Unmount allowed only for external memory cards," << partition.devicePath() << "is not allowed";
     }
@@ -331,7 +331,7 @@ void PartitionManagerPrivate::format(const QString &devicePath, const QString &f
     QString deviceName = devicePath.section(QChar('/'), 2);
     qCInfo(lcMemoryCardLog) << "Can format:" << externalMedia.match(deviceName).hasMatch() << devicePath;
     if (externalMedia.match(deviceName).hasMatch()) {
-        m_udisksMonitor->instance()->format(devicePath, filesystemType, arguments);
+        m_udisksMonitor->format(devicePath, filesystemType, arguments);
     } else {
         qCWarning(lcMemoryCardLog) << "Formatting allowed only for external memory cards," << devicePath << "is not allowed";
     }
