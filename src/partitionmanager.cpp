@@ -31,6 +31,7 @@
 
 #include "partitionmanager_p.h"
 #include "udisks2monitor_p.h"
+#include "udisks2blockdevices_p.h"
 #include "logging_p.h"
 
 #include <QFile>
@@ -340,7 +341,7 @@ QString PartitionManagerPrivate::objectPath(const QString &devicePath) const
 {
     QString deviceName = devicePath.section(QChar('/'), 2);
     if (externalMedia.match(deviceName).hasMatch()) {
-        return m_udisksMonitor->instance()->objectPath(devicePath);
+        return UDisks2::BlockDevices::instance()->objectPath(devicePath);
     } else {
         qCWarning(lcMemoryCardLog) << "Object path existing only for external memory cards:" << devicePath;
         return QString();

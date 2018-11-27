@@ -35,6 +35,7 @@
 #include <QObject>
 #include <QVariantMap>
 #include <QDBusConnection>
+#include <QPointer>
 
 #include "udisks2defines.h"
 
@@ -42,14 +43,13 @@ class QDBusPendingCallWatcher;
 
 namespace UDisks2 {
 
+
 class Block : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString connectionBus READ connectionBus NOTIFY updated)
 
 public:
-    Block(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap, QObject *parent = nullptr);
-
     virtual ~Block();
 
     QString path() const;
@@ -58,6 +58,10 @@ public:
     QString preferredDevice() const;
     QString drive() const;
     QString connectionBus() const;
+    QString partitionTable() const;
+
+    bool isPartition() const;
+    bool isPartitionTable() const;
 
     qint64 deviceNumber() const;
     QString id() const;
@@ -99,34 +103,38 @@ public:
 
     static QString cryptoBackingDevicePath(const QString &objectPath);
 
-    void addInterface(const QString &interface, QVariantMap propertyMap);
-    void removeInterface(const QString &interface);
-
     void morph(const Block& other);
 
 signals:
-    void completed();
+    void completed(QPrivateSignal);
     void updated();
     void formatted();
     void mountPathChanged();
 
 private slots:
     void updateProperties(const QDBusMessage &message);
+    void complete();
 
 private:
+    Block(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap, QObject *parent = nullptr);
     Block& operator=(const Block& other);
 
     bool setEncrypted(bool encrypted);
     bool setMountable(bool mountable);
 
+    void addInterface(const QString &interface, QVariantMap propertyMap);
+    void removeInterface(const QString &interface);
+    int interfaceCount() const;
+    bool hasInterface(const QString &interface) const;
+
     bool isCompleted() const;
-    void updateMountPoint(const QVariant &mountPoints);
-    void complete();
+
+    void updateFileSystemInterface(const QVariant &mountPoints);
     bool clearFormattingState();
 
-    void getFileSystemInterface();
-    void getEncryptedInterface();
-    void getDriveProperties();
+    void getProperties(const QString &path, const QString &interface,
+                       QPointer<QDBusPendingCallWatcher> &watcherPointer,
+                       std::function<void (const QVariantMap &)> success);
 
     void rescan(const QString &dbusObjectPath);
 
@@ -141,10 +149,14 @@ private:
     bool m_formatting;
     bool m_locking;
 
-    QDBusPendingCallWatcher *m_pendingFileSystem;
-    QDBusPendingCallWatcher *m_pendingBlock;
-    QDBusPendingCallWatcher *m_pendingEncrypted;
-    QDBusPendingCallWatcher *m_pendingDrive;
+    QPointer<QDBusPendingCallWatcher> m_pendingFileSystem;
+    QPointer<QDBusPendingCallWatcher> m_pendingBlock;
+    QPointer<QDBusPendingCallWatcher> m_pendingEncrypted;
+    QPointer<QDBusPendingCallWatcher> m_pendingDrive;
+    QPointer<QDBusPendingCallWatcher> m_pendingPartition;
+    QPointer<QDBusPendingCallWatcher> m_pendingPartitionTable;
+
+    friend class BlockDevices;
 };
 
 }
