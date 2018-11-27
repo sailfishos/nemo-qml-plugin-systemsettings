@@ -331,16 +331,21 @@ void UDisks2::Monitor::setPartitionProperties(QExplicitlySharedDataPointer<Parti
     partition->isEncrypted = blockDevice->isEncrypted();
     partition->cryptoBackingDevicePath = blockDevice->cryptoBackingDevicePath();
 
+    QVariantMap drive;
+
     QString connectionBus = blockDevice->connectionBus();
     if (connectionBus == QLatin1String("sdio")) {
-        partition->connectionBus = Partition::SDIO;
+        drive.insert(QLatin1String("connectionBus"), Partition::SDIO);
     } else if (connectionBus == QLatin1String("usb")) {
-        partition->connectionBus = Partition::USB;
+        drive.insert(QLatin1String("connectionBus"), Partition::USB);
     } else if (connectionBus == QLatin1String("ieee1394")) {
-        partition->connectionBus = Partition::IEEE1394;
+        drive.insert(QLatin1String("connectionBus"), Partition::IEEE1394);
     } else {
-        partition->connectionBus = Partition::UnknownBus;
+        drive.insert(QLatin1String("connectionBus"), Partition::UnknownBus);
     }
+    drive.insert(QLatin1String("model"), blockDevice->driveModel());
+    drive.insert(QLatin1String("vendor"), blockDevice->driveVendor());
+    partition->drive = drive;
 }
 
 void UDisks2::Monitor::updatePartitionProperties(const UDisks2::Block *blockDevice)

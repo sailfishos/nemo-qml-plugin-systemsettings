@@ -57,9 +57,11 @@ public:
     QString device() const;
     QString preferredDevice() const;
     QString drive() const;
+    QString driveModel() const;
+    QString driveVendor() const;
     QString connectionBus() const;
-    QString partitionTable() const;
 
+    QString partitionTable() const;
     bool isPartition() const;
     bool isPartitionTable() const;
 

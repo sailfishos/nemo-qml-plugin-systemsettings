@@ -129,6 +129,16 @@ QString UDisks2::Block::drive() const
     return value(QStringLiteral("Drive")).toString();
 }
 
+QString UDisks2::Block::driveModel() const
+{
+    return NemoDBus::demarshallDBusArgument(m_drive.value(QStringLiteral("Model"))).toString();
+}
+
+QString UDisks2::Block::driveVendor() const
+{
+    return NemoDBus::demarshallDBusArgument(m_drive.value(QStringLiteral("Vendor"))).toString();
+}
+
 QString UDisks2::Block::connectionBus() const
 {
     QString bus = NemoDBus::demarshallDBusArgument(m_drive.value(QStringLiteral("ConnectionBus"))).toString();

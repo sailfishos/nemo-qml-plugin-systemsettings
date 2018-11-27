@@ -66,7 +66,7 @@ public:
         IsSupportedFileSystemType,
         IsEncryptedRoles,
         CryptoBackingDevicePath,
-        ConnectionBusRole,
+        DriveRole,
     };
 
     // For Status role

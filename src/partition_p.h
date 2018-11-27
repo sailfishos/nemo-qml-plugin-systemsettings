@@ -34,6 +34,8 @@
 
 #include "partition.h"
 
+#include <QVariantMap>
+
 class PartitionManagerPrivate;
 
 class PartitionPrivate : public QSharedData
@@ -45,7 +47,6 @@ public:
         , bytesTotal(0)
         , bytesFree(0)
         , storageType(Partition::Invalid)
-        , connectionBus(Partition::UnknownBus)
         , status(Partition::Unmounted)
         , readOnly(true)
         , canMount(false)
@@ -76,8 +77,8 @@ public:
     qint64 bytesTotal;
     qint64 bytesFree;
     Partition::StorageType storageType;
-    Partition::ConnectionBus connectionBus;
     Partition::Status status;
+    QVariantMap drive;
     bool readOnly;
     bool canMount;
     bool isEncrypted;

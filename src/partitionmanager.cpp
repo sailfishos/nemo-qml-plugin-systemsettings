@@ -63,17 +63,22 @@ PartitionManagerPrivate::PartitionManagerPrivate()
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::unmountError, this, &PartitionManagerPrivate::unmountError);
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::formatError, this, &PartitionManagerPrivate::formatError);
 
+    QVariantMap defaultDrive;
+    defaultDrive.insert(QLatin1String("model"), QString());
+    defaultDrive.insert(QLatin1String("vendor"), QString());
+    defaultDrive.insert(QLatin1String("connectionBus"), Partition::SDIO);
+
     QExplicitlySharedDataPointer<PartitionPrivate> root(new PartitionPrivate(this));
     root->storageType = Partition::System;
-    root->connectionBus = Partition::SDIO;
     root->mountPath = QStringLiteral("/");
+    root->drive = defaultDrive;
 
     m_partitions.append(root);
 
     QExplicitlySharedDataPointer<PartitionPrivate> home(new PartitionPrivate(this));
     home->storageType = Partition::User;
-    home->connectionBus = Partition::SDIO;
     home->mountPath = QStringLiteral("/home");
+    home->drive = defaultDrive;
 
     m_partitions.append(home);
     refresh(m_partitions, m_partitions);
@@ -153,7 +158,8 @@ void PartitionManagerPrivate::add(QExplicitlySharedDataPointer<PartitionPrivate>
 {
     int insertIndex = 0;
     for (const auto existingPartition : m_partitions) {
-        if (existingPartition->connectionBus <= partition->connectionBus)
+        if (existingPartition->drive.value(QLatin1String("connectionBus")).toInt()
+                <= partition->drive.value(QLatin1String("connectionBus")).toInt())
             ++insertIndex;
         else
             break;
