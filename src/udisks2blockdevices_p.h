@@ -33,6 +33,8 @@
 #define UDISKS2_BLOCK_DEVICES_H
 
 #include <QMap>
+#include <QPointer>
+
 #include "udisks2block_p.h"
 
 class QTimerEvent;
@@ -98,7 +100,7 @@ private:
     QMap<QString, Block *> m_blockDevices;
     QMap<QString, PartitionWaiter*> m_partitionWaits;
 
-    static BlockDevices *sharedInstance;
+    static QPointer<BlockDevices> sharedInstance;
 };
 
 }

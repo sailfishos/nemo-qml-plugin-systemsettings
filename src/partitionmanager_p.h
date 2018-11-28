@@ -90,6 +90,7 @@ signals:
     void formatError(Partition::Error error);
 
 private:
+    // TODO: This is leaking (Disks2::Monitor is never free'ed).
     static PartitionManagerPrivate *sharedInstance;
 
     Partitions m_partitions;

@@ -42,11 +42,11 @@
 
 using namespace UDisks2;
 
-BlockDevices *BlockDevices::sharedInstance = nullptr;
+QPointer<BlockDevices> BlockDevices::sharedInstance = nullptr;
 
 BlockDevices *BlockDevices::instance()
 {
-    return sharedInstance ? sharedInstance : new BlockDevices;
+    return sharedInstance ? sharedInstance.data() : new BlockDevices;
 }
 
 BlockDevices::~BlockDevices()

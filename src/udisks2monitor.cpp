@@ -132,6 +132,9 @@ UDisks2::Monitor::~Monitor()
     sharedInstance = nullptr;
     qDeleteAll(m_jobsToWait);
     m_jobsToWait.clear();
+
+    delete m_blockDevices;
+    m_blockDevices = nullptr;
 }
 
 // TODO : Move lock, unlock, mount, unmount, format inside udisks2block.cpp
