@@ -137,17 +137,16 @@ UDisks2::Job::Operation UDisks2::Job::operation() const
     }
 }
 
+void UDisks2::Job::dumpInfo() const
+{
+    qCInfo(lcMemoryCardLog) << "Job" << path() << ((status() == Added) ? "added" : "completed");
+    for (const QString &key : m_data.keys()) {
+        qCInfo(lcMemoryCardLog) << "- " << qPrintable(key) << value(key);
+    }
+}
+
 void UDisks2::Job::updateCompleted(bool success, const QString &message)
 {
-    complete(success);
     m_message = message;
-
-    QDBusConnection systemBus = QDBusConnection::systemBus();
-    systemBus.disconnect(
-                UDISKS2_SERVICE,
-                m_path,
-                UDISKS2_JOB_INTERFACE,
-                QStringLiteral("Completed"),
-                this,
-                SLOT(updateJobStatus(bool, QString)));
+    complete(success);
 }

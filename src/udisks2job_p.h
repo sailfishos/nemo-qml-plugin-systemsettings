@@ -76,6 +76,8 @@ public:
     Status status() const;
     Operation operation() const;
 
+    void dumpInfo() const;
+
 signals:
     void completed(bool success);
 

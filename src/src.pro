@@ -39,6 +39,7 @@ SOURCES += \
     locationsettings.cpp \
     timezoneinfo.cpp \
     udisks2block.cpp \
+    udisks2blockdevices.cpp \
     udisks2job.cpp \
     udisks2monitor.cpp
 
@@ -78,6 +79,7 @@ HEADERS += \
     partition_p.h \
     partitionmanager_p.h \
     udisks2block_p.h \
+    udisks2blockdevices_p.h \
     udisks2job_p.h \
     udisks2monitor_p.h
 

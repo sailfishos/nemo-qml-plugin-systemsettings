@@ -115,7 +115,7 @@ public:
     QString cryptoBackingDevicePath() const;
 
     StorageType storageType() const;
-    ConnectionBus connectionBus() const;
+    QVariantMap drive() const;
 
     QString devicePath() const;
     QString deviceName() const;

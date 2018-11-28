@@ -261,7 +261,7 @@ QHash<int, QByteArray> PartitionModel::roleNames() const
         { IsSupportedFileSystemType, "isSupportedFileSystemType"},
         { IsEncryptedRoles, "isEncrypted"},
         { CryptoBackingDevicePath, "cryptoBackingDevicePath"},
-        { ConnectionBusRole, "connectionBus"},
+        { DriveRole, "drive"},
     };
 
     return roleNames;
@@ -316,8 +316,8 @@ QVariant PartitionModel::data(const QModelIndex &index, int role) const
             return partition.isEncrypted();
         case CryptoBackingDevicePath:
             return partition.cryptoBackingDevicePath();
-        case ConnectionBusRole:
-            return partition.connectionBus();
+        case DriveRole:
+            return partition.drive();
         default:
             return QVariant();
         }

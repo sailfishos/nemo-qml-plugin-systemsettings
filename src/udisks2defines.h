@@ -54,13 +54,14 @@ Q_DECLARE_METATYPE(UDisks2::InterfacePropertyMap)
 #define UDISKS2_MANAGER_PATH    QLatin1String("/org/freedesktop/UDisks2/Manager")
 
 // Interfaces
-#define UDISKS2_MANAGER_INTERFACE    QLatin1String("org.freedesktop.UDisks2.Manager")
-#define UDISKS2_ENCRYPTED_INTERFACE  QLatin1String("org.freedesktop.UDisks2.Encrypted")
-#define UDISKS2_DRIVE_INTERFACE      QLatin1String("org.freedesktop.UDisks2.Drive")
-#define UDISKS2_BLOCK_INTERFACE      QLatin1String("org.freedesktop.UDisks2.Block")
-#define UDISKS2_FILESYSTEM_INTERFACE QLatin1String("org.freedesktop.UDisks2.Filesystem")
-#define UDISKS2_PARTITION_INTERFACE  QLatin1String("org.freedesktop.UDisks2.Partition")
-#define UDISKS2_JOB_INTERFACE        QLatin1String("org.freedesktop.UDisks2.Job")
+#define UDISKS2_MANAGER_INTERFACE          QLatin1String("org.freedesktop.UDisks2.Manager")
+#define UDISKS2_ENCRYPTED_INTERFACE        QLatin1String("org.freedesktop.UDisks2.Encrypted")
+#define UDISKS2_DRIVE_INTERFACE            QLatin1String("org.freedesktop.UDisks2.Drive")
+#define UDISKS2_BLOCK_INTERFACE            QLatin1String("org.freedesktop.UDisks2.Block")
+#define UDISKS2_FILESYSTEM_INTERFACE       QLatin1String("org.freedesktop.UDisks2.Filesystem")
+#define UDISKS2_PARTITION_INTERFACE        QLatin1String("org.freedesktop.UDisks2.Partition")
+#define UDISKS2_PARTITION_TABLE_INTERFACE  QLatin1String("org.freedesktop.UDisks2.PartitionTable")
+#define UDISKS2_JOB_INTERFACE              QLatin1String("org.freedesktop.UDisks2.Job")
 
 // Jobs
 #define UDISKS2_JOB_OP_ENC_LOCK   QLatin1String("encrypted-lock")
