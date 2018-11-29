@@ -38,6 +38,8 @@
 #include <QObject>
 #include <QString>
 
+#define LOCATION_SETTINGS_LAST_DATA_SOURCE_BIT 31
+
 class LocationSettingsPrivate;
 class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
 {
@@ -57,6 +59,8 @@ class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
     Q_PROPERTY(bool mlsAvailable READ mlsAvailable CONSTANT)
 
     Q_PROPERTY(LocationMode locationMode READ locationMode WRITE setLocationMode NOTIFY locationModeChanged)
+
+    Q_PROPERTY(DataSources allowedDataSources READ allowedDataSources WRITE setAllowedDataSources NOTIFY allowedDataSourcesChanged)
 
     Q_ENUMS(OnlineAGpsState)
     Q_ENUMS(LocationMode)
@@ -106,6 +110,33 @@ public:
     LocationMode locationMode() const;
     void setLocationMode(LocationMode locationMode);
 
+    // Data sources are grouped roughly by type,
+    // with gaps left for future expansion.
+    enum DataSource {
+        NoDataSources                   = 0UL,
+
+        OnlineDataSources               = 1UL << 0,
+
+        DeviceSensorsData                = 1UL << 5,
+        BluetoothData                   = 1UL << 10,
+        WlanData                        = 1UL << 15,
+        CellTowerData                   = 1UL << 20,
+
+        GpsData                         = 1UL << 25,
+        GlonassData                     = 1UL << 26,
+        BeidouData                      = 1UL << 27,
+        GalileoData                     = 1UL << 28,
+        QzssData                        = 1UL << 29,
+        SbasData                        = 1UL << 30,
+
+        LastDataSource                  = 1UL << LOCATION_SETTINGS_LAST_DATA_SOURCE_BIT
+    };
+    Q_DECLARE_FLAGS(DataSources, DataSource)
+    Q_FLAG(DataSources)
+
+    DataSources allowedDataSources() const;
+    void setAllowedDataSources(DataSources dataSources);
+
 signals:
     void hereStateChanged();
     void locationEnabledChanged();
@@ -114,11 +145,14 @@ signals:
     void mlsEnabledChanged();
     void mlsOnlineStateChanged();
     void locationModeChanged();
+    void allowedDataSourcesChanged();
 
 private:
     LocationSettingsPrivate *d_ptr;
     Q_DISABLE_COPY(LocationSettings)
     Q_DECLARE_PRIVATE(LocationSettings)
 };
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(LocationSettings::DataSources)
 
 #endif // LOCATIONSETTINGS_H

@@ -46,25 +46,88 @@
 #include <networkmanager.h>
 #include <networktechnology.h>
 
+#include <limits>
+
 namespace {
+// TODO: replace all of this with DBus calls to a central settings service...
 QString boolToString(bool value) { return value ? QStringLiteral("true") : QStringLiteral("false"); }
 const QString LocationSettingsDir = QStringLiteral("/etc/location/");
 const QString LocationSettingsFile = QStringLiteral("/etc/location/location.conf");
 const QString LocationSettingsKeys = QStringLiteral(
-                                        "enabled"                     ";"
-                                        "custom_mode"                 ";"
-                                        "agps_providers"              ";"
-                                        "gps\\enabled"                ";"
-                                        "mls\\enabled"                ";"
-                                        "mls\\agreement_accepted"     ";"
-                                        "mls\\online_enabled"         ";"
-                                        "here\\enabled"               ";"
-                                        "here\\agreement_accepted"    ";"
-                                        "here\\online_enabled"        ";"
-                                        /* and the deprecated keys: */
-                                        "cell_id_positioning_enabled" ";"
-                                        "here_agreement_accepted"     ";"
-                                        "agreement_accepted");
+                    "enabled"                               ";"
+                    "allowed_data_sources\\online"          ";"
+                    "allowed_data_sources\\device_sensors"  ";"
+                    "allowed_data_sources\\bt_data"         ";"
+                    "allowed_data_sources\\wlan_data"       ";"
+                    "allowed_data_sources\\cell_data"       ";"
+                    "allowed_data_sources\\gps"             ";"
+                    "allowed_data_sources\\glonass"         ";"
+                    "allowed_data_sources\\beidou"          ";"
+                    "allowed_data_sources\\galileo"         ";"
+                    "allowed_data_sources\\qzss"            ";"
+                    "allowed_data_sources\\sbas"            ";"
+                    "custom_mode"                           ";"
+                    "agps_providers"                        ";"
+                    "gps\\enabled"                          ";"
+                    "mls\\enabled"                          ";"
+                    "mls\\agreement_accepted"               ";"
+                    "mls\\online_enabled"                   ";"
+                    "here\\enabled"                         ";"
+                    "here\\agreement_accepted"              ";"
+                    "here\\online_enabled"                  ";"
+                    /* and the deprecated keys: */
+                    "cell_id_positioning_enabled"           ";"
+                    "here_agreement_accepted"               ";"
+                    "agreement_accepted");
+const int LocationSettingsValueIndex_Enabled = 0;
+const int LocationSettingsValueIndex_AllowedDataSources_Online = 1;
+const int LocationSettingsValueIndex_AllowedDataSources_DeviceSensors = 2;
+const int LocationSettingsValueIndex_AllowedDataSources_Bluetooth = 3;
+const int LocationSettingsValueIndex_AllowedDataSources_WlanData = 4;
+const int LocationSettingsValueIndex_AllowedDataSources_CellData = 5;
+const int LocationSettingsValueIndex_AllowedDataSources_Gps = 6;
+const int LocationSettingsValueIndex_AllowedDataSources_Glonass = 7;
+const int LocationSettingsValueIndex_AllowedDataSources_Beidou = 8;
+const int LocationSettingsValueIndex_AllowedDataSources_Galileo = 9;
+const int LocationSettingsValueIndex_AllowedDataSources_Qzss = 10;
+const int LocationSettingsValueIndex_AllowedDataSources_Sbas = 11;
+const int LocationSettingsValueIndex_CustomMode = 12;
+const int LocationSettingsValueIndex_AgpsProviders = 13;
+const int LocationSettingsValueIndex_Gps_Enabled = 14;
+const int LocationSettingsValueIndex_Mls_Enabled = 15;
+const int LocationSettingsValueIndex_Mls_AgreementAccepted = 16;
+const int LocationSettingsValueIndex_Mls_OnlineEnabled = 17;
+const int LocationSettingsValueIndex_Here_Enabled = 18;
+const int LocationSettingsValueIndex_Here_AgreementAccepted = 19;
+const int LocationSettingsValueIndex_Here_OnlineEnabled = 26;
+const int LocationSettingsValueIndex_DEPRECATED_CellIdPositioningEnabled = 20;
+const int LocationSettingsValueIndex_DEPRECATED_HereEnabled = 21;
+const int LocationSettingsValueIndex_DEPRECATED_HereAgreementAccepted = 22;
+QMap<int, LocationSettings::DataSource> LocationSettingsValueIndexToDataSourceMap
+    {
+        { LocationSettingsValueIndex_AllowedDataSources_Online,
+          LocationSettings::OnlineDataSources },
+        { LocationSettingsValueIndex_AllowedDataSources_DeviceSensors,
+          LocationSettings::DeviceSensorsData },
+        { LocationSettingsValueIndex_AllowedDataSources_Bluetooth,
+          LocationSettings::BluetoothData },
+        { LocationSettingsValueIndex_AllowedDataSources_WlanData,
+          LocationSettings::WlanData },
+        { LocationSettingsValueIndex_AllowedDataSources_CellData,
+          LocationSettings::CellTowerData },
+        { LocationSettingsValueIndex_AllowedDataSources_Gps,
+          LocationSettings::GpsData },
+        { LocationSettingsValueIndex_AllowedDataSources_Glonass,
+          LocationSettings::GlonassData },
+        { LocationSettingsValueIndex_AllowedDataSources_Beidou,
+          LocationSettings::BeidouData },
+        { LocationSettingsValueIndex_AllowedDataSources_Galileo,
+          LocationSettings::GalileoData },
+        { LocationSettingsValueIndex_AllowedDataSources_Qzss,
+          LocationSettings::QzssData },
+        { LocationSettingsValueIndex_AllowedDataSources_Sbas,
+          LocationSettings::SbasData },
+    };
 const QString PoweredPropertyName = QStringLiteral("Powered");
 }
 
@@ -79,6 +142,7 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
     , m_locationMode(LocationSettings::CustomMode)
     , m_settingLocationMode(true)
     , m_settingMultipleSettings(false)
+    , m_allowedDataSources(static_cast<LocationSettings::DataSources>(std::numeric_limits<quint32>::max()))
     , m_connMan(Q_NULLPTR)
     , m_gpsTech(Q_NULLPTR)
     , m_gpsTechInterface(mode == LocationSettings::AsynchronousMode
@@ -431,6 +495,23 @@ void LocationSettings::setLocationMode(LocationMode locationMode)
     d->m_settingLocationMode = false;
 }
 
+LocationSettings::DataSources LocationSettings::allowedDataSources() const
+{
+    Q_D(const LocationSettings);
+    return d->m_allowedDataSources;
+}
+
+void LocationSettings::setAllowedDataSources(LocationSettings::DataSources dataSources)
+{
+    Q_D(LocationSettings);
+    if (dataSources == d->m_allowedDataSources)
+        return;
+
+    d->m_allowedDataSources = dataSources;
+    d->writeSettings();
+    emit allowedDataSourcesChanged();
+}
+
 void LocationSettingsPrivate::readSettings()
 {
     if (!m_processMutex) {
@@ -451,22 +532,44 @@ void LocationSettingsPrivate::readSettings()
     }
 
     // read the deprecated keys first, for compatibility purposes:
-    bool oldMlsEnabled = locationSettingsValues[10] != NULL && strcmp(locationSettingsValues[10], "true") == 0;
-    bool oldHereEnabled = locationSettingsValues[11] != NULL && strcmp(locationSettingsValues[11], "true") == 0;
-    bool oldHereAgreementAccepted = locationSettingsValues[12] != NULL && strcmp(locationSettingsValues[12], "true") == 0;
-    // then read the new key values (overriding with deprecated values if needed):
-    bool locationEnabled = locationSettingsValues[0] != NULL && strcmp(locationSettingsValues[0], "true") == 0;
-    bool customMode = locationSettingsValues[1] != NULL && strcmp(locationSettingsValues[1], "true") == 0;
-    // skip over the agps_providers value at [2]
-    bool gpsEnabled = locationSettingsValues[3] != NULL && strcmp(locationSettingsValues[3], "true") == 0;
-    bool mlsEnabled = oldMlsEnabled || (locationSettingsValues[4] != NULL && strcmp(locationSettingsValues[4], "true") == 0);
-    bool mlsAgreementAccepted = locationSettingsValues[5] != NULL && strcmp(locationSettingsValues[5], "true") == 0;
-    bool mlsOnlineEnabled = locationSettingsValues[6] != NULL && strcmp(locationSettingsValues[6], "true") == 0;
-    bool hereEnabled = oldHereEnabled || (locationSettingsValues[7] != NULL && strcmp(locationSettingsValues[7], "true") == 0);
-    bool hereAgreementAccepted = oldHereAgreementAccepted || (locationSettingsValues[8] != NULL && strcmp(locationSettingsValues[8], "true") == 0);
-    // skip over here\online_enabled value at [9]
+    bool oldMlsEnabled = locationSettingsValues[LocationSettingsValueIndex_DEPRECATED_CellIdPositioningEnabled] != NULL
+            && strcmp(locationSettingsValues[LocationSettingsValueIndex_DEPRECATED_CellIdPositioningEnabled], "true") == 0;
+    bool oldHereEnabled = locationSettingsValues[LocationSettingsValueIndex_DEPRECATED_HereEnabled] != NULL
+            && strcmp(locationSettingsValues[LocationSettingsValueIndex_DEPRECATED_HereEnabled], "true") == 0;
+    bool oldHereAgreementAccepted = locationSettingsValues[LocationSettingsValueIndex_DEPRECATED_HereAgreementAccepted] != NULL
+            && strcmp(locationSettingsValues[LocationSettingsValueIndex_DEPRECATED_HereAgreementAccepted], "true") == 0;
 
-    const int expectedCount = 13; // should equal: LocationSettingsKeys.split(';').count();
+    // then read the new key values (overriding with deprecated values if needed):
+    bool locationEnabled = locationSettingsValues[LocationSettingsValueIndex_Enabled] != NULL
+            && strcmp(locationSettingsValues[LocationSettingsValueIndex_Enabled], "true") == 0;
+    bool customMode = locationSettingsValues[LocationSettingsValueIndex_CustomMode] != NULL
+            && strcmp(locationSettingsValues[LocationSettingsValueIndex_CustomMode], "true") == 0;
+    LocationSettings::DataSources allowedDataSources = static_cast<LocationSettings::DataSources>(std::numeric_limits<quint32>::max());
+    for (QMap<int, LocationSettings::DataSource>::const_iterator it = LocationSettingsValueIndexToDataSourceMap.constBegin();
+            it != LocationSettingsValueIndexToDataSourceMap.constEnd(); it++) {
+        if (locationSettingsValues[it.key()] != NULL && strcmp(locationSettingsValues[it.key()], "true") != 0) {
+            allowedDataSources &= ~it.value(); // mark the data source as disabled
+        }
+    }
+    // skip over the agps_providers value.
+    bool gpsEnabled = locationSettingsValues[LocationSettingsValueIndex_Gps_Enabled] != NULL
+            && strcmp(locationSettingsValues[LocationSettingsValueIndex_Gps_Enabled], "true") == 0;
+    bool mlsEnabled = oldMlsEnabled
+            || (locationSettingsValues[LocationSettingsValueIndex_Mls_Enabled] != NULL
+                    && strcmp(locationSettingsValues[LocationSettingsValueIndex_Mls_Enabled], "true") == 0);
+    bool mlsAgreementAccepted = locationSettingsValues[LocationSettingsValueIndex_Mls_AgreementAccepted] != NULL
+            && strcmp(locationSettingsValues[LocationSettingsValueIndex_Mls_AgreementAccepted], "true") == 0;
+    bool mlsOnlineEnabled = locationSettingsValues[LocationSettingsValueIndex_Mls_OnlineEnabled] != NULL
+            && strcmp(locationSettingsValues[LocationSettingsValueIndex_Mls_OnlineEnabled], "true") == 0;
+    bool hereEnabled = oldHereEnabled
+            || (locationSettingsValues[LocationSettingsValueIndex_Here_Enabled] != NULL
+                    && strcmp(locationSettingsValues[LocationSettingsValueIndex_Here_Enabled], "true") == 0);
+    bool hereAgreementAccepted = oldHereAgreementAccepted
+            || (locationSettingsValues[LocationSettingsValueIndex_Here_AgreementAccepted] != NULL
+                    && strcmp(locationSettingsValues[LocationSettingsValueIndex_Here_AgreementAccepted], "true") == 0);
+    // skip over here\online_enabled value.
+
+    const int expectedCount = 23; // should equal: LocationSettingsKeys.split(';').count();
     for (int i = 0; i < expectedCount; ++i) {
         if (locationSettingsValues[i] != NULL) {
             free(locationSettingsValues[i]);
@@ -477,6 +580,11 @@ void LocationSettingsPrivate::readSettings()
     if (m_locationEnabled != locationEnabled) {
         m_locationEnabled = locationEnabled;
         emit q->locationEnabledChanged();
+    }
+
+    if (m_allowedDataSources != allowedDataSources) {
+        m_allowedDataSources = allowedDataSources;
+        emit q->allowedDataSourcesChanged();
     }
 
     if (m_gpsEnabled != gpsEnabled) {
@@ -541,6 +649,11 @@ void LocationSettingsPrivate::writeSettings()
     QString locationSettingsValues;
     locationSettingsValues.append(boolToString(m_locationEnabled));
     locationSettingsValues.append(";");
+    for (QMap<int, LocationSettings::DataSource>::const_iterator it = LocationSettingsValueIndexToDataSourceMap.constBegin();
+            it != LocationSettingsValueIndexToDataSourceMap.constEnd(); it++) {
+        locationSettingsValues.append(boolToString(m_allowedDataSources & it.value()));
+        locationSettingsValues.append(";");
+    }
     locationSettingsValues.append(boolToString(m_locationMode == LocationSettings::CustomMode));
     locationSettingsValues.append(";");
     locationSettingsValues.append(agps_providers);

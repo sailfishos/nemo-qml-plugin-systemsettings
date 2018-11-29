@@ -71,6 +71,7 @@ public:
     LocationSettings::LocationMode m_locationMode;
     bool m_settingLocationMode;
     bool m_settingMultipleSettings;
+    LocationSettings::DataSources m_allowedDataSources;
     NetworkManager *m_connMan;
     NetworkTechnology *m_gpsTech;
     QDBusInterface *m_gpsTechInterface;
