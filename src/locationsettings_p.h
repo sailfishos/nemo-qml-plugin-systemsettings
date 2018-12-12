@@ -41,6 +41,8 @@
 
 #include <sailfishkeyprovider_processmutex.h>
 
+#include <glib.h>
+
 #include "locationsettings.h"
 
 class NetworkManager;
@@ -75,13 +77,33 @@ public:
     NetworkManager *m_connMan;
     NetworkTechnology *m_gpsTech;
     QDBusInterface *m_gpsTechInterface;
-    mutable QScopedPointer<Sailfish::KeyProvider::ProcessMutex> m_processMutex;
 
 private slots:
     void readSettings();
     void findGpsTech();
     void gpsTechPropertyChanged(const QString &propertyName, const QVariant &value);
     void recalculateLocationMode();
+};
+
+// TODO: replace this with DBus calls to a central settings service...
+class IniFile
+{
+public:
+    IniFile(const QString &fileName);
+    ~IniFile();
+
+    bool isValid() const;
+    bool readBool(const QString &section, const QString &key, bool *value, bool defaultValue = false);
+    void writeBool(const QString &section, const QString &key, bool value);
+    void writeString(const QString &section, const QString &key, const QString &value);
+
+private:
+    mutable QScopedPointer<Sailfish::KeyProvider::ProcessMutex> m_processMutex;
+    QString m_fileName;
+    GKeyFile *m_keyFile;
+    GError *m_error;
+    bool m_modified;
+    bool m_valid;
 };
 
 #endif // NEMO_SYSTEMSETTINGS_LOCATIONSETTINGS_P_H
