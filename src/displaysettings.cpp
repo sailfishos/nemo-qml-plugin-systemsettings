@@ -48,6 +48,9 @@ static const char *MceDoubleTapMode = "/system/osso/dsm/doubletap/mode";
 static const char *MceLidSensorEnabled = "/system/osso/dsm/locks/lid_sensor_enabled";
 static const char *MceLidSensorFilteringEnabled = "/system/osso/dsm/locks/filter_lid_with_als";
 static const char *MceFlipOverGestureEnabled = "/system/osso/dsm/display/flipover_gesture_enabled";
+static const char *McePowerSaveModeForced = "/system/osso/dsm/energymanagement/force_power_saving";
+static const char *McePowerSaveModeEnabled = "/system/osso/dsm/energymanagement/enable_power_saving";
+static const char *McePowerSaveModeThreshold = "/system/osso/dsm/energymanagement/psm_threshold";
 
 DisplaySettings::DisplaySettings(QObject *parent)
     : QObject(parent)
@@ -68,6 +71,9 @@ DisplaySettings::DisplaySettings(QObject *parent)
     m_doubleTapMode             = true;
     m_lidSensorFilteringEnabled = true;
     m_lidSensorEnabled          = true;
+    m_powerSaveModeForced       = false;
+    m_powerSaveModeEnabled      = false;
+    m_powerSaveModeThreshold    = 20;
     m_populated                 = false;
 
     /* Setup change listener & get current values via async query */
@@ -287,6 +293,48 @@ void DisplaySettings::setFlipoverGestureEnabled(bool enabled)
     }
 }
 
+bool DisplaySettings::powerSaveModeForced() const
+{
+    return m_powerSaveModeForced;
+}
+
+void DisplaySettings::setPowerSaveModeForced(bool force)
+{
+    if (m_powerSaveModeForced != force) {
+        m_powerSaveModeForced = force;
+        m_mceIface->set_config(QDBusObjectPath(McePowerSaveModeForced), QDBusVariant(force));
+        emit powerSaveModeForcedChanged();
+    }
+}
+
+bool DisplaySettings::powerSaveModeEnabled() const
+{
+    return m_powerSaveModeEnabled;
+}
+
+void DisplaySettings::setPowerSaveModeEnabled(bool enabled)
+{
+    if (m_powerSaveModeEnabled != enabled) {
+        m_powerSaveModeEnabled = enabled;
+        m_mceIface->set_config(QDBusObjectPath(McePowerSaveModeEnabled), QDBusVariant(enabled));
+        emit powerSaveModeEnabledChanged();
+    }
+}
+
+int DisplaySettings::powerSaveModeThreshold() const
+{
+    return m_powerSaveModeThreshold;
+}
+
+void DisplaySettings::setPowerSaveModeThreshold(int value)
+{
+    if (m_powerSaveModeThreshold != value) {
+        m_powerSaveModeThreshold = value;
+        m_mceIface->set_config(QDBusObjectPath(McePowerSaveModeThreshold), QDBusVariant(value));
+        emit powerSaveModeThresholdChanged();
+    }
+}
+
 bool DisplaySettings::populated() const
 {
     return m_populated;
@@ -370,6 +418,24 @@ void DisplaySettings::updateConfig(const QString &key, const QVariant &value)
         if (val != m_flipoverGestureEnabled) {
             m_flipoverGestureEnabled = val;
             emit flipoverGestureEnabledChanged();
+        }
+    } else if (key == McePowerSaveModeForced) {
+        bool val = value.toBool();
+        if (val != m_powerSaveModeForced) {
+            m_powerSaveModeForced = val;
+            emit powerSaveModeForcedChanged();
+        }
+    } else if (key == McePowerSaveModeEnabled) {
+        bool val = value.toBool();
+        if (val != m_powerSaveModeEnabled) {
+            m_powerSaveModeEnabled = val;
+            emit powerSaveModeEnabledChanged();
+        }
+    } else if (key == McePowerSaveModeThreshold) {
+        int val = value.toInt();
+        if (val != m_powerSaveModeThreshold) {
+            m_powerSaveModeThreshold = val;
+            emit powerSaveModeThresholdChanged();
         }
     }
 }

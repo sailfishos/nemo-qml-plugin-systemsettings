@@ -62,6 +62,9 @@ class SYSTEMSETTINGS_EXPORT DisplaySettings: public QObject
     Q_PROPERTY(bool lidSensorEnabled READ lidSensorEnabled WRITE setLidSensorEnabled NOTIFY lidSensorEnabledChanged)
     Q_PROPERTY(bool lidSensorFilteringEnabled READ lidSensorFilteringEnabled WRITE setLidSensorFilteringEnabled NOTIFY lidSensorFilteringEnabledChanged)
     Q_PROPERTY(bool flipoverGestureEnabled READ flipoverGestureEnabled WRITE setFlipoverGestureEnabled NOTIFY flipoverGestureEnabledChanged)
+    Q_PROPERTY(bool powerSaveModeForced READ powerSaveModeForced WRITE setPowerSaveModeForced NOTIFY powerSaveModeForcedChanged)
+    Q_PROPERTY(bool powerSaveModeEnabled READ powerSaveModeEnabled WRITE setPowerSaveModeEnabled NOTIFY powerSaveModeEnabledChanged)
+    Q_PROPERTY(int powerSaveModeThreshold READ powerSaveModeThreshold WRITE setPowerSaveModeThreshold NOTIFY powerSaveModeThresholdChanged)
     Q_PROPERTY(bool populated READ populated NOTIFY populatedChanged)
 
 public:
@@ -128,6 +131,15 @@ public:
     bool flipoverGestureEnabled() const;
     void setFlipoverGestureEnabled(bool);
 
+    bool powerSaveModeForced() const;
+    void setPowerSaveModeForced(bool);
+
+    bool powerSaveModeEnabled() const;
+    void setPowerSaveModeEnabled(bool);
+
+    int powerSaveModeThreshold() const;
+    void setPowerSaveModeThreshold(int);
+
     bool populated() const;
 
 signals:
@@ -144,6 +156,9 @@ signals:
     void lidSensorEnabledChanged();
     void lidSensorFilteringEnabledChanged();
     void flipoverGestureEnabledChanged();
+    void powerSaveModeForcedChanged();
+    void powerSaveModeEnabledChanged();
+    void powerSaveModeThresholdChanged();
     void populatedChanged();
 
 private slots:
@@ -167,6 +182,9 @@ private:
     bool m_lidSensorEnabled;
     bool m_lidSensorFilteringEnabled;
     bool m_flipoverGestureEnabled;
+    bool m_powerSaveModeForced;
+    bool m_powerSaveModeEnabled;
+    int m_powerSaveModeThreshold;
     bool m_populated;
 };
 
