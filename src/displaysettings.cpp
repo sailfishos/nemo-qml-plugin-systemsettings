@@ -278,11 +278,6 @@ bool DisplaySettings::flipoverGestureEnabled() const
     return m_flipoverGestureEnabled;
 }
 
-bool DisplaySettings::populated() const
-{
-    return m_populated;
-}
-
 void DisplaySettings::setFlipoverGestureEnabled(bool enabled)
 {
     if (m_flipoverGestureEnabled != enabled) {
@@ -290,6 +285,11 @@ void DisplaySettings::setFlipoverGestureEnabled(bool enabled)
         m_mceIface->set_config(QDBusObjectPath(MceFlipOverGestureEnabled), QDBusVariant(enabled));
         emit flipoverGestureEnabledChanged();
     }
+}
+
+bool DisplaySettings::populated() const
+{
+    return m_populated;
 }
 
 void DisplaySettings::configChange(const QString &key, const QDBusVariant &value)
