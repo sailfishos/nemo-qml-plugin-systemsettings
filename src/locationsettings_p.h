@@ -56,7 +56,11 @@ public:
     LocationSettingsPrivate(LocationSettings::Mode mode, LocationSettings *settings);
     ~LocationSettingsPrivate();
 
+    LocationSettings::LocationMode calculateLocationMode() const;
     void writeSettings();
+
+    bool mlsAvailable() const;
+    bool hereAvailable() const;
 
     QFileSystemWatcher m_watcher;
     bool m_locationEnabled;
@@ -64,6 +68,9 @@ public:
     bool m_mlsEnabled;
     LocationSettings::OnlineAGpsState m_mlsOnlineState;
     LocationSettings::OnlineAGpsState m_hereState;
+    LocationSettings::LocationMode m_locationMode;
+    bool m_settingLocationMode;
+    bool m_settingMultipleSettings;
     NetworkManager *m_connMan;
     NetworkTechnology *m_gpsTech;
     QDBusInterface *m_gpsTechInterface;
@@ -73,6 +80,7 @@ private slots:
     void readSettings();
     void findGpsTech();
     void gpsTechPropertyChanged(const QString &propertyName, const QVariant &value);
+    void recalculateLocationMode();
 };
 
 #endif // NEMO_SYSTEMSETTINGS_LOCATIONSETTINGS_P_H

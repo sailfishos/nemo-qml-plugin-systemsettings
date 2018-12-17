@@ -56,7 +56,10 @@ class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
     Q_PROPERTY(OnlineAGpsState mlsOnlineState READ mlsOnlineState WRITE setMlsOnlineState NOTIFY mlsOnlineStateChanged)
     Q_PROPERTY(bool mlsAvailable READ mlsAvailable CONSTANT)
 
+    Q_PROPERTY(LocationMode locationMode READ locationMode WRITE setLocationMode NOTIFY locationModeChanged)
+
     Q_ENUMS(OnlineAGpsState)
+    Q_ENUMS(LocationMode)
 
 public:
     enum Mode {
@@ -93,6 +96,16 @@ public:
     void setMlsOnlineState(OnlineAGpsState state);
     bool mlsAvailable() const;
 
+    enum LocationMode {
+        HighAccuracyMode,
+        BatterySavingMode,
+        DeviceOnlyMode,
+        CustomMode
+    };
+
+    LocationMode locationMode() const;
+    void setLocationMode(LocationMode locationMode);
+
 signals:
     void hereStateChanged();
     void locationEnabledChanged();
@@ -100,6 +113,7 @@ signals:
     void gpsFlightModeChanged();
     void mlsEnabledChanged();
     void mlsOnlineStateChanged();
+    void locationModeChanged();
 
 private:
     LocationSettingsPrivate *d_ptr;

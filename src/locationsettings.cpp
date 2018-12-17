@@ -35,8 +35,9 @@
 
 #include <QFile>
 #include <QSettings>
-#include <QDebug>
 #include <QStringList>
+#include <QTimer>
+#include <QDebug>
 
 #include <sailfishkeyprovider.h>
 #include <sailfishkeyprovider_iniparser.h>
@@ -51,6 +52,7 @@ const QString LocationSettingsDir = QStringLiteral("/etc/location/");
 const QString LocationSettingsFile = QStringLiteral("/etc/location/location.conf");
 const QString LocationSettingsKeys = QStringLiteral(
                                         "enabled"                     ";"
+                                        "custom_mode"                 ";"
                                         "agps_providers"              ";"
                                         "gps\\enabled"                ";"
                                         "mls\\enabled"                ";"
@@ -74,6 +76,9 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
     , m_mlsEnabled(true)
     , m_mlsOnlineState(LocationSettings::OnlineAGpsAgreementNotAccepted)
     , m_hereState(LocationSettings::OnlineAGpsAgreementNotAccepted)
+    , m_locationMode(LocationSettings::CustomMode)
+    , m_settingLocationMode(true)
+    , m_settingMultipleSettings(false)
     , m_connMan(Q_NULLPTR)
     , m_gpsTech(Q_NULLPTR)
     , m_gpsTechInterface(mode == LocationSettings::AsynchronousMode
@@ -83,6 +88,14 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
                                               "net.connman.Technology",
                                               QDBusConnection::systemBus()))
 {
+    connect(q, &LocationSettings::gpsEnabledChanged,
+            this, &LocationSettingsPrivate::recalculateLocationMode);
+    connect(q, &LocationSettings::mlsEnabledChanged,
+            this, &LocationSettingsPrivate::recalculateLocationMode);
+    connect(q, &LocationSettings::mlsOnlineStateChanged,
+            this, &LocationSettingsPrivate::recalculateLocationMode);
+    connect(q, &LocationSettings::hereStateChanged,
+            this, &LocationSettingsPrivate::recalculateLocationMode);
 
     connect(&m_watcher, SIGNAL(fileChanged(QString)), this, SLOT(readSettings()));
     connect(&m_watcher, SIGNAL(directoryChanged(QString)), this, SLOT(readSettings()));
@@ -93,6 +106,8 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
     } else {
         qWarning() << "Unable to follow location configuration file changes";
     }
+
+    this->m_settingLocationMode = false;
 
     if (m_gpsTechInterface) {
         QDBusConnection::systemBus().connect("net.connman",
@@ -145,6 +160,59 @@ void LocationSettingsPrivate::findGpsTech()
     }
     emit q->gpsFlightModeChanged();
 }
+
+LocationSettings::LocationMode
+LocationSettingsPrivate::calculateLocationMode() const
+{
+    if (m_gpsEnabled
+            && (!mlsAvailable() ||
+                    (m_mlsEnabled && m_mlsOnlineState == LocationSettings::OnlineAGpsEnabled))
+            && (!hereAvailable() || m_hereState == LocationSettings::OnlineAGpsEnabled)) {
+        return LocationSettings::HighAccuracyMode;
+    } else if (!m_gpsEnabled
+            && (!mlsAvailable() ||
+                    (m_mlsEnabled &&
+                        (m_mlsOnlineState == LocationSettings::OnlineAGpsEnabled
+                        || m_mlsOnlineState == LocationSettings::OnlineAGpsAgreementNotAccepted)))
+            && (!hereAvailable() ||
+                    (m_hereState == LocationSettings::OnlineAGpsEnabled
+                    || m_hereState == LocationSettings::OnlineAGpsAgreementNotAccepted))) {
+        return LocationSettings::BatterySavingMode;
+    } else if (m_gpsEnabled
+            && (!mlsAvailable() ||
+                    (m_mlsEnabled &&
+                        (m_mlsOnlineState == LocationSettings::OnlineAGpsDisabled
+                        || m_mlsOnlineState == LocationSettings::OnlineAGpsAgreementNotAccepted)))
+            && (!hereAvailable() ||
+                    (m_hereState == LocationSettings::OnlineAGpsDisabled
+                    || m_hereState == LocationSettings::OnlineAGpsAgreementNotAccepted))) {
+        return LocationSettings::DeviceOnlyMode;
+    } else {
+        return LocationSettings::CustomMode;
+    }
+}
+
+void LocationSettingsPrivate::recalculateLocationMode()
+{
+    if (!m_settingLocationMode && m_locationMode != LocationSettings::CustomMode) {
+        LocationSettings::LocationMode currentMode = calculateLocationMode();
+        if (currentMode != m_locationMode) {
+            m_locationMode = currentMode;
+            emit q->locationModeChanged();
+        }
+    }
+}
+
+bool LocationSettingsPrivate::mlsAvailable() const
+{
+    return QFile::exists(QStringLiteral("/usr/libexec/geoclue-mlsdb"));
+}
+
+bool LocationSettingsPrivate::hereAvailable() const
+{
+    return QFile::exists(QStringLiteral("/usr/libexec/geoclue-here"));
+}
+
 
 LocationSettings::LocationSettings(QObject *parent)
     : QObject(parent)
@@ -269,7 +337,8 @@ void LocationSettings::setMlsOnlineState(LocationSettings::OnlineAGpsState state
 
 bool LocationSettings::mlsAvailable() const
 {
-    return QFile::exists(QStringLiteral("/usr/libexec/geoclue-mlsdb"));
+    Q_D(const LocationSettings);
+    return d->mlsAvailable();
 }
 
 LocationSettings::OnlineAGpsState LocationSettings::hereState() const
@@ -291,7 +360,75 @@ void LocationSettings::setHereState(LocationSettings::OnlineAGpsState state)
 
 bool LocationSettings::hereAvailable() const
 {
-    return QFile::exists(QStringLiteral("/usr/libexec/geoclue-here"));
+    Q_D(const LocationSettings);
+    return d->hereAvailable();
+}
+
+LocationSettings::LocationMode LocationSettings::locationMode() const
+{
+    Q_D(const LocationSettings);
+    return d->m_locationMode;
+}
+
+void LocationSettings::setLocationMode(LocationMode locationMode)
+{
+    Q_D(LocationSettings);
+
+    LocationSettings::LocationMode oldLocationMode = this->locationMode();
+    if (oldLocationMode == locationMode) {
+        return;
+    }
+
+    d->m_settingLocationMode = true;
+    d->m_settingMultipleSettings = true;
+    d->m_locationMode = locationMode;
+
+    if (locationMode == HighAccuracyMode) {
+        setGpsEnabled(true);
+        if (mlsAvailable()) {
+            setMlsEnabled(true);
+            if (mlsOnlineState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
+                setMlsOnlineState(LocationSettings::OnlineAGpsEnabled);
+            }
+        }
+        if (hereAvailable()) {
+            if (hereState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
+                setHereState(LocationSettings::OnlineAGpsEnabled);
+            }
+        }
+    } else if (locationMode == BatterySavingMode) {
+        setGpsEnabled(false);
+        if (mlsAvailable()) {
+            setMlsEnabled(true);
+            if (mlsOnlineState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
+                setMlsOnlineState(LocationSettings::OnlineAGpsEnabled);
+            }
+        }
+        if (hereAvailable()) {
+            if (hereState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
+                setHereState(LocationSettings::OnlineAGpsEnabled);
+            }
+        }
+    } else if (locationMode == DeviceOnlyMode) {
+        setGpsEnabled(true);
+        if (mlsAvailable()) {
+            setMlsEnabled(true);
+            if (mlsOnlineState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
+                setMlsOnlineState(LocationSettings::OnlineAGpsDisabled);
+            }
+        }
+        if (hereAvailable()) {
+            if (hereState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
+                setHereState(LocationSettings::OnlineAGpsDisabled);
+            }
+        }
+    }
+
+    d->m_settingMultipleSettings = false;
+    d->writeSettings();
+    emit locationModeChanged();
+
+    d->m_settingLocationMode = false;
 }
 
 void LocationSettingsPrivate::readSettings()
@@ -314,21 +451,22 @@ void LocationSettingsPrivate::readSettings()
     }
 
     // read the deprecated keys first, for compatibility purposes:
-    bool oldMlsEnabled = locationSettingsValues[9] != NULL && strcmp(locationSettingsValues[9], "true") == 0;
-    bool oldHereEnabled = locationSettingsValues[10] != NULL && strcmp(locationSettingsValues[10], "true") == 0;
-    bool oldHereAgreementAccepted = locationSettingsValues[11] != NULL && strcmp(locationSettingsValues[11], "true") == 0;
+    bool oldMlsEnabled = locationSettingsValues[10] != NULL && strcmp(locationSettingsValues[10], "true") == 0;
+    bool oldHereEnabled = locationSettingsValues[11] != NULL && strcmp(locationSettingsValues[11], "true") == 0;
+    bool oldHereAgreementAccepted = locationSettingsValues[12] != NULL && strcmp(locationSettingsValues[12], "true") == 0;
     // then read the new key values (overriding with deprecated values if needed):
     bool locationEnabled = locationSettingsValues[0] != NULL && strcmp(locationSettingsValues[0], "true") == 0;
-    // skip over the agps_providers value at [1]
-    bool gpsEnabled = locationSettingsValues[2] != NULL && strcmp(locationSettingsValues[2], "true") == 0;
-    bool mlsEnabled = oldMlsEnabled || (locationSettingsValues[3] != NULL && strcmp(locationSettingsValues[3], "true") == 0);
-    bool mlsAgreementAccepted = locationSettingsValues[4] != NULL && strcmp(locationSettingsValues[4], "true") == 0;
-    bool mlsOnlineEnabled = locationSettingsValues[5] != NULL && strcmp(locationSettingsValues[5], "true") == 0;
-    bool hereEnabled = oldHereEnabled || (locationSettingsValues[6] != NULL && strcmp(locationSettingsValues[6], "true") == 0);
-    bool hereAgreementAccepted = oldHereAgreementAccepted || (locationSettingsValues[7] != NULL && strcmp(locationSettingsValues[7], "true") == 0);
-    // skip over here\online_enabled value at [8]
+    bool customMode = locationSettingsValues[1] != NULL && strcmp(locationSettingsValues[1], "true") == 0;
+    // skip over the agps_providers value at [2]
+    bool gpsEnabled = locationSettingsValues[3] != NULL && strcmp(locationSettingsValues[3], "true") == 0;
+    bool mlsEnabled = oldMlsEnabled || (locationSettingsValues[4] != NULL && strcmp(locationSettingsValues[4], "true") == 0);
+    bool mlsAgreementAccepted = locationSettingsValues[5] != NULL && strcmp(locationSettingsValues[5], "true") == 0;
+    bool mlsOnlineEnabled = locationSettingsValues[6] != NULL && strcmp(locationSettingsValues[6], "true") == 0;
+    bool hereEnabled = oldHereEnabled || (locationSettingsValues[7] != NULL && strcmp(locationSettingsValues[7], "true") == 0);
+    bool hereAgreementAccepted = oldHereAgreementAccepted || (locationSettingsValues[8] != NULL && strcmp(locationSettingsValues[8], "true") == 0);
+    // skip over here\online_enabled value at [9]
 
-    const int expectedCount = 12; // should equal: LocationSettingsKeys.split(';').count();
+    const int expectedCount = 13; // should equal: LocationSettingsKeys.split(';').count();
     for (int i = 0; i < expectedCount; ++i) {
         if (locationSettingsValues[i] != NULL) {
             free(locationSettingsValues[i]);
@@ -366,10 +504,24 @@ void LocationSettingsPrivate::readSettings()
         m_mlsOnlineState = mlsOnlineState;
         emit q->mlsOnlineStateChanged();
     }
+
+    if ((m_locationMode == LocationSettings::CustomMode) != customMode) {
+        if (customMode) {
+            m_locationMode = LocationSettings::CustomMode;
+            emit q->locationModeChanged();
+        } else {
+            m_locationMode = calculateLocationMode();
+            emit q->locationModeChanged();
+        }
+    }
 }
 
 void LocationSettingsPrivate::writeSettings()
 {
+    if (m_settingMultipleSettings) {
+        return; // wait to write settings until all settings have been set.
+    }
+
     // new file would be owned by creating process uid. we cannot allow this since the access is handled with group
     if (!QFile(LocationSettingsFile).exists()) {
         qWarning() << "Location settings configuration file does not exist. Refusing to create new.";
@@ -388,6 +540,8 @@ void LocationSettingsPrivate::writeSettings()
 
     QString locationSettingsValues;
     locationSettingsValues.append(boolToString(m_locationEnabled));
+    locationSettingsValues.append(";");
+    locationSettingsValues.append(boolToString(m_locationMode == LocationSettings::CustomMode));
     locationSettingsValues.append(";");
     locationSettingsValues.append(agps_providers);
     locationSettingsValues.append(";");
