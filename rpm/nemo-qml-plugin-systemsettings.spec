@@ -28,6 +28,7 @@ BuildRequires:  pkgconfig(libsailfishkeyprovider) >= 0.0.14
 BuildRequires:  pkgconfig(connman-qt5) >= 1.2.7
 BuildRequires:  pkgconfig(ssu-sysinfo) >= 1.1.0
 BuildRequires:  pkgconfig(packagekitqt5)
+BuildRequires:  pkgconfig(glib-2.0)
 
 %description
 %{summary}.
