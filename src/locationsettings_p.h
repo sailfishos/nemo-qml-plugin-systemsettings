@@ -73,6 +73,7 @@ public:
     LocationSettings::LocationMode m_locationMode;
     bool m_settingLocationMode;
     bool m_settingMultipleSettings;
+    QVector<LocationSettings::DataSource> m_availableDataSources;
     LocationSettings::DataSources m_allowedDataSources;
     NetworkManager *m_connMan;
     NetworkTechnology *m_gpsTech;

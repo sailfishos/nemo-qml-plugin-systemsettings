@@ -79,6 +79,17 @@ namespace {
         { LocationSettings::QzssData, QStringLiteral("allowed_data_sources\\qzss") },
         { LocationSettings::SbasData, QStringLiteral("allowed_data_sources\\sbas") }
     };
+    // TODO: in future, read this from some per-variant configuration settings file,
+    // e.g. if the device doesn't support gps or bluetooth or wlan etc, remove from
+    // the available data sources; also add GNSS constellation options in the future.
+    const QVector<LocationSettings::DataSource> AvailableDataSources {
+        LocationSettings::OnlineDataSources,
+        LocationSettings::DeviceSensorsData,
+        LocationSettings::BluetoothData,
+        LocationSettings::WlanData,
+        LocationSettings::CellTowerData,
+        LocationSettings::GpsData
+    };
 }
 
 IniFile::IniFile(const QString &fileName)
@@ -185,6 +196,7 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
     , m_locationMode(LocationSettings::CustomMode)
     , m_settingLocationMode(true)
     , m_settingMultipleSettings(false)
+    , m_availableDataSources(AvailableDataSources)
     , m_allowedDataSources(static_cast<LocationSettings::DataSources>(std::numeric_limits<quint32>::max()))
     , m_connMan(Q_NULLPTR)
     , m_gpsTech(Q_NULLPTR)
@@ -536,6 +548,12 @@ void LocationSettings::setLocationMode(LocationMode locationMode)
     emit locationModeChanged();
 
     d->m_settingLocationMode = false;
+}
+
+QVector<LocationSettings::DataSource> LocationSettings::availableDataSources() const
+{
+    Q_D(const LocationSettings);
+    return d->m_availableDataSources;
 }
 
 LocationSettings::DataSources LocationSettings::allowedDataSources() const

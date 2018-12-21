@@ -37,6 +37,7 @@
 
 #include <QObject>
 #include <QString>
+#include <QVector>
 
 #define LOCATION_SETTINGS_LAST_DATA_SOURCE_BIT 31
 
@@ -60,6 +61,7 @@ class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
 
     Q_PROPERTY(LocationMode locationMode READ locationMode WRITE setLocationMode NOTIFY locationModeChanged)
 
+    Q_PROPERTY(QVector<DataSource> availableDataSources READ availableDataSources CONSTANT)
     Q_PROPERTY(DataSources allowedDataSources READ allowedDataSources WRITE setAllowedDataSources NOTIFY allowedDataSourcesChanged)
 
     Q_ENUMS(OnlineAGpsState)
@@ -133,7 +135,9 @@ public:
     };
     Q_DECLARE_FLAGS(DataSources, DataSource)
     Q_FLAG(DataSources)
+    Q_ENUM(DataSource)
 
+    QVector<DataSource> availableDataSources() const;
     DataSources allowedDataSources() const;
     void setAllowedDataSources(DataSources dataSources);
 
