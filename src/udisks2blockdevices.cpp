@@ -284,7 +284,7 @@ void BlockDevices::complete(Block *block, bool forceAccept)
         });
     }
 
-    bool willAccept = !unlocked && (block->isMountable() || block->isEncrypted() || block->isFormatting() || forceAccept);
+    bool willAccept = !unlocked && (block->isPartition() || block->isMountable() || block->isEncrypted() || block->isFormatting() || forceAccept);
     qCInfo(lcMemoryCardLog) << "Completed block" << qPrintable(block->path())
                             << "is" << (willAccept ? "accepted" : "rejected");
     block->dumpInfo();
