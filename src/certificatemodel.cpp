@@ -35,6 +35,7 @@
 #include <QFile>
 #include <QRegularExpression>
 #include <QDebug>
+#include <functional>
 
 #include <openssl/opensslv.h>
 #include <openssl/bio.h>

@@ -34,6 +34,7 @@
 
 #include <QMap>
 #include <QPointer>
+#include <functional>
 
 #include "udisks2block_p.h"
 
