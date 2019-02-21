@@ -36,6 +36,7 @@
 #include <QVariantMap>
 #include <QDBusConnection>
 #include <QPointer>
+#include <functional>
 
 #include "udisks2defines.h"
 
