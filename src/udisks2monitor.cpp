@@ -174,9 +174,25 @@ void UDisks2::Monitor::mount(const QString &devicePath)
 {
     QVariantList arguments;
     QVariantMap options;
-    options.insert(QStringLiteral("fstype"), QString());
-    arguments << options;
-    startMountOperation(devicePath, UDISKS2_FILESYSTEM_MOUNT, m_blockDevices->objectPath(devicePath), arguments);
+
+    if (Block *block = m_blockDevices->find(devicePath)) {
+        QString objectPath;
+        if (block->device() == devicePath) {
+            objectPath = block->path();
+        } else if (block->cryptoBackingDevicePath() == devicePath) {
+            objectPath = block->cryptoBackingDeviceObjectPath();
+        }
+
+        // Find has the same condition.
+        Q_ASSERT(!objectPath.isEmpty());
+
+        options.insert(QStringLiteral("fstype"), block->idType());
+        arguments << options;
+        startMountOperation(devicePath, UDISKS2_FILESYSTEM_MOUNT, objectPath, arguments);
+    } else {
+        emit mountError(Partition::ErrorOptionNotPermitted);
+        emit status(devicePath, Partition::Unmounted);
+    }
 }
 
 void UDisks2::Monitor::unmount(const QString &devicePath)
