@@ -92,6 +92,9 @@ signals:
     void storageChanged();
 
 private:
+    void partitionCountChanged();
+    void reloadStorageLists();
+
     QNetworkInfo *m_netinfo;
     QDeviceInfo *m_devinfo;
 

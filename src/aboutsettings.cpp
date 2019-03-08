@@ -42,6 +42,7 @@
 #include <QTextStream>
 #include <QVariant>
 #include <QSettings>
+#include <QTimer>
 
 namespace
 {
@@ -126,6 +127,11 @@ AboutSettings::AboutSettings(QObject *parent)
     m_vendorVersion = settings.value(QStringLiteral("Version")).toString();
 
     refreshStorageModels();
+
+    connect(&m_partitionManager, &PartitionManager::partitionAdded,
+            this, &AboutSettings::partitionCountChanged);
+    connect(&m_partitionManager, &PartitionManager::partitionRemoved,
+            this, &AboutSettings::partitionCountChanged);
 }
 
 AboutSettings::~AboutSettings()
@@ -228,10 +234,22 @@ QString AboutSettings::vendorVersion() const
 
 void AboutSettings::refreshStorageModels()
 {
+    m_partitionManager.refresh();
+
+    partitionCountChanged();
+}
+
+void AboutSettings::partitionCountChanged()
+{
+    // Queue the method invocation in case several list changes are made consecutively, so that
+    // the list is only reloaded once.
+    QTimer::singleShot(0, this, &AboutSettings::reloadStorageLists);
+}
+
+void AboutSettings::reloadStorageLists()
+{
     m_internalStorage.clear();
     m_externalStorage.clear();
-
-    m_partitionManager.refresh();
 
     for (auto partition : m_partitionManager.partitions()) {
         QVariantMap row;
