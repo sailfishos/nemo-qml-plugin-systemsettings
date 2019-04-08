@@ -51,6 +51,7 @@ class SYSTEMSETTINGS_EXPORT VpnModel : public ObjectListModel
     Q_OBJECT
 
     Q_PROPERTY(int bestState READ bestState NOTIFY bestStateChanged)
+    Q_PROPERTY(bool autoConnect READ autoConnect NOTIFY autoConnectChanged)
 
 public:
     enum ConnectionState {
@@ -66,6 +67,7 @@ public:
     virtual ~VpnModel();
 
     int bestState() const;
+    bool autoConnect() const;
 
     Q_INVOKABLE void createConnection(const QVariantMap &properties);
     Q_INVOKABLE void modifyConnection(const QString &path, const QVariantMap &properties);
@@ -88,6 +90,7 @@ public:
 
 signals:
     void bestStateChanged();
+    void autoConnectChanged();
     void connectionStateChanged(const QString &path, int state);
 
 private:
@@ -130,6 +133,8 @@ private:
     CredentialsRepository credentials_;
     QString provisioningOutputPath_;
     ConnectionState bestState_;
+    // True if there's one VPN that has autoConnect true
+    bool autoConnect_;
 };
 
 class SYSTEMSETTINGS_EXPORT VpnConnection : public QObject
