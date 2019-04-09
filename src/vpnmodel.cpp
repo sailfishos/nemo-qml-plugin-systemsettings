@@ -319,6 +319,7 @@ VpnModel::VpnModel(QObject *parent)
     , credentials_(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/system/privileged/vpn-data"))
     , provisioningOutputPath_(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/system/privileged/vpn-provisioning"))
     , bestState_(VpnModel::Idle)
+    , autoConnect_(false)
 {
     qDBusRegisterMetaType<PathProperties>();
     qDBusRegisterMetaType<PathPropertiesArray>();
@@ -388,6 +389,11 @@ VpnModel::~VpnModel()
 int VpnModel::bestState() const
 {
     return static_cast<int>(bestState_);
+}
+
+bool VpnModel::autoConnect() const
+{
+    return autoConnect_;
 }
 
 void VpnModel::createConnection(const QVariantMap &createProperties)
@@ -882,6 +888,16 @@ void VpnModel::updateConnection(VpnConnection *conn, const QVariantMap &updatePr
                 moveItem(currentIndex, (currentIndex < index ? (index - 1) : index));
             }
         }
+    }
+
+    bool autoConnect = false;
+    for (int i = 0; i < count(); ++i) {
+        autoConnect = autoConnect || get<VpnConnection>(i)->autoConnect();
+    }
+
+    if (autoConnect_ != autoConnect) {
+        autoConnect_ = autoConnect;
+        autoConnectChanged();
     }
 }
 
