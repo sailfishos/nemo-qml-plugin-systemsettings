@@ -371,8 +371,12 @@ VpnModel::VpnModel(QObject *parent)
         }
         clear();
         setPopulated(false);
+
         qDeleteAll(connections_);
+        connections_.clear();
+
         qDeleteAll(vpnServices_);
+        vpnServices_.clear();
     });
     connect(watcher, &QDBusServiceWatcher::serviceRegistered, this, [this](const QString &) {
         fetchVpnList();
