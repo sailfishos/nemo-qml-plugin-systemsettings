@@ -925,6 +925,7 @@ Module {
         Property { name: "availableModes"; type: "QStringList"; isReadonly: true }
         Property { name: "hiddenModes"; type: "QStringList"; isReadonly: true }
         Property { name: "currentMode"; type: "string" }
+        Property { name: "targetMode"; type: "string"; isReadonly: true }
         Property { name: "configMode"; type: "string" }
         Signal {
             name: "eventReceived"
@@ -971,6 +972,7 @@ Module {
             }
         }
         Property { name: "bestState"; type: "int"; isReadonly: true }
+        Property { name: "autoConnect"; type: "bool"; isReadonly: true }
         Signal {
             name: "connectionStateChanged"
             Parameter { name: "path"; type: "string" }
