@@ -229,7 +229,7 @@ QList<Language> LanguageModel::supportedLanguages()
         languages.append(newLanguage);
     }
 
-    qSort(languages.begin(), languages.end(), nameLessThan);
+    std::sort(languages.begin(), languages.end(), nameLessThan);
     return languages;
 }
 
