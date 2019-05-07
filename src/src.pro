@@ -16,6 +16,7 @@ system(qdbusxml2cpp -c ConnmanServiceProxy -p connmanserviceproxy ../dbus/net.co
 
 SOURCES += \
     languagemodel.cpp \
+    localeconfig.cpp \
     logging.cpp \
     datetimesettings.cpp \
     profilecontrol.cpp \
@@ -71,6 +72,7 @@ PUBLIC_HEADERS = \
 HEADERS += \
     $$PUBLIC_HEADERS \
     qdbusxml2cpp_dbus_types.h \
+    localeconfig.h \
     batterystatus_p.h \
     logging_p.h \
     diskusage_p.h \

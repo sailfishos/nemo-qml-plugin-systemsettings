@@ -69,6 +69,7 @@ rm -rf %{buildroot}
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/plugins.qmltypes
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/qmldir
 %{_libdir}/libsystemsettings.so.*
+%attr(4710,-,privileged) %{_libexecdir}/setlocale
 %dir %attr(0775, root, privileged) /etc/location
 %config %attr(0664, root, privileged) /etc/location/location.conf
 
