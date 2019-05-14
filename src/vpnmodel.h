@@ -52,6 +52,7 @@ class SYSTEMSETTINGS_EXPORT VpnModel : public ObjectListModel
 
     Q_PROPERTY(int bestState READ bestState NOTIFY bestStateChanged)
     Q_PROPERTY(bool autoConnect READ autoConnect NOTIFY autoConnectChanged)
+    Q_PROPERTY(bool orderByConnected READ orderByConnected WRITE setOrderByConnected NOTIFY orderByConnectedChanged)
 
 public:
     enum ConnectionState {
@@ -68,6 +69,9 @@ public:
 
     int bestState() const;
     bool autoConnect() const;
+
+    bool orderByConnected() const;
+    void setOrderByConnected(bool orderByConnected);
 
     Q_INVOKABLE void createConnection(const QVariantMap &properties);
     Q_INVOKABLE void modifyConnection(const QString &path, const QVariantMap &properties);
@@ -92,6 +96,7 @@ signals:
     void bestStateChanged();
     void autoConnectChanged();
     void connectionStateChanged(const QString &path, int state);
+    void orderByConnectedChanged();
 
 private:
     void fetchVpnList();
@@ -104,6 +109,7 @@ private:
     bool domainInUse(const QString &domain) const;
     QString createDefaultDomain() const;
     bool isDefaultDomain(const QString &domain) const;
+    void reorderConnection(VpnConnection * conn);
 
     class CredentialsRepository
     {
@@ -135,6 +141,7 @@ private:
     ConnectionState bestState_;
     // True if there's one VPN that has autoConnect true
     bool autoConnect_;
+    bool orderByConnected_;
 };
 
 class SYSTEMSETTINGS_EXPORT VpnConnection : public QObject
@@ -157,6 +164,7 @@ class SYSTEMSETTINGS_EXPORT VpnConnection : public QObject
     Q_PROPERTY(QVariantList userRoutes READ userRoutes WRITE setUserRoutes NOTIFY userRoutesChanged)
     Q_PROPERTY(QVariantList serverRoutes READ serverRoutes WRITE setServerRoutes NOTIFY serverRoutesChanged)
     Q_PROPERTY(QVariantMap providerProperties READ providerProperties WRITE setProviderProperties NOTIFY providerPropertiesChanged)
+    Q_PROPERTY(bool connected READ connected NOTIFY connectedChanged)
 
 public:
     VpnConnection(const QString &path);
@@ -211,6 +219,8 @@ public:
     QVariantMap providerProperties() const { return providerProperties_; }
     void setProviderProperties(const QVariantMap  providerProperties) { updateMember(&VpnConnection::providerProperties_, providerProperties, &VpnConnection::providerPropertiesChanged); }
 
+    int connected() const { return state_ == VpnModel::Ready; }
+
 signals:
     void nameChanged();
     void stateChanged();
@@ -228,6 +238,7 @@ signals:
     void userRoutesChanged();
     void serverRoutesChanged();
     void providerPropertiesChanged();
+    void connectedChanged();
 
 private:
     template<typename T, typename V>
