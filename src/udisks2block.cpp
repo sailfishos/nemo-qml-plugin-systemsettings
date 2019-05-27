@@ -261,7 +261,8 @@ bool UDisks2::Block::isReadOnly() const
 bool UDisks2::Block::isExternal() const
 {
     const QString prefDevice = preferredDevice();
-    return prefDevice != QStringLiteral("/dev/sailfish/home") && prefDevice != QStringLiteral("/dev/sailfish/root");
+    return prefDevice != QStringLiteral("/dev/sailfish/home") && prefDevice != QStringLiteral("/dev/sailfish/root")
+            && mountPath() != QStringLiteral("/home") && mountPath() != QStringLiteral("/");
 }
 
 bool UDisks2::Block::isValid() const
@@ -332,7 +333,7 @@ void UDisks2::Block::addInterface(const QString &interface, QVariantMap property
 {
     m_interfacePropertyMap.insert(interface, propertyMap);
     if (interface == UDISKS2_FILESYSTEM_INTERFACE) {
-        setMountable(true);
+        updateFileSystemInterface(propertyMap);
     } else if (interface == UDISKS2_ENCRYPTED_INTERFACE) {
         setEncrypted(true);
     }
@@ -346,7 +347,7 @@ void UDisks2::Block::removeInterface(const QString &interface)
     } else if (interface == UDISKS2_DRIVE_INTERFACE) {
         m_drive.clear();
     } else if (interface == UDISKS2_FILESYSTEM_INTERFACE) {
-        setMountable(false);
+        updateFileSystemInterface(QVariantMap());
     } else if (interface == UDISKS2_ENCRYPTED_INTERFACE) {
         setEncrypted(false);
     }
@@ -438,21 +439,25 @@ bool UDisks2::Block::isCompleted() const
 void UDisks2::Block::updateFileSystemInterface(const QVariant &filesystemInterface)
 {
     QVariantMap filesystem = NemoDBus::demarshallArgument<QVariantMap>(filesystemInterface);
-    m_interfacePropertyMap.insert(UDISKS2_FILESYSTEM_INTERFACE, filesystem);
+
+    bool interfaceChange = m_interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE) != filesystem.isEmpty();
+    if (filesystem.isEmpty()) {
+        m_interfacePropertyMap.remove(UDISKS2_FILESYSTEM_INTERFACE);
+    } else {
+        m_interfacePropertyMap.insert(UDISKS2_FILESYSTEM_INTERFACE, filesystem);
+    }
     QList<QByteArray> mountPointList = NemoDBus::demarshallArgument<QList<QByteArray> >(filesystem.value(QStringLiteral("MountPoints")));
     m_mountPath.clear();
 
-    for (const QByteArray &bytes : mountPointList) {
-        if (bytes.startsWith("/run")) {
-            m_mountPath = QString::fromLocal8Bit(bytes);
-            break;
-        }
+    if (!mountPointList.isEmpty()) {
+        m_mountPath = QString::fromLocal8Bit(mountPointList.at(0));
     }
 
     bool triggerUpdate = false;
     blockSignals(true);
-    triggerUpdate = setMountable(true);
+    triggerUpdate = setMountable(!filesystem.isEmpty());
     triggerUpdate |= clearFormattingState();
+    triggerUpdate |= interfaceChange;
     blockSignals(false);
 
     if (triggerUpdate) {
