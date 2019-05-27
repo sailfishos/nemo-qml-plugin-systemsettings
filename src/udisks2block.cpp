@@ -28,11 +28,6 @@ UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &
         qCWarning(lcMemoryCardLog) << "Failed to connect to Block properties change interface" << m_path << m_connection.lastError().message();
     }
 
-    QDBusInterface dbusPropertyInterface(UDISKS2_SERVICE,
-                                    m_path,
-                                    DBUS_OBJECT_PROPERTIES_INTERFACE,
-                                    m_connection);
-
     qCInfo(lcMemoryCardLog) << "Creating a new block. Mountable:" << m_mountable << ", encrypted:" << m_encrypted << "object path:" << m_path << "data is empty:" << m_data.isEmpty();
 
     if (m_interfacePropertyMap.isEmpty()) {
