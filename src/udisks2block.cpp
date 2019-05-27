@@ -63,15 +63,7 @@ UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &
                 qCInfo(lcMemoryCardLog) << "Drive properties:" << driveProperties;
                 m_drive = driveProperties;
             });
-
-            connect(m_pendingDrive.data(), &QObject::destroyed, this, &Block::complete);
         });
-
-        connect(m_pendingEncrypted.data(), &QObject::destroyed, this, &Block::complete);
-        connect(m_pendingFileSystem.data(), &QObject::destroyed, this, &Block::complete);
-        connect(m_pendingPartitionTable.data(), &QObject::destroyed, this, &Block::complete);
-        connect(m_pendingPartition.data(), &QObject::destroyed, this, &Block::complete);
-        connect(m_pendingBlock.data(), &QObject::destroyed, this, &Block::complete);
     } else {
         if (m_mountable) {
             QVariantMap map = interfacePropertyMap.value(UDISKS2_FILESYSTEM_INTERFACE);
@@ -524,6 +516,8 @@ void UDisks2::Block::getProperties(const QString &path, const QString &interface
                                     m_connection);
     QDBusPendingCall pendingCall = dbusPropertyInterface.asyncCall(DBUS_GET_ALL, interface);
     watcherPointer = new QDBusPendingCallWatcher(pendingCall, this);
+
+    connect(watcherPointer.data(), &QObject::destroyed, this, &Block::complete);
     connect(watcherPointer.data(), &QDBusPendingCallWatcher::finished, this, [success, path, interface](QDBusPendingCallWatcher *watcher) {
         if (watcher->isValid() && watcher->isFinished()) {
             QDBusPendingReply<> reply = *watcher;
