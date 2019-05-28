@@ -261,16 +261,16 @@ void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const 
                 operation == UDISKS2_JOB_OF_FS_FORMAT) {
             UDisks2::Job *job = new UDisks2::Job(path, dict);
             updatePartitionStatus(job, true);
+            if (job->operation() == Job::Lock) {
+                for (const QString &dbusObjectPath : job->objects()) {
+                    m_blockDevices->lock(dbusObjectPath);
+                }
+            }
 
             connect(job, &UDisks2::Job::completed, this, [this](bool success) {
                 UDisks2::Job *job = qobject_cast<UDisks2::Job *>(sender());
                 job->dumpInfo();
-
-                if (job->operation() == Job::Lock) {
-                    for (const QString &dbusObjectPath : job->objects()) {
-                        m_blockDevices->lock(dbusObjectPath);
-                    }
-                } else {
+                if (job->operation() != Job::Lock) {
                     updatePartitionStatus(job, success);
                 }
             });

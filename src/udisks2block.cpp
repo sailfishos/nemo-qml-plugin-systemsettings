@@ -28,11 +28,6 @@ UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &
         qCWarning(lcMemoryCardLog) << "Failed to connect to Block properties change interface" << m_path << m_connection.lastError().message();
     }
 
-    QDBusInterface dbusPropertyInterface(UDISKS2_SERVICE,
-                                    m_path,
-                                    DBUS_OBJECT_PROPERTIES_INTERFACE,
-                                    m_connection);
-
     qCInfo(lcMemoryCardLog) << "Creating a new block. Mountable:" << m_mountable << ", encrypted:" << m_encrypted << "object path:" << m_path << "data is empty:" << m_data.isEmpty();
 
     if (m_interfacePropertyMap.isEmpty()) {
@@ -68,15 +63,7 @@ UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &
                 qCInfo(lcMemoryCardLog) << "Drive properties:" << driveProperties;
                 m_drive = driveProperties;
             });
-
-            connect(m_pendingDrive.data(), &QObject::destroyed, this, &Block::complete);
         });
-
-        connect(m_pendingEncrypted.data(), &QObject::destroyed, this, &Block::complete);
-        connect(m_pendingFileSystem.data(), &QObject::destroyed, this, &Block::complete);
-        connect(m_pendingPartitionTable.data(), &QObject::destroyed, this, &Block::complete);
-        connect(m_pendingPartition.data(), &QObject::destroyed, this, &Block::complete);
-        connect(m_pendingBlock.data(), &QObject::destroyed, this, &Block::complete);
     } else {
         if (m_mountable) {
             QVariantMap map = interfacePropertyMap.value(UDISKS2_FILESYSTEM_INTERFACE);
@@ -274,7 +261,8 @@ bool UDisks2::Block::isReadOnly() const
 bool UDisks2::Block::isExternal() const
 {
     const QString prefDevice = preferredDevice();
-    return prefDevice != QStringLiteral("/dev/sailfish/home") && prefDevice != QStringLiteral("/dev/sailfish/root");
+    return prefDevice != QStringLiteral("/dev/sailfish/home") && prefDevice != QStringLiteral("/dev/sailfish/root")
+            && mountPath() != QStringLiteral("/home") && mountPath() != QStringLiteral("/");
 }
 
 bool UDisks2::Block::isValid() const
@@ -345,7 +333,7 @@ void UDisks2::Block::addInterface(const QString &interface, QVariantMap property
 {
     m_interfacePropertyMap.insert(interface, propertyMap);
     if (interface == UDISKS2_FILESYSTEM_INTERFACE) {
-        setMountable(true);
+        updateFileSystemInterface(propertyMap);
     } else if (interface == UDISKS2_ENCRYPTED_INTERFACE) {
         setEncrypted(true);
     }
@@ -359,7 +347,7 @@ void UDisks2::Block::removeInterface(const QString &interface)
     } else if (interface == UDISKS2_DRIVE_INTERFACE) {
         m_drive.clear();
     } else if (interface == UDISKS2_FILESYSTEM_INTERFACE) {
-        setMountable(false);
+        updateFileSystemInterface(QVariantMap());
     } else if (interface == UDISKS2_ENCRYPTED_INTERFACE) {
         setEncrypted(false);
     }
@@ -451,21 +439,25 @@ bool UDisks2::Block::isCompleted() const
 void UDisks2::Block::updateFileSystemInterface(const QVariant &filesystemInterface)
 {
     QVariantMap filesystem = NemoDBus::demarshallArgument<QVariantMap>(filesystemInterface);
-    m_interfacePropertyMap.insert(UDISKS2_FILESYSTEM_INTERFACE, filesystem);
+
+    bool interfaceChange = m_interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE) != filesystem.isEmpty();
+    if (filesystem.isEmpty()) {
+        m_interfacePropertyMap.remove(UDISKS2_FILESYSTEM_INTERFACE);
+    } else {
+        m_interfacePropertyMap.insert(UDISKS2_FILESYSTEM_INTERFACE, filesystem);
+    }
     QList<QByteArray> mountPointList = NemoDBus::demarshallArgument<QList<QByteArray> >(filesystem.value(QStringLiteral("MountPoints")));
     m_mountPath.clear();
 
-    for (const QByteArray &bytes : mountPointList) {
-        if (bytes.startsWith("/run")) {
-            m_mountPath = QString::fromLocal8Bit(bytes);
-            break;
-        }
+    if (!mountPointList.isEmpty()) {
+        m_mountPath = QString::fromLocal8Bit(mountPointList.at(0));
     }
 
     bool triggerUpdate = false;
     blockSignals(true);
-    triggerUpdate = setMountable(true);
+    triggerUpdate = setMountable(!filesystem.isEmpty());
     triggerUpdate |= clearFormattingState();
+    triggerUpdate |= interfaceChange;
     blockSignals(false);
 
     if (triggerUpdate) {
@@ -529,6 +521,8 @@ void UDisks2::Block::getProperties(const QString &path, const QString &interface
                                     m_connection);
     QDBusPendingCall pendingCall = dbusPropertyInterface.asyncCall(DBUS_GET_ALL, interface);
     watcherPointer = new QDBusPendingCallWatcher(pendingCall, this);
+
+    connect(watcherPointer.data(), &QObject::destroyed, this, &Block::complete);
     connect(watcherPointer.data(), &QDBusPendingCallWatcher::finished, this, [success, path, interface](QDBusPendingCallWatcher *watcher) {
         if (watcher->isValid() && watcher->isFinished()) {
             QDBusPendingReply<> reply = *watcher;

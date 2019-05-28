@@ -280,7 +280,7 @@ void BlockDevices::complete(Block *block, bool forceAccept)
     if (block->isEncrypted()) {
         QString newPath = block->path();
         unlocked = find([newPath](const Block *block) {
-            return block->cryptoBackingDeviceObjectPath() == newPath;
+            return block->cryptoBackingDeviceObjectPath() == newPath && !block->isLocking();
         });
     }
 
