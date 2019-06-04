@@ -320,6 +320,7 @@ VpnModel::VpnModel(QObject *parent)
     , provisioningOutputPath_(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/system/privileged/vpn-provisioning"))
     , bestState_(VpnModel::Idle)
     , autoConnect_(false)
+    , orderByConnected_(false)
 {
     qDBusRegisterMetaType<PathProperties>();
     qDBusRegisterMetaType<PathPropertiesArray>();
@@ -398,6 +399,30 @@ int VpnModel::bestState() const
 bool VpnModel::autoConnect() const
 {
     return autoConnect_;
+}
+
+bool VpnModel::orderByConnected() const
+{
+    return orderByConnected_;
+}
+
+void VpnModel::setOrderByConnected(bool orderByConnected)
+{
+    if (orderByConnected != orderByConnected_) {
+        orderByConnected_ = orderByConnected;
+
+        // Update the ordering; only the connected connections need to move
+        // In practice only one VPN can be connected, so full sort is overkill
+        const int itemCount(count());
+        for (int index = 0; index < itemCount; ++index) {
+            VpnConnection *conn = get<VpnConnection>(index);
+            if (conn->connected()) {
+                reorderConnection(conn);
+            }
+        }
+
+        emit orderByConnectedChanged();
+    }
 }
 
 void VpnModel::createConnection(const QVariantMap &createProperties)
@@ -851,6 +876,7 @@ void VpnModel::updateConnection(VpnConnection *conn, const QVariantMap &updatePr
     }
 
     int oldState(conn->state());
+    bool connectionChanged = false;
 
     if (updateItem(conn, properties)) {
         itemChanged(conn);
@@ -859,6 +885,10 @@ void VpnModel::updateConnection(VpnConnection *conn, const QVariantMap &updatePr
 
         if (conn->state() != oldState) {
             emit connectionStateChanged(conn->path(), static_cast<int>(conn->state()));
+            if ((conn->state() == VpnModel::Ready) != (oldState == VpnModel::Ready)) {
+                emit conn->connectedChanged();
+                connectionChanged = true;
+            }
 
             // Check to see if the best state has changed
             ConnectionState maxState = Idle;
@@ -874,23 +904,14 @@ void VpnModel::updateConnection(VpnConnection *conn, const QVariantMap &updatePr
             }
         }
 
-
-        // Keep the items sorted by name. So sort only when updateProperties map contains
-        // a name e.i. not when "autoConnect" changes. In practice this means that sorting
-        // is only allowed when a VPN is created. When modifying name of a VPN, the VPN
+        // Keep the items sorted by name and possibly connected status. So sort
+        // only when the connection status has changed, or the updateProperties
+        // map contains a name i.e. not when "autoConnect" changes. In practice
+        // this means that if orderByConnected_ is false then sorting is only
+        // allowed when a VPN is created. When modifying name of a VPN, the VPN
         // will be first removed and then recreated.
-        if (itemCount > 1 && updateProperties.contains(QStringLiteral("name"))) {
-            int index = 0;
-            for ( ; index < itemCount; ++index) {
-                const VpnConnection *existing = get<VpnConnection>(index);
-                if (existing->name() > conn->name()) {
-                    break;
-                }
-            }
-            const int currentIndex = indexOf(conn);
-            if (index != currentIndex && (index - 1) != currentIndex) {
-                moveItem(currentIndex, (currentIndex < index ? (index - 1) : index));
-            }
+        if (updateProperties.contains(QStringLiteral("name")) || (orderByConnected_ && connectionChanged)) {
+            reorderConnection(conn);
         }
     }
 
@@ -902,6 +923,29 @@ void VpnModel::updateConnection(VpnConnection *conn, const QVariantMap &updatePr
     if (autoConnect_ != autoConnect) {
         autoConnect_ = autoConnect;
         autoConnectChanged();
+    }
+}
+
+void VpnModel::reorderConnection(VpnConnection * conn)
+{
+    const int itemCount(count());
+
+    if (itemCount > 1) {
+        int index = 0;
+        for ( ; index < itemCount; ++index) {
+            const VpnConnection *existing = get<VpnConnection>(index);
+            // Scenario 1 orderByConnected == true: order first by connected, second by name
+            // Scenario 2 orderByConnected == false: order only by name
+            if ((orderByConnected_ && (existing->connected() < conn->connected()))
+                    || ((!orderByConnected_ || (existing->connected() == conn->connected()))
+                        && (existing->name() > conn->name()))) {
+                break;
+            }
+        }
+        const int currentIndex = indexOf(conn);
+        if (index != currentIndex && (index - 1) != currentIndex) {
+            moveItem(currentIndex, (currentIndex < index ? (index - 1) : index));
+        }
     }
 }
 
