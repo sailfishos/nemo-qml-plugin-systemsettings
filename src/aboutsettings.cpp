@@ -194,6 +194,15 @@ QString AboutSettings::serial() const
     return QString();
 }
 
+QString AboutSettings::baseOperatingSystemName() const
+{
+    QString osName = operatingSystemName();
+    if (osName.endsWith(QStringLiteral(" OS"))) {
+        osName.chop(3);
+    }
+    return osName;
+}
+
 QString AboutSettings::operatingSystemName() const
 {
     parseReleaseFile(QStringLiteral("/etc/os-release"), &m_osRelease);
