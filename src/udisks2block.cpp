@@ -267,7 +267,11 @@ bool UDisks2::Block::isExternal() const
 
 bool UDisks2::Block::isValid() const
 {
-    return m_interfacePropertyMap.contains(UDISKS2_BLOCK_INTERFACE);
+    bool hasBlock = m_interfacePropertyMap.contains(UDISKS2_BLOCK_INTERFACE);
+    if (hasBlock && device().startsWith(QStringLiteral("/dev/dm"))) {
+        return hasCryptoBackingDevice();
+    }
+    return hasBlock;
 }
 
 QString UDisks2::Block::idType() const
