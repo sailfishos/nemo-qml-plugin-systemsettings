@@ -58,6 +58,10 @@ class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
     Q_PROPERTY(OnlineAGpsState mlsOnlineState READ mlsOnlineState WRITE setMlsOnlineState NOTIFY mlsOnlineStateChanged)
     Q_PROPERTY(bool mlsAvailable READ mlsAvailable CONSTANT)
 
+    Q_PROPERTY(bool yandexLocatorEnabled READ yandexLocatorEnabled WRITE setYandexLocatorEnabled NOTIFY yandexLocatorEnabledChanged)
+    Q_PROPERTY(OnlineAGpsState yandexLocatorOnlineState READ yandexLocatorOnlineState WRITE setYandexLocatorOnlineState NOTIFY yandexLocatorOnlineStateChanged)
+    Q_PROPERTY(bool yandexLocatorAvailable READ yandexLocatorAvailable CONSTANT)
+
     Q_PROPERTY(LocationMode locationMode READ locationMode WRITE setLocationMode NOTIFY locationModeChanged)
 
     Q_PROPERTY(DataSources allowedDataSources READ allowedDataSources WRITE setAllowedDataSources NOTIFY allowedDataSourcesChanged)
@@ -99,6 +103,12 @@ public:
     OnlineAGpsState mlsOnlineState() const;
     void setMlsOnlineState(OnlineAGpsState state);
     bool mlsAvailable() const;
+
+    bool yandexLocatorEnabled() const;
+    void setYandexLocatorEnabled(bool enabled);
+    OnlineAGpsState yandexLocatorOnlineState() const;
+    void setYandexLocatorOnlineState(OnlineAGpsState state);
+    bool yandexLocatorAvailable() const;
 
     enum LocationMode {
         HighAccuracyMode,
@@ -144,6 +154,8 @@ signals:
     void gpsFlightModeChanged();
     void mlsEnabledChanged();
     void mlsOnlineStateChanged();
+    void yandexLocatorEnabledChanged();
+    void yandexLocatorOnlineStateChanged();
     void locationModeChanged();
     void allowedDataSourcesChanged();
 
