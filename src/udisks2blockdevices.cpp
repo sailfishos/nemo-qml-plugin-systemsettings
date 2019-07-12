@@ -66,8 +66,11 @@ bool BlockDevices::contains(const QString &dbusObjectPath) const
 
 void BlockDevices::remove(const QString &dbusObjectPath)
 {
-    Block *block = m_blockDevices.take(dbusObjectPath);
-    block->deleteLater();
+    if (contains(dbusObjectPath)) {
+        Block *block = m_blockDevices.take(dbusObjectPath);
+        clearPartitionWait(dbusObjectPath, false);
+        delete block;
+    }
 }
 
 Block *BlockDevices::device(const QString &dbusObjectPath) const
@@ -189,16 +192,22 @@ void BlockDevices::clearPartitionWait(const QString &dbusObjectPath, bool destro
 
 void BlockDevices::removeInterfaces(const QString &dbusObjectPath, const QStringList &interfaces)
 {
-    if (contains(dbusObjectPath)) {
-        UDisks2::Block *block = device(dbusObjectPath);
+    clearPartitionWait(dbusObjectPath, false);
+
+    UDisks2::Block *block = device(dbusObjectPath);
+    if (block) {
         if (interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
             block->removeInterface(UDISKS2_FILESYSTEM_INTERFACE);
         }
         if (interfaces.contains(UDISKS2_ENCRYPTED_INTERFACE)) {
             block->removeInterface(UDISKS2_ENCRYPTED_INTERFACE);
         }
+
+        if (interfaces.contains(UDISKS2_BLOCK_INTERFACE)) {
+            delete block;
+            m_blockDevices.remove(dbusObjectPath);
+        }
     }
-    clearPartitionWait(dbusObjectPath, true);
 }
 
 bool BlockDevices::isExternal(const QString &dbusObjectPath)
@@ -210,7 +219,8 @@ bool BlockDevices::isExternal(const QString &dbusObjectPath)
 void BlockDevices::blockCompleted()
 {
     Block *completedBlock = qobject_cast<Block *>(sender());
-    if (completedBlock->isPartitionTable() || (completedBlock->hasInterface(UDISKS2_BLOCK_INTERFACE) && completedBlock->interfaceCount() == 1)) {
+    if (completedBlock->isValid() && (completedBlock->isPartitionTable() ||
+                                      (completedBlock->hasInterface(UDISKS2_BLOCK_INTERFACE) && completedBlock->interfaceCount() == 1)) ){
         qCInfo(lcMemoryCardLog) << "Start waiting for block" << completedBlock->device();
         waitPartition(completedBlock);
         return;
