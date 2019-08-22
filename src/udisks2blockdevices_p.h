@@ -35,6 +35,7 @@
 #include <QMap>
 #include <QPointer>
 #include <functional>
+#include <QDBusObjectPath>
 
 #include "udisks2block_p.h"
 
@@ -63,12 +64,14 @@ public:
     QStringList devicePaths(const QStringList &dbusObjectPaths) const;
 
     bool createBlockDevice(const QString &dbusObjectPath, const InterfacePropertyMap &interfacePropertyMap);
+    void createBlockDevices(const QList<QDBusObjectPath> &devices);
     void lock(const QString &dbusObjectPath);
 
     void waitPartition(Block *block);
     void clearPartitionWait(const QString &dbusObjectPath, bool destroyBlock);
 
     void removeInterfaces(const QString &dbusObjectPath, const QStringList &interfaces);
+    bool populated() const;
 
     void dumpBlocks() const;
 
@@ -76,6 +79,7 @@ public:
 
 signals:
     void newBlock(Block *block);
+    void externalStoragesPopulated();
 
 private slots:
     void blockCompleted();
@@ -97,9 +101,12 @@ private:
     void complete(Block *block, bool forceAccept = false);
 
     void timerEvent(QTimerEvent *e) override;
+    void updatePopulatedCheck();
 
     QMap<QString, Block *> m_blockDevices;
     QMap<QString, PartitionWaiter*> m_partitionWaits;
+    int m_blockCount;
+    bool m_populated;
 
     static QPointer<BlockDevices> sharedInstance;
 };

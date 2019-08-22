@@ -32,7 +32,6 @@
 #include "partitionmodel.h"
 #include "partitionmanager_p.h"
 
-#include "udisks2monitor_p.h"
 #include "logging_p.h"
 
 #include <QDir>
@@ -49,6 +48,8 @@ PartitionModel::PartitionModel(QObject *parent)
     connect(m_manager.data(), &PartitionManagerPrivate::partitionChanged, this, &PartitionModel::partitionChanged);
     connect(m_manager.data(), &PartitionManagerPrivate::partitionAdded, this, &PartitionModel::partitionAdded);
     connect(m_manager.data(), &PartitionManagerPrivate::partitionRemoved, this, &PartitionModel::partitionRemoved);
+    connect(m_manager.data(), &PartitionManagerPrivate::externalStoragesPopulatedChanged,
+            this, &PartitionModel::externalStoragesPopulatedChanged);
 
     connect(m_manager.data(), &PartitionManagerPrivate::errorMessage, this, &PartitionModel::errorMessage);
 
@@ -106,6 +107,11 @@ QStringList PartitionModel::supportedFormatTypes() const
     }
 
     return types;
+}
+
+bool PartitionModel::externalStoragesPopulated() const
+{
+    return m_manager->externalStoragesPopulated();
 }
 
 void PartitionModel::refresh()
