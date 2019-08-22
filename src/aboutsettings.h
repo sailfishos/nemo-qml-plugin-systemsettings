@@ -55,9 +55,6 @@ class SYSTEMSETTINGS_EXPORT AboutSettings: public QObject
     Q_PROPERTY(QString vendorName READ vendorName CONSTANT)
     Q_PROPERTY(QString vendorVersion READ vendorVersion CONSTANT)
 
-    Q_PROPERTY(QVariant internalStorageUsageModel READ diskUsageModel NOTIFY storageChanged)
-    Q_PROPERTY(QVariant externalStorageUsageModel READ externalStorageUsageModel NOTIFY storageChanged)
-
 public:
     explicit AboutSettings(QObject *parent = 0);
     virtual ~AboutSettings();
@@ -75,7 +72,6 @@ public:
      *  - total: total bytes on the storage
      **/
     Q_INVOKABLE QVariant diskUsageModel() const;
-    QVariant externalStorageUsageModel() const;
     Q_INVOKABLE void refreshStorageModels();
 
     QString wlanMacAddress() const;
@@ -101,7 +97,6 @@ private:
     QDeviceInfo *m_devinfo;
 
     QVariantList m_internalStorage;
-    QVariantList m_externalStorage;
     PartitionManager m_partitionManager;
 
     mutable QMap<QString, QString> m_osRelease;
