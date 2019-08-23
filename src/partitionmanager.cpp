@@ -62,6 +62,8 @@ PartitionManagerPrivate::PartitionManagerPrivate()
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::mountError, this, &PartitionManagerPrivate::mountError);
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::unmountError, this, &PartitionManagerPrivate::unmountError);
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::formatError, this, &PartitionManagerPrivate::formatError);
+    connect(UDisks2::BlockDevices::instance(), &UDisks2::BlockDevices::externalStoragesPopulated,
+            this, &PartitionManagerPrivate::externalStoragesPopulatedChanged);
 
     QVariantMap defaultDrive;
     defaultDrive.insert(QLatin1String("model"), QString());
@@ -371,6 +373,11 @@ QStringList PartitionManagerPrivate::supportedFileSystems() const
     return supportedFs;
 }
 
+bool PartitionManagerPrivate::externalStoragesPopulated() const
+{
+    return UDisks2::BlockDevices::instance()->populated();
+}
+
 PartitionManager::PartitionManager(QObject *parent)
     : QObject(parent)
     , d(PartitionManagerPrivate::instance())
@@ -378,6 +385,8 @@ PartitionManager::PartitionManager(QObject *parent)
     connect(d.data(), &PartitionManagerPrivate::partitionChanged, this, &PartitionManager::partitionChanged);
     connect(d.data(), &PartitionManagerPrivate::partitionAdded, this, &PartitionManager::partitionAdded);
     connect(d.data(), &PartitionManagerPrivate::partitionRemoved, this, &PartitionManager::partitionRemoved);
+    connect(d.data(), &PartitionManagerPrivate::externalStoragesPopulatedChanged,
+            this, &PartitionManager::externalStoragesPopulated);
 }
 
 PartitionManager::~PartitionManager()

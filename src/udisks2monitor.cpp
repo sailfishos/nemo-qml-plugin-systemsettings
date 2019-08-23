@@ -665,9 +665,7 @@ void UDisks2::Monitor::getBlockDevices()
         if (watcher->isValid() && watcher->isFinished()) {
             QDBusPendingReply<QList<QDBusObjectPath> > reply = *watcher;
             const QList<QDBusObjectPath> blockDevicePaths = reply.argumentAt<0>();
-            for (const QDBusObjectPath &dbusObjectPath : blockDevicePaths) {
-                m_blockDevices->createBlockDevice(dbusObjectPath.path(), UDisks2::InterfacePropertyMap());
-            }
+            m_blockDevices->createBlockDevices(blockDevicePaths);
         } else if (watcher->isError()) {
             QDBusError error = watcher->error();
             qCWarning(lcMemoryCardLog) << "Unable to enumerate block devices:" << error.name() << error.message();

@@ -54,6 +54,7 @@ signals:
     void partitionChanged(const Partition &partition);
     void partitionAdded(const Partition &partition);
     void partitionRemoved(const Partition &partition);
+    void externalStoragesPopulated();
 
 private:
     QExplicitlySharedDataPointer<PartitionManagerPrivate> d;

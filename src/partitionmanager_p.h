@@ -75,11 +75,13 @@ public:
     QString objectPath(const QString &devicePath) const;
 
     QStringList supportedFileSystems() const;
+    bool externalStoragesPopulated() const;
 
 signals:
     void partitionChanged(const Partition &partition);
     void partitionAdded(const Partition &partition);
     void partitionRemoved(const Partition &partition);
+    void externalStoragesPopulatedChanged();
 
     void status(const QString &deviceName, Partition::Status);
     void errorMessage(const QString &objectPath, const QString &errorName);

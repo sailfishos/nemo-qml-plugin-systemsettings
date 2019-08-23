@@ -45,6 +45,7 @@ class SYSTEMSETTINGS_EXPORT PartitionModel : public QAbstractListModel
     Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
     Q_PROPERTY(StorageTypes storageTypes READ storageTypes WRITE setStorageTypes NOTIFY storageTypesChanged)
     Q_PROPERTY(QStringList supportedFormatTypes READ supportedFormatTypes CONSTANT)
+    Q_PROPERTY(bool externalStoragesPopulated READ externalStoragesPopulated NOTIFY externalStoragesPopulatedChanged)
 
 public:
     enum {
@@ -132,6 +133,7 @@ public:
     void setStorageTypes(StorageTypes storageTypes);
 
     QStringList supportedFormatTypes() const;
+    bool externalStoragesPopulated() const;
 
     Q_INVOKABLE void refresh();
     Q_INVOKABLE void refresh(int index);
@@ -152,6 +154,7 @@ public:
 signals:
     void countChanged();
     void storageTypesChanged();
+    void externalStoragesPopulatedChanged();
 
     void errorMessage(const QString &objectPath, const QString &errorName);
     void lockError(Error error);

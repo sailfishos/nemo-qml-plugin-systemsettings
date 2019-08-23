@@ -23,8 +23,6 @@ Module {
         Property { name: "adaptationVersion"; type: "string"; isReadonly: true }
         Property { name: "vendorName"; type: "string"; isReadonly: true }
         Property { name: "vendorVersion"; type: "string"; isReadonly: true }
-        Property { name: "internalStorageUsageModel"; type: "QVariant"; isReadonly: true }
-        Property { name: "externalStorageUsageModel"; type: "QVariant"; isReadonly: true }
         Signal { name: "storageChanged" }
         Method { name: "totalDiskSpace"; type: "qlonglong" }
         Method { name: "availableDiskSpace"; type: "qlonglong" }

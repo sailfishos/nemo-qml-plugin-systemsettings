@@ -153,11 +153,6 @@ QVariant AboutSettings::diskUsageModel() const
     return m_internalStorage;
 }
 
-QVariant AboutSettings::externalStorageUsageModel() const
-{
-    return m_externalStorage;
-}
-
 QString AboutSettings::wlanMacAddress() const
 {
     return m_netinfo->macAddress(QNetworkInfo::WlanMode, 0);
@@ -258,7 +253,6 @@ void AboutSettings::partitionCountChanged()
 void AboutSettings::reloadStorageLists()
 {
     m_internalStorage.clear();
-    m_externalStorage.clear();
 
     for (auto partition : m_partitionManager.partitions()) {
         QVariantMap row;
@@ -283,9 +277,7 @@ void AboutSettings::reloadStorageLists()
             }
         }();
 
-        if (partition.storageType() == Partition::External) {
-            m_externalStorage << QVariant(row);
-        } else {
+        if (partition.storageType() != Partition::External) {
             m_internalStorage << QVariant(row);
         }
     }

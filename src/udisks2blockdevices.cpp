@@ -148,10 +148,24 @@ QStringList BlockDevices::devicePaths(const QStringList &dbusObjectPaths) const
 bool BlockDevices::createBlockDevice(const QString &dbusObjectPath, const InterfacePropertyMap &interfacePropertyMap)
 {
     if (!BlockDevices::isExternal(dbusObjectPath)) {
+        updatePopulatedCheck();
         return false;
     }
 
     return doCreateBlockDevice(dbusObjectPath, interfacePropertyMap);
+}
+
+void BlockDevices::createBlockDevices(const QList<QDBusObjectPath> &devices)
+{
+    m_blockCount = devices.count();
+    if (m_blockCount == 0) {
+        m_populated = true;
+        emit externalStoragesPopulated();
+    }
+
+    for (const QDBusObjectPath &dbusObjectPath : devices) {
+        createBlockDevice(dbusObjectPath.path(), UDisks2::InterfacePropertyMap());
+    }
 }
 
 void BlockDevices::lock(const QString &dbusObjectPath)
@@ -210,6 +224,11 @@ void BlockDevices::removeInterfaces(const QString &dbusObjectPath, const QString
     }
 }
 
+bool BlockDevices::populated() const
+{
+    return m_populated;
+}
+
 bool BlockDevices::isExternal(const QString &dbusObjectPath)
 {
     static const QRegularExpression externalBlockDevice(QStringLiteral("^/org/freedesktop/UDisks2/block_devices/%1$").arg(externalDevice));
@@ -223,15 +242,21 @@ void BlockDevices::blockCompleted()
                                       (completedBlock->hasInterface(UDISKS2_BLOCK_INTERFACE) && completedBlock->interfaceCount() == 1)) ){
         qCInfo(lcMemoryCardLog) << "Start waiting for block" << completedBlock->device();
         waitPartition(completedBlock);
+        updatePopulatedCheck();
         return;
     }
 
     clearPartitionWait(completedBlock->partitionTable(), true);
     complete(completedBlock);
+
+    // Check only after complete has been called.
+    updatePopulatedCheck();
 }
 
 BlockDevices::BlockDevices(QObject *parent)
     : QObject(parent)
+    , m_blockCount(0)
+    , m_populated(false)
 {
     Q_ASSERT(!sharedInstance);
 
@@ -329,6 +354,17 @@ void BlockDevices::timerEvent(QTimerEvent *e)
             }
             clearPartitionWait(path, partitionTable);
             break;
+        }
+    }
+}
+
+void BlockDevices::updatePopulatedCheck()
+{
+    if (!m_populated) {
+        --m_blockCount;
+        if (m_blockCount == 0) {
+            m_populated = true;
+            emit externalStoragesPopulated();
         }
     }
 }
