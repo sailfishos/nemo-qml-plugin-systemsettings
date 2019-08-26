@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Jolla Ltd.
- * Contact: Matt Vogt <matthew.vogt@jollamobile.com>
+ * Copyright (c) 2016 - 2019 Jolla Ltd.
+ * Copyright (c) 2019 Open Mobile Platform LLC.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -38,7 +38,7 @@
 #include <QList>
 #include <QVariantMap>
 
-#include <systemsettingsglobal.h>
+#include "systemsettingsglobal.h"
 
 
 struct X509Certificate;
@@ -60,6 +60,8 @@ public:
 
     QVariantMap details() const { return m_details; }
 
+    QString issuerDisplayName() const { return m_issuerDisplayName; }
+
 private:
     QString m_commonName;
     QString m_countryName;
@@ -70,6 +72,8 @@ private:
 
     QDateTime m_notValidBefore;
     QDateTime m_notValidAfter;
+
+    QString m_issuerDisplayName;
 
     QVariantMap m_details;
 };
@@ -115,8 +119,9 @@ public:
     virtual QVariant data(const QModelIndex &index, int role) const;
 
     static QList<Certificate> getCertificates(const QString &bundlePath);
+    static QList<Certificate> getCertificates(const QByteArray &pem);
 
-signals:
+Q_SIGNALS:
     void bundleTypeChanged();
     void bundlePathChanged();
 

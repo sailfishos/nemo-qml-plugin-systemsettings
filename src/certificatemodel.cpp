@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016 Jolla Ltd.
- * COntact: Matt Vogt <matthew.vogt@jollamobile.com>
+ * Copyright (c) 2016 - 2019 Jolla Ltd.
+ * Copyright (c) 2019 Open Mobile Platform LLC.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -426,25 +426,44 @@ struct PKCS7File
                 if (BIO_read_filename(input, const_cast<char *>(filename.constData())) <= 0) {
                     qWarning() << "Unable to open PKCS7 file:" << path;
                 } else {
-                    STACK_OF(X509_INFO) *certificateStack = PEM_X509_INFO_read_bio(input, NULL, NULL, NULL);
-                    if (!certificateStack) {
-                        qWarning() << "Unable to read PKCS7 file:" << path;
-                    } else {
-                        while (sk_X509_INFO_num(certificateStack)) {
-                            X509_INFO *certificateInfo = sk_X509_INFO_shift(certificateStack);
-                            if (certificateInfo->x509 != NULL) {
-                                certs.append(certificateInfo->x509);
-                                certificateInfo->x509 = NULL;
-                            }
-                            X509_INFO_free(certificateInfo);
-                        }
-
-                        sk_X509_INFO_free(certificateStack);
-                    }
+                    read_pem_from_bio(input);
                 }
 
                 BIO_free(input);
             }
+        }
+    }
+
+    explicit PKCS7File(const QByteArray &pem)
+    {
+        if (!isValid()) {
+            qWarning() << "Unable to prepare X509 certificates structure";
+        } else {
+            BIO *input = BIO_new_mem_buf(pem.constData(), pem.length());
+            if (!input) {
+                qWarning() << "Unable to allocate new BIO while importing in-memory PEM";
+            } else {
+                read_pem_from_bio(input);
+                BIO_free(input);
+            }
+        }
+    }
+
+    void read_pem_from_bio(BIO *input) {
+        STACK_OF(X509_INFO) *certificateStack = PEM_X509_INFO_read_bio(input, NULL, NULL, NULL);
+        if (!certificateStack) {
+            qWarning() << "Unable to read PKCS7 data";
+        } else {
+            while (sk_X509_INFO_num(certificateStack)) {
+                X509_INFO *certificateInfo = sk_X509_INFO_shift(certificateStack);
+                if (certificateInfo->x509 != NULL) {
+                    certs.append(certificateInfo->x509);
+                    certificateInfo->x509 = NULL;
+                }
+                X509_INFO_free(certificateInfo);
+            }
+
+            sk_X509_INFO_free(certificateStack);
         }
     }
 
@@ -498,11 +517,17 @@ class LibCrypto
     static Initializer init;
 
 public:
-    static QList<Certificate> getCertificates(const QString &bundlePath)
+    template<class T>
+    static QList<Certificate> getCertificates(const T &bundleData)
+    {
+        PKCS7File bundle(bundleData);
+
+        return bundleToCertificates(bundle);
+    }
+private:
+    static QList<Certificate> bundleToCertificates(PKCS7File &bundle)
     {
         QList<Certificate> certificates;
-
-        PKCS7File bundle(bundlePath);
         if (bundle.isValid() && bundle.count() > 0) {
             certificates.reserve(bundle.count());
             bundle.getCertificates().for_each([&certificates](const X509Certificate &cert) {
@@ -513,6 +538,7 @@ public:
         return certificates;
     }
 };
+
 
 LibCrypto::Initializer LibCrypto::init;
 
@@ -579,9 +605,24 @@ Certificate::Certificate(const X509Certificate &cert)
         }
     }
 
+    // Matches QSslCertificate::issuerDisplayName() introducd in Qt 5.12
+    // Returns a name that describes the issuer. It returns the CommonName if
+    // available, otherwise falls back to the Organization or the first
+    // OrganizationalUnitName.
+    m_issuerDisplayName = cert.issuerElement(NID_commonName);
+    if (m_issuerDisplayName.isEmpty()) {
+        m_issuerDisplayName = cert.issuerElement(NID_countryName);
+    }
+    if (m_issuerDisplayName.isEmpty()) {
+        m_issuerDisplayName = cert.issuerElement(NID_organizationName);
+    }
+
     // Populate the details map
     m_details.insert(QStringLiteral("Version"), QVariant(cert.version()));
     m_details.insert(QStringLiteral("SerialNumber"), QVariant(cert.serialNumber()));
+    m_details.insert(QStringLiteral("SubjectDisplayName"), QVariant(m_primaryName));
+    m_details.insert(QStringLiteral("OrganizationName"), QVariant(m_organizationName));
+    m_details.insert(QStringLiteral("IssuerDisplayName"), QVariant(m_issuerDisplayName));
 
     QVariantMap validity;
     validity.insert(QStringLiteral("NotBefore"), QVariant(cert.notBefore()));
@@ -753,3 +794,7 @@ QList<Certificate> CertificateModel::getCertificates(const QString &bundlePath)
     return LibCrypto::getCertificates(bundlePath);
 }
 
+QList<Certificate> CertificateModel::getCertificates(const QByteArray &pem)
+{
+    return LibCrypto::getCertificates(pem);
+}
