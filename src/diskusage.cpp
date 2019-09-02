@@ -192,6 +192,7 @@ DiskUsage::DiskUsage(QObject *parent)
     , d_ptr(new DiskUsagePrivate(this))
     , m_working(false)
 {
+    qWarning() << Q_FUNC_INFO << "DiskUsage is deprecated in org.nemomobile.systemsettings package 0.5.22 (Sept 2019), use DiskUsage from Nemo.FileManager instead.";
 }
 
 DiskUsage::~DiskUsage()
