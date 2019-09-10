@@ -16,6 +16,7 @@ Module {
         Property { name: "wlanMacAddress"; type: "string"; isReadonly: true }
         Property { name: "imei"; type: "string"; isReadonly: true }
         Property { name: "serial"; type: "string"; isReadonly: true }
+        Property { name: "localizedOperatingSystemName"; type: "string"; isReadonly: true }
         Property { name: "baseOperatingSystemName"; type: "string"; isReadonly: true }
         Property { name: "operatingSystemName"; type: "string"; isReadonly: true }
         Property { name: "softwareVersion"; type: "string"; isReadonly: true }

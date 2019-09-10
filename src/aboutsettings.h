@@ -47,6 +47,7 @@ class SYSTEMSETTINGS_EXPORT AboutSettings: public QObject
     Q_PROPERTY(QString wlanMacAddress READ wlanMacAddress CONSTANT)
     Q_PROPERTY(QString imei READ imei CONSTANT)
     Q_PROPERTY(QString serial READ serial CONSTANT)
+    Q_PROPERTY(QString localizedOperatingSystemName READ localizedOperatingSystemName CONSTANT)
     Q_PROPERTY(QString baseOperatingSystemName READ baseOperatingSystemName CONSTANT)
     Q_PROPERTY(QString operatingSystemName READ operatingSystemName CONSTANT)
     Q_PROPERTY(QString softwareVersion READ softwareVersion CONSTANT)
@@ -77,6 +78,7 @@ public:
     QString wlanMacAddress() const;
     QString imei() const;
     QString serial() const;
+    QString localizedOperatingSystemName() const;
     QString baseOperatingSystemName() const;
     QString operatingSystemName() const;
     QString softwareVersion() const;
@@ -100,6 +102,7 @@ private:
     PartitionManager m_partitionManager;
 
     mutable QMap<QString, QString> m_osRelease;
+    mutable QMap<QString, QString> m_osReleaseLocalization;
     mutable QMap<QString, QString> m_hardwareRelease;
 
     QString m_vendorName;
