@@ -79,6 +79,7 @@ public:
         qmlRegisterType<QUsbModed>(uri, 1, 0, "USBSettings");
         qmlRegisterType<AboutSettings>(uri, 1, 0, "AboutSettings");
         qmlRegisterType<PartitionModel>(uri, 1, 0, "PartitionModel");
+        qRegisterMetaType<Partition>("Partition");
         qmlRegisterType<DeveloperModeSettings>(uri, 1, 0, "DeveloperModeSettings");
         qmlRegisterType<CertificateModel>(uri, 1, 0, "CertificateModel");
         qmlRegisterSingletonType<VpnModel>(uri, 1, 0, "VpnModel", vpnmodel_api_factory);
