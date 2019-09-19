@@ -116,6 +116,39 @@ void parseReleaseFile(const QString &filename, QMap<QString, QString> *result)
     }
 }
 
+void parseLocalizationFile(const QString &filename, QMap<QString, QString> *result)
+{
+    if (!result->isEmpty()) {
+        return;
+    }
+
+    if (!QFile(filename).exists()) {
+        return;
+    }
+
+    QSettings localizations(filename, QSettings::IniFormat);
+    localizations.setIniCodec("UTF-8");
+
+    QStringList languages = QLocale::system().uiLanguages();
+    QStringList availableLanguages;
+
+    for (auto it = languages.crbegin(); it != languages.crend(); ++it) {
+        const auto &lang = *it;
+        if (localizations.childGroups().contains(lang)) {
+            availableLanguages.append(lang);
+        }
+    }
+
+    // Gradually load localizations, overridding least preferred with most preferred ones
+    for (const auto &lang : availableLanguages) {
+        localizations.beginGroup(lang);
+        for (const auto &key : localizations.childKeys()) {
+            result->insert(key, localizations.value(key).toString());
+        }
+        localizations.endGroup();
+    }
+}
+
 }
 
 AboutSettings::AboutSettings(QObject *parent)
@@ -187,6 +220,13 @@ QString AboutSettings::serial() const
     }
 
     return QString();
+}
+
+QString AboutSettings::localizedOperatingSystemName() const
+{
+    parseLocalizationFile(QStringLiteral("/etc/os-release-l10n"), &m_osReleaseLocalization);
+
+    return m_osReleaseLocalization.value("NAME", operatingSystemName());
 }
 
 QString AboutSettings::baseOperatingSystemName() const
