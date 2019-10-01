@@ -1,6 +1,6 @@
 Name:       nemo-qml-plugin-systemsettings
 Summary:    System settings plugin for Nemo Mobile
-Version:    0.5.6
+Version:    0.5.27
 Release:    1
 Group:      System/Libraries
 License:    BSD
@@ -11,6 +11,7 @@ Requires(postun): /sbin/ldconfig
 Requires:       connman
 Requires:       mce >= 1.83.0
 Requires:       libsailfishkeyprovider >= 0.0.14
+Requires:       connman-qt5 >= 1.2.21
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5SystemInfo)
 BuildRequires:  pkgconfig(Qt5Test)
@@ -25,7 +26,7 @@ BuildRequires:  pkgconfig(libcrypto)
 BuildRequires:  pkgconfig(nemodbus) >= 2.1.16
 BuildRequires:  pkgconfig(nemomodels-qt5)
 BuildRequires:  pkgconfig(libsailfishkeyprovider) >= 0.0.14
-BuildRequires:  pkgconfig(connman-qt5) >= 1.2.7
+BuildRequires:  pkgconfig(connman-qt5) >= 1.2.21
 BuildRequires:  pkgconfig(ssu-sysinfo) >= 1.1.0
 BuildRequires:  pkgconfig(packagekitqt5)
 BuildRequires:  pkgconfig(glib-2.0)

@@ -47,13 +47,14 @@
 #include "diskusage.h"
 #include "partitionmodel.h"
 #include "certificatemodel.h"
-#include "vpnmodel.h"
+#include "settingsvpnmodel.h"
 #include "locationsettings.h"
 #include "deviceinfo.h"
 
-static QObject *vpnmodel_api_factory(QQmlEngine *, QJSEngine *)
+template<class T>
+static QObject *api_factory(QQmlEngine *, QJSEngine *)
 {
-    return new VpnModel;
+    return new T;
 }
 
 class SystemSettingsPlugin : public QQmlExtensionPlugin
@@ -82,7 +83,7 @@ public:
         qRegisterMetaType<Partition>("Partition");
         qmlRegisterType<DeveloperModeSettings>(uri, 1, 0, "DeveloperModeSettings");
         qmlRegisterType<CertificateModel>(uri, 1, 0, "CertificateModel");
-        qmlRegisterSingletonType<VpnModel>(uri, 1, 0, "VpnModel", vpnmodel_api_factory);
+        qmlRegisterSingletonType<SettingsVpnModel>(uri, 1, 0, "SettingsVpnModel", api_factory<SettingsVpnModel>);
         qRegisterMetaType<DeveloperModeSettings::Status>("DeveloperModeSettings::Status");
         qmlRegisterType<BatteryStatus>(uri, 1, 0, "BatteryStatus");
         qmlRegisterType<DiskUsage>(uri, 1, 0, "DiskUsage");

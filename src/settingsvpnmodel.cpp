@@ -39,7 +39,7 @@
 #include "logging_p.h"
 #include "vpnmanager.h"
 
-#include "vpnmodel.h"
+#include "settingsvpnmodel.h"
 
 namespace {
 
@@ -55,33 +55,33 @@ int numericValue(VpnConnection::ConnectionState state)
 
 } // end anonymous namespace
 
-VpnModel::VpnModel(QObject* parent)
-    : VpnCoreModel(parent)
+SettingsVpnModel::SettingsVpnModel(QObject* parent)
+    : VpnModel(parent)
     , credentials_(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/system/privileged/vpn-data"))
     , bestState_(VpnConnection::Idle)
     , autoConnect_(false)
     , orderByConnected_(true)
     , provisioningOutputPath_(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + QStringLiteral("/system/privileged/vpn-provisioning"))
-    , roles(VpnCoreModel::roleNames())
+    , roles(VpnModel::roleNames())
 {
     VpnManager *manager = vpnManager();
 
     roles.insert(ConnectedRole, "connected");
 
-    connect(manager, &VpnManager::connectionAdded, this, &VpnModel::connectionAdded, Qt::UniqueConnection);
-    connect(manager, &VpnManager::connectionRemoved, this, &VpnModel::connectionRemoved, Qt::UniqueConnection);
-    connect(manager, &VpnManager::connectionsRefreshed, this, &VpnModel::connectionsRefreshed, Qt::UniqueConnection);
-    connect(manager, &VpnManager::connectionsClearingAll, this, &VpnModel::connectionsClearingAll, Qt::UniqueConnection);
+    connect(manager, &VpnManager::connectionAdded, this, &SettingsVpnModel::connectionAdded, Qt::UniqueConnection);
+    connect(manager, &VpnManager::connectionRemoved, this, &SettingsVpnModel::connectionRemoved, Qt::UniqueConnection);
+    connect(manager, &VpnManager::connectionsRefreshed, this, &SettingsVpnModel::connectionsRefreshed, Qt::UniqueConnection);
+    connect(manager, &VpnManager::connectionsClearingAll, this, &SettingsVpnModel::connectionsClearingAll, Qt::UniqueConnection);
 }
 
-VpnModel::~VpnModel()
+SettingsVpnModel::~SettingsVpnModel()
 {
     VpnManager *manager = vpnManager();
 
     disconnect(manager, 0, this, 0);
 }
 
-void VpnModel::createConnection(const QVariantMap &createProperties)
+void SettingsVpnModel::createConnection(const QVariantMap &createProperties)
 {
     QVariantMap properties(createProperties);
     const QString domain(properties.value(QString("domain")).toString());
@@ -92,50 +92,50 @@ void VpnModel::createConnection(const QVariantMap &createProperties)
     vpnManager()->createConnection(properties);
 }
 
-QHash<int, QByteArray> VpnModel::roleNames() const
+QHash<int, QByteArray> SettingsVpnModel::roleNames() const
 {
     return roles;
 }
 
-QVariant VpnModel::data(const QModelIndex &index, int role) const
+QVariant SettingsVpnModel::data(const QModelIndex &index, int role) const
 {
     if (index.isValid() && index.row() >= 0 && index.row() < connections().count()) {
         switch (role) {
         case ConnectedRole:
             return QVariant::fromValue((bool)connections().at(index.row())->connected());
         default:
-            return VpnCoreModel::data(index, role);
+            return VpnModel::data(index, role);
         }
     }
 
     return QVariant();
 }
 
-int VpnModel::bestState() const
+VpnConnection::ConnectionState SettingsVpnModel::bestState() const
 {
-    return static_cast<int>(bestState_);
+    return bestState_;
 }
 
-bool VpnModel::autoConnect() const
+bool SettingsVpnModel::autoConnect() const
 {
     return autoConnect_;
 }
 
-bool VpnModel::orderByConnected() const
+bool SettingsVpnModel::orderByConnected() const
 {
     return orderByConnected_;
 }
 
-void VpnModel::setOrderByConnected(bool orderByConnected)
+void SettingsVpnModel::setOrderByConnected(bool orderByConnected)
 {
     if (orderByConnected != orderByConnected_) {
         orderByConnected_ = orderByConnected;
-        VpnCoreModel::connectionsChanged();
+        VpnModel::connectionsChanged();
         emit orderByConnectedChanged();
     }
 }
 
-void VpnModel::modifyConnection(const QString &path, const QVariantMap &properties)
+void SettingsVpnModel::modifyConnection(const QString &path, const QVariantMap &properties)
 {
     VpnConnection *conn = vpnManager()->connection(path);
     if (conn) {
@@ -171,7 +171,7 @@ void VpnModel::modifyConnection(const QString &path, const QVariantMap &properti
     }
 }
 
-void VpnModel::deleteConnection(const QString &path)
+void SettingsVpnModel::deleteConnection(const QString &path)
 {
     if (VpnConnection *conn = vpnManager()->connection(path)) {
         // Remove cached credentials
@@ -220,17 +220,17 @@ void VpnModel::deleteConnection(const QString &path)
 
 }
 
-void VpnModel::activateConnection(const QString &path)
+void SettingsVpnModel::activateConnection(const QString &path)
 {
     vpnManager()->activateConnection(path);
 }
 
-void VpnModel::deactivateConnection(const QString &path)
+void SettingsVpnModel::deactivateConnection(const QString &path)
 {
     vpnManager()->deactivateConnection(path);
 }
 
-VpnConnection *VpnModel::get(int index) const
+VpnConnection *SettingsVpnModel::get(int index) const
 {
     if (index >= 0 && index < connections().size()) {
         VpnConnection *item(connections().at(index));
@@ -246,14 +246,14 @@ VpnConnection *VpnModel::get(int index) const
 // QAbstractListModel Ordering
 // ==========================================================================
 
-bool VpnModel::compareConnections(const VpnConnection *i, const VpnConnection *j)
+bool SettingsVpnModel::compareConnections(const VpnConnection *i, const VpnConnection *j)
 {
     return ((orderByConnected_ && (i->connected() > j->connected()))
             || ((!orderByConnected_ || (i->connected() == j->connected()))
                 && (i->name().localeAwareCompare(j->name()) <= 0)));
 }
 
-void VpnModel::orderConnections(QVector<VpnConnection*> &connections)
+void SettingsVpnModel::orderConnections(QVector<VpnConnection*> &connections)
 {
     std::sort(connections.begin(), connections.end(), [this](const VpnConnection *i, const VpnConnection *j) -> bool {
         // Return true if i should appear before j in the list
@@ -261,7 +261,7 @@ void VpnModel::orderConnections(QVector<VpnConnection*> &connections)
     });
 }
 
-void VpnModel::reorderConnection(VpnConnection * conn)
+void SettingsVpnModel::reorderConnection(VpnConnection * conn)
 {
     const int itemCount(connections().size());
 
@@ -282,13 +282,13 @@ void VpnModel::reorderConnection(VpnConnection * conn)
     }
 }
 
-void VpnModel::updatedConnectionPosition()
+void SettingsVpnModel::updatedConnectionPosition()
 {
     VpnConnection *conn = qobject_cast<VpnConnection *>(sender());
     reorderConnection(conn);
 }
 
-void VpnModel::connectedChanged()
+void SettingsVpnModel::connectedChanged()
 {
     VpnConnection *conn = qobject_cast<VpnConnection *>(sender());
 
@@ -300,20 +300,20 @@ void VpnModel::connectedChanged()
     reorderConnection(conn);
 }
 
-void VpnModel::connectionAdded(const QString &path)
+void SettingsVpnModel::connectionAdded(const QString &path)
 {
     qCDebug(lcVpnLog) << "VPN connection added";
     if (VpnConnection *conn = vpnManager()->connection(path)) {
         bool credentialsExist = credentials_.credentialsExist(CredentialsRepository::locationForObjectPath(path));
         conn->setStoreCredentials(credentialsExist);
 
-        connect(conn, &VpnConnection::nameChanged, this, &VpnModel::updatedConnectionPosition, Qt::UniqueConnection);
-        connect(conn, &VpnConnection::connectedChanged, this, &VpnModel::connectedChanged, Qt::UniqueConnection);
-        connect(conn, &VpnConnection::stateChanged, this, &VpnModel::stateChanged, Qt::UniqueConnection);
+        connect(conn, &VpnConnection::nameChanged, this, &SettingsVpnModel::updatedConnectionPosition, Qt::UniqueConnection);
+        connect(conn, &VpnConnection::connectedChanged, this, &SettingsVpnModel::connectedChanged, Qt::UniqueConnection);
+        connect(conn, &VpnConnection::stateChanged, this, &SettingsVpnModel::stateChanged, Qt::UniqueConnection);
     }
 }
 
-void VpnModel::connectionRemoved(const QString &path)
+void SettingsVpnModel::connectionRemoved(const QString &path)
 {
     qCDebug(lcVpnLog) << "VPN connection removed";
     if (VpnConnection *conn = vpnManager()->connection(path)) {
@@ -321,7 +321,7 @@ void VpnModel::connectionRemoved(const QString &path)
     }
 }
 
-void VpnModel::connectionsClearingAll()
+void SettingsVpnModel::connectionsClearingAll()
 {
     qCDebug(lcVpnLog) << "VPN clearing all connections";
     QVector<VpnConnection*> connections = vpnManager()->connections();
@@ -331,27 +331,27 @@ void VpnModel::connectionsClearingAll()
 }
 
 
-void VpnModel::connectionsRefreshed()
+void SettingsVpnModel::connectionsRefreshed()
 {
     qCDebug(lcVpnLog) << "VPN connections refreshed";
     QVector<VpnConnection*> connections = vpnManager()->connections();
     for (VpnConnection *conn : connections) {
-        connect(conn, &VpnConnection::nameChanged, this, &VpnModel::updatedConnectionPosition, Qt::UniqueConnection);
-        connect(conn, &VpnConnection::connectedChanged, this, &VpnModel::connectedChanged, Qt::UniqueConnection);
-        connect(conn, &VpnConnection::stateChanged, this, &VpnModel::stateChanged, Qt::UniqueConnection);
+        connect(conn, &VpnConnection::nameChanged, this, &SettingsVpnModel::updatedConnectionPosition, Qt::UniqueConnection);
+        connect(conn, &VpnConnection::connectedChanged, this, &SettingsVpnModel::connectedChanged, Qt::UniqueConnection);
+        connect(conn, &VpnConnection::stateChanged, this, &SettingsVpnModel::stateChanged, Qt::UniqueConnection);
     }
 }
 
-void VpnModel::stateChanged()
+void SettingsVpnModel::stateChanged()
 {
     // Emit the state changed signal needed for the VPN EnableSwitch
     VpnConnection *conn = qobject_cast<VpnConnection *>(sender());
-    emit connectionStateChanged(conn->path(), static_cast<int>(conn->state()));
+    emit connectionStateChanged(conn->path(), conn->state());
 
     // Check to see if the best state has changed
     VpnConnection::ConnectionState maxState = VpnConnection::Idle;
     for (VpnConnection *conn : connections()) {
-        VpnConnection::ConnectionState state(static_cast<VpnConnection::ConnectionState>(conn->state()));
+        VpnConnection::ConnectionState state(conn->state());
         if (numericValue(state) > numericValue(maxState)) {
             maxState = state;
         }
@@ -366,7 +366,7 @@ void VpnModel::stateChanged()
 // Automatic domain allocation
 // ==========================================================================
 
-bool VpnModel::domainInUse(const QString &domain) const
+bool SettingsVpnModel::domainInUse(const QString &domain) const
 {
     const int itemCount(count());
     for (int index = 0; index < itemCount; ++index) {
@@ -378,7 +378,7 @@ bool VpnModel::domainInUse(const QString &domain) const
     return false;
 }
 
-QString VpnModel::createDefaultDomain() const
+QString SettingsVpnModel::createDefaultDomain() const
 {
     QString newDomain = defaultDomain;
     int index = 1;
@@ -389,7 +389,7 @@ QString VpnModel::createDefaultDomain() const
     return newDomain;
 }
 
-bool VpnModel::isDefaultDomain(const QString &domain)
+bool SettingsVpnModel::isDefaultDomain(const QString &domain)
 {
     if (domain == legacyDefaultDomain)
         return true;
@@ -402,7 +402,7 @@ bool VpnModel::isDefaultDomain(const QString &domain)
 // Credential storage
 // ==========================================================================
 
-QVariantMap VpnModel::connectionCredentials(const QString &path)
+QVariantMap SettingsVpnModel::connectionCredentials(const QString &path)
 {
     QVariantMap rv;
 
@@ -424,7 +424,7 @@ QVariantMap VpnModel::connectionCredentials(const QString &path)
     return rv;
 }
 
-void VpnModel::setConnectionCredentials(const QString &path, const QVariantMap &credentials)
+void SettingsVpnModel::setConnectionCredentials(const QString &path, const QVariantMap &credentials)
 {
     if (VpnConnection *conn = vpnManager()->connection(path)) {
         credentials_.storeCredentials(CredentialsRepository::locationForObjectPath(path), credentials);
@@ -435,7 +435,7 @@ void VpnModel::setConnectionCredentials(const QString &path, const QVariantMap &
     }
 }
 
-bool VpnModel::connectionCredentialsEnabled(const QString &path)
+bool SettingsVpnModel::connectionCredentialsEnabled(const QString &path)
 {
     if (VpnConnection *conn = vpnManager()->connection(path)) {
         const QString location(CredentialsRepository::locationForObjectPath(path));
@@ -450,7 +450,7 @@ bool VpnModel::connectionCredentialsEnabled(const QString &path)
     return false;
 }
 
-void VpnModel::disableConnectionCredentials(const QString &path)
+void SettingsVpnModel::disableConnectionCredentials(const QString &path)
 {
     if (VpnConnection *conn = vpnManager()->connection(path)) {
         const QString location(CredentialsRepository::locationForObjectPath(path));
@@ -464,7 +464,7 @@ void VpnModel::disableConnectionCredentials(const QString &path)
     }
 }
 
-QVariantMap VpnModel::connectionSettings(const QString &path)
+QVariantMap SettingsVpnModel::connectionSettings(const QString &path)
 {
     QVariantMap properties;
     if (VpnConnection *conn = vpnManager()->connection(path)) {
@@ -472,7 +472,7 @@ QVariantMap VpnModel::connectionSettings(const QString &path)
         const QString location(CredentialsRepository::locationForObjectPath(path));
         conn->setStoreCredentials(credentials_.credentialsExist(location));
 
-        properties = VpnCoreModel::connectionSettings(path);
+        properties = VpnModel::connectionSettings(path);
     }
     return properties;
 }
@@ -481,7 +481,7 @@ QVariantMap VpnModel::connectionSettings(const QString &path)
 // CredentialsRepository
 // ==========================================================================
 
-VpnModel::CredentialsRepository::CredentialsRepository(const QString &path)
+SettingsVpnModel::CredentialsRepository::CredentialsRepository(const QString &path)
     : baseDir_(path)
 {
     if (!baseDir_.exists() && !baseDir_.mkpath(path)) {
@@ -489,7 +489,7 @@ VpnModel::CredentialsRepository::CredentialsRepository(const QString &path)
     }
 }
 
-QString VpnModel::CredentialsRepository::locationForObjectPath(const QString &path)
+QString SettingsVpnModel::CredentialsRepository::locationForObjectPath(const QString &path)
 {
     int index = path.lastIndexOf(QChar('/'));
     if (index != -1) {
@@ -499,13 +499,13 @@ QString VpnModel::CredentialsRepository::locationForObjectPath(const QString &pa
     return QString();
 }
 
-bool VpnModel::CredentialsRepository::credentialsExist(const QString &location) const
+bool SettingsVpnModel::CredentialsRepository::credentialsExist(const QString &location) const
 {
     // Test the FS, as another process may store/remove the credentials
     return baseDir_.exists(location);
 }
 
-bool VpnModel::CredentialsRepository::storeCredentials(const QString &location, const QVariantMap &credentials)
+bool SettingsVpnModel::CredentialsRepository::storeCredentials(const QString &location, const QVariantMap &credentials)
 {
     QFile credentialsFile(baseDir_.absoluteFilePath(location));
     if (!credentialsFile.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
@@ -520,7 +520,7 @@ bool VpnModel::CredentialsRepository::storeCredentials(const QString &location, 
     return true;
 }
 
-bool VpnModel::CredentialsRepository::removeCredentials(const QString &location)
+bool SettingsVpnModel::CredentialsRepository::removeCredentials(const QString &location)
 {
     if (baseDir_.exists(location)) {
         if (!baseDir_.remove(location)) {
@@ -532,7 +532,7 @@ bool VpnModel::CredentialsRepository::removeCredentials(const QString &location)
     return true;
 }
 
-QVariantMap VpnModel::CredentialsRepository::credentials(const QString &location) const
+QVariantMap SettingsVpnModel::CredentialsRepository::credentials(const QString &location) const
 {
     QVariantMap rv;
 
@@ -549,7 +549,7 @@ QVariantMap VpnModel::CredentialsRepository::credentials(const QString &location
     return rv;
 }
 
-QByteArray VpnModel::CredentialsRepository::encodeCredentials(const QVariantMap &credentials)
+QByteArray SettingsVpnModel::CredentialsRepository::encodeCredentials(const QVariantMap &credentials)
 {
     // We can't store these values securely, but we may as well encode them to protect from grep, at least...
     QByteArray encoded;
@@ -571,7 +571,7 @@ QByteArray VpnModel::CredentialsRepository::encodeCredentials(const QVariantMap 
     return encoded.toBase64();
 }
 
-QVariantMap VpnModel::CredentialsRepository::decodeCredentials(const QByteArray &encoded)
+QVariantMap SettingsVpnModel::CredentialsRepository::decodeCredentials(const QByteArray &encoded)
 {
     QVariantMap rv;
 
@@ -604,7 +604,7 @@ QVariantMap VpnModel::CredentialsRepository::decodeCredentials(const QByteArray 
 // Provisioning files
 // ==========================================================================
 
-QVariantMap VpnModel::processProvisioningFile(const QString &path, const QString &type)
+QVariantMap SettingsVpnModel::processProvisioningFile(const QString &path, const QString &type)
 {
     QVariantMap rv;
 
@@ -622,7 +622,7 @@ QVariantMap VpnModel::processProvisioningFile(const QString &path, const QString
     return rv;
 }
 
-QVariantMap VpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
+QVariantMap SettingsVpnModel::processOpenVpnProvisioningFile(QFile &provisioningFile)
 {
     QVariantMap rv;
 

@@ -30,37 +30,37 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#ifndef VPNMODEL_H
-#define VPNMODEL_H
+#ifndef SETTINGSVPNMODEL_H
+#define SETTINGSVPNMODEL_H
 
 #include <QObject>
 #include <QSet>
 #include <QDir>
 
 #include <vpnconnection.h>
-#include <vpncoremodel.h>
+#include <vpnmodel.h>
 #include <systemsettingsglobal.h>
 
-class SYSTEMSETTINGS_EXPORT VpnModel : public VpnCoreModel
+class SYSTEMSETTINGS_EXPORT SettingsVpnModel : public VpnModel
 {
     Q_OBJECT
 
-    Q_PROPERTY(int bestState READ bestState NOTIFY bestStateChanged)
+    Q_PROPERTY(VpnConnection::ConnectionState bestState READ bestState NOTIFY bestStateChanged)
     Q_PROPERTY(bool autoConnect READ autoConnect NOTIFY autoConnectChanged)
     Q_PROPERTY(bool orderByConnected READ orderByConnected WRITE setOrderByConnected NOTIFY orderByConnectedChanged)
 
 public:
-    VpnModel(QObject* parent = nullptr);
-    ~VpnModel() override;
+    SettingsVpnModel(QObject* parent = nullptr);
+    ~SettingsVpnModel() override;
 
     enum ItemRoles {
-        ConnectedRole = VpnCoreModel::VpnRole + 1
+        ConnectedRole = VpnModel::VpnRole + 1
     };
 
     QHash<int, QByteArray> roleNames() const override;
     QVariant data(const QModelIndex &index, int role) const override;
 
-    int bestState() const;
+    VpnConnection::ConnectionState bestState() const;
     bool autoConnect() const;
     bool orderByConnected() const;
     void setOrderByConnected(bool orderByConnected);
@@ -88,7 +88,7 @@ public:
 signals:
     void bestStateChanged();
     void autoConnectChanged();
-    void connectionStateChanged(const QString &path, int state);
+    void connectionStateChanged(const QString &path, VpnConnection::ConnectionState state);
     void orderByConnectedChanged();
 
 private:
@@ -139,4 +139,4 @@ private:
     QHash<int, QByteArray> roles;
 };
 
-#endif // VPNMODEL_H
+#endif // SETTINGSVPNMODEL_H

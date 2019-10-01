@@ -22,7 +22,6 @@ SOURCES += \
     displaysettings.cpp \
     aboutsettings.cpp \
     certificatemodel.cpp \
-    vpnmodel.cpp \
     developermodesettings.cpp \
     batterystatus.cpp \
     diskusage.cpp \
@@ -32,6 +31,7 @@ SOURCES += \
     partitionmodel.cpp \
     deviceinfo.cpp \
     locationsettings.cpp \
+    settingsvpnmodel.cpp \
     timezoneinfo.cpp \
     udisks2block.cpp \
     udisks2blockdevices.cpp \
@@ -47,7 +47,7 @@ PUBLIC_HEADERS = \
     displaysettings.h \
     aboutsettings.h \
     certificatemodel.h \
-    vpnmodel.h \
+    settingsvpnmodel.h \
     developermodesettings.h \
     batterystatus.h \
     udisks2block_p.h \
