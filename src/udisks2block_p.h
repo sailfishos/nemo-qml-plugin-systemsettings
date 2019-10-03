@@ -100,6 +100,8 @@ public:
     QString idLabel() const;
     QString idUUID() const;
 
+    QStringList symlinks() const;
+
     QString mountPath() const;
 
     QVariant value(const QString &key) const;
