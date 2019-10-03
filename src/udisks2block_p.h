@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2018 Jolla Ltd. <raine.makelainen@jolla.com>
+ * Copyright (c) 2018 - 2019 Jolla Ltd.
+ * Copyright (c) 2019 Open Mobile Platform LLC.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -38,6 +39,8 @@
 #include <QPointer>
 #include <functional>
 
+#include <systemsettingsglobal.h>
+
 #include "udisks2defines.h"
 
 class QDBusPendingCallWatcher;
@@ -45,12 +48,13 @@ class QDBusPendingCallWatcher;
 namespace UDisks2 {
 
 
-class Block : public QObject
+class SYSTEMSETTINGS_EXPORT Block : public QObject
 {
     Q_OBJECT
     Q_PROPERTY(QString connectionBus READ connectionBus NOTIFY updated)
 
 public:
+    Block(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap, QObject *parent = nullptr);
     virtual ~Block();
 
     QString path() const;
@@ -119,7 +123,6 @@ private slots:
     void complete();
 
 private:
-    Block(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap, QObject *parent = nullptr);
     Block& operator=(const Block& other);
 
     bool setEncrypted(bool encrypted);
