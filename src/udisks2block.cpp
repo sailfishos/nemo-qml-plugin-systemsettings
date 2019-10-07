@@ -294,6 +294,32 @@ QString UDisks2::Block::idUUID() const
     return value(QStringLiteral("IdUUID")).toString();
 }
 
+QStringList UDisks2::Block::symlinks() const
+{
+    QStringList links;
+    QVariant variantListBytes = value(QStringLiteral("Symlinks"));
+
+    if (variantListBytes.canConvert<QVariantList>()) {
+        QSequentialIterable iterable = variantListBytes.value<QSequentialIterable>();
+
+        for (const QVariant &a : iterable) {
+            QByteArray symlinkBytes;
+
+            if (a.canConvert<QVariantList>()) {
+                QSequentialIterable i = a.value<QSequentialIterable>();
+                for (const QVariant &variantByte : i) {
+                    symlinkBytes.append(variantByte.toChar());
+                }
+            }
+
+            if (!symlinkBytes.isEmpty())
+                links << QString::fromLocal8Bit(symlinkBytes);
+        }
+    }
+
+    return links;
+}
+
 QString UDisks2::Block::mountPath() const
 {
     return m_mountPath;
