@@ -10,9 +10,6 @@ PKGCONFIG += profile mlite5 mce timed-qt5 libshadowutils blkid libcrypto nemomod
 PKGCONFIG += ssu-sysinfo nemodbus packagekitqt5
 
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
-system(qdbusxml2cpp -c ConnmanVpnProxy -p connmanvpnproxy ../dbus/net.connman.vpn.xml -i qdbusxml2cpp_dbus_types.h)
-system(qdbusxml2cpp -c ConnmanVpnConnectionProxy -p connmanvpnconnectionproxy ../dbus/net.connman.vpn.Connection.xml -i qdbusxml2cpp_dbus_types.h)
-system(qdbusxml2cpp -c ConnmanServiceProxy -p connmanserviceproxy ../dbus/net.connman.service.xml -i qdbusxml2cpp_dbus_types.h)
 
 SOURCES += \
     languagemodel.cpp \
@@ -25,10 +22,6 @@ SOURCES += \
     displaysettings.cpp \
     aboutsettings.cpp \
     certificatemodel.cpp \
-    vpnmodel.cpp \
-    connmanserviceproxy.cpp \
-    connmanvpnproxy.cpp \
-    connmanvpnconnectionproxy.cpp \
     developermodesettings.cpp \
     batterystatus.cpp \
     diskusage.cpp \
@@ -38,6 +31,7 @@ SOURCES += \
     partitionmodel.cpp \
     deviceinfo.cpp \
     locationsettings.cpp \
+    settingsvpnmodel.cpp \
     timezoneinfo.cpp \
     udisks2block.cpp \
     udisks2blockdevices.cpp \
@@ -53,10 +47,7 @@ PUBLIC_HEADERS = \
     displaysettings.h \
     aboutsettings.h \
     certificatemodel.h \
-    vpnmodel.h \
-    connmanserviceproxy.h \
-    connmanvpnproxy.h \
-    connmanvpnconnectionproxy.h \
+    settingsvpnmodel.h \
     developermodesettings.h \
     batterystatus.h \
     udisks2block_p.h \
@@ -72,7 +63,6 @@ PUBLIC_HEADERS = \
 
 HEADERS += \
     $$PUBLIC_HEADERS \
-    qdbusxml2cpp_dbus_types.h \
     localeconfig.h \
     batterystatus_p.h \
     logging_p.h \
