@@ -30,10 +30,13 @@
  */
 
 #include "aboutsettings.h"
+#include "aboutsettings_p.h"
 
 #include <QDebug>
 #include <QStringList>
+
 #include <QNetworkInfo>
+
 #include <QDeviceInfo>
 #include <QFile>
 #include <QByteArray>
@@ -151,19 +154,33 @@ void parseLocalizationFile(const QString &filename, QMap<QString, QString> *resu
 
 }
 
-AboutSettings::AboutSettings(QObject *parent)
-:   QObject(parent), m_netinfo(new QNetworkInfo(this)),
-    m_devinfo(new QDeviceInfo(this))
+
+AboutSettingsPrivate::AboutSettingsPrivate(QObject *parent)
+    : QObject(parent)
 {
+
+}
+
+AboutSettingsPrivate::~AboutSettingsPrivate()
+{
+
+}
+
+
+AboutSettings::AboutSettings(QObject *parent)
+    : QObject(parent)
+    , d_ptr(new AboutSettingsPrivate(this))
+{
+    Q_D(AboutSettings);
     QSettings settings(QStringLiteral("/mnt/vendor_data/vendor-data.ini"), QSettings::IniFormat);
-    m_vendorName = settings.value(QStringLiteral("Name")).toString();
-    m_vendorVersion = settings.value(QStringLiteral("Version")).toString();
+    d->vendorName = settings.value(QStringLiteral("Name")).toString();
+    d->vendorVersion = settings.value(QStringLiteral("Version")).toString();
 
     refreshStorageModels();
 
-    connect(&m_partitionManager, &PartitionManager::partitionAdded,
+    connect(&d->partitionManager, &PartitionManager::partitionAdded,
             this, &AboutSettings::partitionCountChanged);
-    connect(&m_partitionManager, &PartitionManager::partitionRemoved,
+    connect(&d->partitionManager, &PartitionManager::partitionRemoved,
             this, &AboutSettings::partitionCountChanged);
 }
 
@@ -173,27 +190,32 @@ AboutSettings::~AboutSettings()
 
 qlonglong AboutSettings::totalDiskSpace() const
 {
-    return m_partitionManager.root().bytesTotal();
+    Q_D(const AboutSettings);
+    return d->partitionManager.root().bytesTotal();
 }
 
 qlonglong AboutSettings::availableDiskSpace() const
 {
-    return m_partitionManager.root().bytesAvailable();
+    Q_D(const AboutSettings);
+    return d->partitionManager.root().bytesAvailable();
 }
 
 QVariant AboutSettings::diskUsageModel() const
 {
-    return m_internalStorage;
+    Q_D(const AboutSettings);
+    return d->internalStorage;
 }
 
 QString AboutSettings::wlanMacAddress() const
 {
-    return m_netinfo->macAddress(QNetworkInfo::WlanMode, 0);
+    Q_D(const AboutSettings);
+    return d->networkInfo.macAddress(QNetworkInfo::WlanMode, 0);
 }
 
 QString AboutSettings::imei() const
 {
-    return m_devinfo->imei(0);
+    Q_D(const AboutSettings);
+    return d->deviceInfo.imei(0);
 }
 
 QString AboutSettings::serial() const
@@ -224,9 +246,10 @@ QString AboutSettings::serial() const
 
 QString AboutSettings::localizedOperatingSystemName() const
 {
-    parseLocalizationFile(QStringLiteral("/etc/os-release-l10n"), &m_osReleaseLocalization);
+    Q_D(const AboutSettings);
+    parseLocalizationFile(QStringLiteral("/etc/os-release-l10n"), &d->osReleaseLocalization);
 
-    return m_osReleaseLocalization.value("NAME", operatingSystemName());
+    return d->osReleaseLocalization.value("NAME", operatingSystemName());
 }
 
 QString AboutSettings::baseOperatingSystemName() const
@@ -240,45 +263,52 @@ QString AboutSettings::baseOperatingSystemName() const
 
 QString AboutSettings::operatingSystemName() const
 {
-    parseReleaseFile(QStringLiteral("/etc/os-release"), &m_osRelease);
+    Q_D(const AboutSettings);
+    parseReleaseFile(QStringLiteral("/etc/os-release"), &d->osRelease);
 
-    return m_osRelease["NAME"];
+    return d->osRelease["NAME"];
 }
 
 QString AboutSettings::softwareVersion() const
 {
-    parseReleaseFile(QStringLiteral("/etc/os-release"), &m_osRelease);
+    Q_D(const AboutSettings);
+    parseReleaseFile(QStringLiteral("/etc/os-release"), &d->osRelease);
 
-    return m_osRelease["VERSION"];
+    return d->osRelease["VERSION"];
 }
 
 QString AboutSettings::softwareVersionId() const
 {
-    parseReleaseFile(QStringLiteral("/etc/os-release"), &m_osRelease);
+    Q_D(const AboutSettings);
+    parseReleaseFile(QStringLiteral("/etc/os-release"), &d->osRelease);
 
-    return m_osRelease["VERSION_ID"];
+    return d->osRelease["VERSION_ID"];
 }
 
 QString AboutSettings::adaptationVersion() const
 {
-    parseReleaseFile(QStringLiteral("/etc/hw-release"), &m_hardwareRelease);
+    Q_D(const AboutSettings);
+    parseReleaseFile(QStringLiteral("/etc/hw-release"), &d->hardwareRelease);
 
-    return m_hardwareRelease["VERSION_ID"];
+    return d->hardwareRelease["VERSION_ID"];
 }
 
 QString AboutSettings::vendorName() const
 {
-    return m_vendorName;
+    Q_D(const AboutSettings);
+    return d->vendorName;
 }
 
 QString AboutSettings::vendorVersion() const
 {
-    return m_vendorVersion;
+    Q_D(const AboutSettings);
+    return d->vendorVersion;
 }
 
 void AboutSettings::refreshStorageModels()
 {
-    m_partitionManager.refresh();
+    Q_D(AboutSettings);
+    d->partitionManager.refresh();
 
     partitionCountChanged();
 }
@@ -292,9 +322,10 @@ void AboutSettings::partitionCountChanged()
 
 void AboutSettings::reloadStorageLists()
 {
-    m_internalStorage.clear();
+    Q_D(AboutSettings);
+    d->internalStorage.clear();
 
-    for (auto partition : m_partitionManager.partitions()) {
+    for (auto partition : d->partitionManager.partitions()) {
         QVariantMap row;
         row[QStringLiteral("mounted")] = partition.status() == Partition::Mounted;
         row[QStringLiteral("path")] = partition.mountPath();
@@ -318,7 +349,7 @@ void AboutSettings::reloadStorageLists()
         }();
 
         if (partition.storageType() != Partition::External) {
-            m_internalStorage << QVariant(row);
+            d->internalStorage << QVariant(row);
         }
     }
 
