@@ -63,6 +63,7 @@ PUBLIC_HEADERS = \
 
 HEADERS += \
     $$PUBLIC_HEADERS \
+    aboutsettings_p.h \
     localeconfig.h \
     batterystatus_p.h \
     logging_p.h \
