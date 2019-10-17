@@ -1,7 +1,7 @@
 
 /*
- * Copyright (C) 2015 Jolla Ltd.
- * Contact: Thomas Perl <thomas.perl@jolla.com>
+ * Copyright (c) 2015 - 2019 Jolla Ltd.
+ * Copyright (c) 2019 Open Mobile Platform LLC.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -37,7 +37,7 @@
 #include "ut_diskusage.h"
 
 #include <QtTest>
-
+#include <QDir>
 
 static QVariantMap g_mocked_file_size;
 static QVariantMap g_mocked_rpm_size;
@@ -131,37 +131,37 @@ void Ut_DiskUsage::testSubtractNestedSubdirectory()
 {
     g_mocked_file_size["/"] = MB(1000);
     g_mocked_file_size["/home/"] = MB(300);
-    g_mocked_file_size["/home/nemo/"] = MB(150);
-    g_mocked_file_size["/home/nemo/Documents/"] = MB(70);
+    g_mocked_file_size[QDir::homePath()] = MB(150);
+    g_mocked_file_size[QDir::homePath() + "/Documents/"] = MB(70);
 
     QVariantMap usage = DiskUsageWorker().calculate(QStringList() <<
-            "/" << "/home/" << "/home/nemo/" << "/home/nemo/Documents/");
+            "/" << "/home/" << QDir::homePath() << QDir::homePath() + "/Documents/");
 
     UT_DISKUSAGE_EXPECT_SIZE("/", MB(1000) - MB(300))
     UT_DISKUSAGE_EXPECT_SIZE("/home/", MB(300) - MB(150))
-    UT_DISKUSAGE_EXPECT_SIZE("/home/nemo/", MB(150) - MB(70))
-    UT_DISKUSAGE_EXPECT_SIZE("/home/nemo/Documents/", MB(70))
+    UT_DISKUSAGE_EXPECT_SIZE(QDir::homePath(), MB(150) - MB(70))
+    UT_DISKUSAGE_EXPECT_SIZE(QDir::homePath() + "/Documents/", MB(70))
 }
 
 void Ut_DiskUsage::testSubtractNestedSubdirectoryMulti()
 {
     g_mocked_file_size["/"] = MB(1000);
     g_mocked_file_size["/home/"] = MB(300);
-    g_mocked_file_size["/home/nemo/"] = MB(150);
-    g_mocked_file_size["/home/nemo/Documents/"] = MB(70);
+    g_mocked_file_size[QDir::homePath()] = MB(150);
+    g_mocked_file_size[QDir::homePath() + "/Documents/"] = MB(70);
     g_mocked_file_size["/opt/"] = MB(100);
     g_mocked_file_size["/opt/foo/"] = MB(30);
     g_mocked_file_size["/opt/foo/bar/"] = MB(20);
     g_mocked_file_size["/opt/baz/"] = MB(10);
 
     QVariantMap usage = DiskUsageWorker().calculate(QStringList() << "/" <<
-            "/home/" << "/home/nemo/" << "/home/nemo/Documents/" <<
+            "/home/" << QDir::homePath() << QDir::homePath() + "/Documents/" <<
             "/opt/" << "/opt/foo/" << "/opt/foo/bar/" << "/opt/baz/");
 
     UT_DISKUSAGE_EXPECT_SIZE("/", MB(1000) - MB(300) - MB(100))
     UT_DISKUSAGE_EXPECT_SIZE("/home/", MB(300) - MB(150))
-    UT_DISKUSAGE_EXPECT_SIZE("/home/nemo/", MB(150) - MB(70))
-    UT_DISKUSAGE_EXPECT_SIZE("/home/nemo/Documents/", MB(70))
+    UT_DISKUSAGE_EXPECT_SIZE(QDir::homePath(), MB(150) - MB(70))
+    UT_DISKUSAGE_EXPECT_SIZE(QDir::homePath() + "/Documents/", MB(70))
     UT_DISKUSAGE_EXPECT_SIZE("/opt/", MB(100) - MB(30) - MB(10))
     UT_DISKUSAGE_EXPECT_SIZE("/opt/foo/", MB(30) - MB(20))
     UT_DISKUSAGE_EXPECT_SIZE("/opt/foo/bar/", MB(20))
