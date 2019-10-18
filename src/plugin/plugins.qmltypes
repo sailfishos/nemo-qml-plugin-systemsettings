@@ -19,6 +19,7 @@ Module {
         Property { name: "localizedOperatingSystemName"; type: "string"; isReadonly: true }
         Property { name: "baseOperatingSystemName"; type: "string"; isReadonly: true }
         Property { name: "operatingSystemName"; type: "string"; isReadonly: true }
+        Property { name: "localizedSoftwareVersion"; type: "string"; isReadonly: true }
         Property { name: "softwareVersion"; type: "string"; isReadonly: true }
         Property { name: "softwareVersionId"; type: "string"; isReadonly: true }
         Property { name: "adaptationVersion"; type: "string"; isReadonly: true }

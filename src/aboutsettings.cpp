@@ -269,6 +269,14 @@ QString AboutSettings::operatingSystemName() const
     return d->osRelease["NAME"];
 }
 
+QString AboutSettings::localizedSoftwareVersion() const
+{
+    Q_D(const AboutSettings);
+    parseLocalizationFile(QStringLiteral("/etc/os-release-l10n"), &d->osReleaseLocalization);
+
+    return d->osReleaseLocalization.value("VERSION", softwareVersion());
+}
+
 QString AboutSettings::softwareVersion() const
 {
     Q_D(const AboutSettings);
