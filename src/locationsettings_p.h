@@ -62,13 +62,16 @@ public:
     void writeSettings();
 
     bool mlsAvailable() const;
+    bool yandexLocatorAvailable() const;
     bool hereAvailable() const;
 
     QFileSystemWatcher m_watcher;
     bool m_locationEnabled;
     bool m_gpsEnabled;
     bool m_mlsEnabled;
+    bool m_yandexLocatorEnabled;
     LocationSettings::OnlineAGpsState m_mlsOnlineState;
+    LocationSettings::OnlineAGpsState m_yandexLocatorOnlineState;
     LocationSettings::OnlineAGpsState m_hereState;
     LocationSettings::LocationMode m_locationMode;
     bool m_settingLocationMode;
