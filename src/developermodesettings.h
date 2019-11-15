@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013 Jolla Ltd.
+ * Copyright (c) 2013 – 2019 Jolla Ltd.
+ * Copyright (c) 2019 Open Mobile Platform LLC.
  * Contact: Thomas Perl <thomas.perl@jollamobile.com>
  *
  * You may use this file under the terms of the BSD license as follows:
@@ -55,6 +56,7 @@ class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
     Q_PROPERTY(bool developerModeEnabled READ developerModeEnabled NOTIFY developerModeEnabledChanged)
     Q_PROPERTY(enum DeveloperModeSettings::Status workStatus READ workStatus NOTIFY workStatusChanged)
     Q_PROPERTY(int workProgress READ workProgress NOTIFY workProgressChanged)
+    Q_PROPERTY(bool repositoryAccessRequired READ repositoryAccessRequired NOTIFY repositoryAccessRequiredChanged)
 
 public:
     explicit DeveloperModeSettings(QObject *parent = NULL);
@@ -74,6 +76,7 @@ public:
     bool developerModeEnabled() const;
     enum DeveloperModeSettings::Status workStatus() const;
     int workProgress() const;
+    bool repositoryAccessRequired() const;
 
     Q_INVOKABLE void setDeveloperMode(bool enabled);
     Q_INVOKABLE void setUsbIpAddress(const QString &usbIpAddress);
@@ -85,6 +88,7 @@ signals:
     void developerModeEnabledChanged();
     void workStatusChanged();
     void workProgressChanged();
+    void repositoryAccessRequiredChanged();
 
 private slots:
     void reportTransactionErrorCode(PackageKit::Transaction::Error code, const QString &details);
@@ -117,6 +121,8 @@ private:
     PackageKit::Transaction::Role m_transactionRole;
     PackageKit::Transaction::Status m_transactionStatus;
     bool m_refreshedForInstall;
+    bool m_localInstallFailed;
+    QString m_localDeveloperModePackagePath;
 };
 
 Q_DECLARE_METATYPE(DeveloperModeSettings::Status)

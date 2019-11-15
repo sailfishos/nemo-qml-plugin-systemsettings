@@ -4,7 +4,7 @@ Version:    0.5.27
 Release:    1
 Group:      System/Libraries
 License:    BSD
-URL:        https://git.merproject.org/mer-core/nemo-qml-plugin-systemsettings
+URL:        https://git.sailfishos.org/mer-core/nemo-qml-plugin-systemsettings
 Source0:    %{name}-%{version}.tar.bz2
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig

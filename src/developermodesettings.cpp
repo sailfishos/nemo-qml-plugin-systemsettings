@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013-2018 Jolla Ltd.
+ * Copyright (c) 2013 – 2019 Jolla Ltd.
+ * Copyright (c) 2019 Open Mobile Platform LLC.
  * Contact: Thomas Perl <thomas.perl@jollamobile.com>
  * Contact: Raine Makelainen <raine.makelainen@jolla.com>
  *
@@ -55,6 +56,7 @@
 /* A file that is provided by the developer mode package */
 #define DEVELOPER_MODE_PROVIDED_FILE "/usr/bin/devel-su"
 #define DEVELOPER_MODE_PACKAGE "jolla-developer-mode"
+#define DEVELOPER_MODE_PACKAGE_PRELOAD_DIR "/var/lib/jolla-developer-mode/preloaded/"
 
 /* D-Bus service */
 #define USB_MODED_SERVICE "com.meego.usb_moded"
@@ -84,6 +86,17 @@ static QMap<QString,QString> enumerate_network_interfaces()
     return result;
 }
 
+static QString get_cached_package(const QString &version)
+{
+    QDir dir(DEVELOPER_MODE_PACKAGE_PRELOAD_DIR);
+    QStringList filters;
+    filters << QStringLiteral("%1-%2.*.rpm").arg(DEVELOPER_MODE_PACKAGE).arg(version);
+    auto preloaded = dir.entryList(filters, QDir::Files, QDir::Name);
+    if (preloaded.empty())
+        return QString();
+    return dir.absoluteFilePath(preloaded.last());
+}
+
 DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     : QObject(parent)
     , m_usbModeDaemon(USB_MODED_SERVICE, USB_MODED_PATH, USB_MODED_INTERFACE, QDBusConnection::systemBus())
@@ -97,6 +110,8 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_transactionRole(PackageKit::Transaction::RoleUnknown)
     , m_transactionStatus(PackageKit::Transaction::StatusUnknown)
     , m_refreshedForInstall(false)
+    , m_localInstallFailed(false)
+    , m_localDeveloperModePackagePath(get_cached_package(QStringLiteral("*")))  // Initialized to possibly incompatible package
 {
     int uid = getdef_num("UID_MIN", -1);
     struct passwd *pwd;
@@ -104,6 +119,23 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
         m_username = QString(pwd->pw_name);
     } else {
         qCWarning(lcDeveloperModeLog) << "Failed to return username using getpwuid()";
+    }
+
+    // Resolve and update local package path
+    if (!m_localDeveloperModePackagePath.isEmpty()) {
+        PackageKit::Transaction *resolvePackage = PackageKit::Daemon::resolve(DEVELOPER_MODE_PACKAGE"-preload", PackageKit::Transaction::FilterInstalled);
+        connect(resolvePackage, &PackageKit::Transaction::errorCode, this, &DeveloperModeSettings::reportTransactionErrorCode);
+        connect(resolvePackage, &PackageKit::Transaction::package,
+                this, [this](PackageKit::Transaction::Info info, const QString &packageID, const QString &summary) {
+            Q_UNUSED(summary)
+            Q_ASSERT(info == PackageKit::Transaction::InfoInstalled);
+            const QString version = PackageKit::Transaction::packageVersion(packageID);
+            m_localDeveloperModePackagePath = get_cached_package(version);
+            if (m_localDeveloperModePackagePath.isEmpty()) {
+                emit repositoryAccessRequiredChanged();
+            }
+            qCDebug(lcDeveloperModeLog) << "Preload package version: " << version << ", local package path: " << m_localDeveloperModePackagePath;
+        });
     }
 
     refresh();
@@ -144,6 +176,12 @@ enum DeveloperModeSettings::Status DeveloperModeSettings::workStatus() const
 int DeveloperModeSettings::workProgress() const
 {
     return m_workProgress;
+}
+
+bool DeveloperModeSettings::repositoryAccessRequired() const
+{
+    // Aka local-install-of-developer-mode-package-is-not-possible
+    return m_localInstallFailed || m_localDeveloperModePackagePath.isEmpty();
 }
 
 void DeveloperModeSettings::setDeveloperMode(bool enabled)
@@ -233,72 +271,114 @@ void DeveloperModeSettings::refreshPackageCacheAndInstall()
 void DeveloperModeSettings::resolveAndExecute(Command command)
 {
     setWorkStatus(Preparing);
+    m_workProgress = 0;
     m_developerModePackageId.clear(); // might differ between installed/available
 
-    PackageKit::Transaction::Filters filters;
-    if (command == RemoveCommand) {
-        filters = PackageKit::Transaction::FilterInstalled;
-    } else {
-        filters = PackageKit::Transaction::FilterNewest;
-    }
-    PackageKit::Transaction *resolvePackage = PackageKit::Daemon::resolve(DEVELOPER_MODE_PACKAGE, filters);
+    if (command == InstallCommand && !m_localInstallFailed && !m_localDeveloperModePackagePath.isEmpty()) {
+        // Resolve which version of developer mode package is expected
+        PackageKit::Transaction *resolvePackage = PackageKit::Daemon::resolve(DEVELOPER_MODE_PACKAGE"-preload", PackageKit::Transaction::FilterInstalled);
+        connect(resolvePackage, &PackageKit::Transaction::errorCode, this, &DeveloperModeSettings::reportTransactionErrorCode);
+        connect(resolvePackage, &PackageKit::Transaction::package,
+                this, [this](PackageKit::Transaction::Info info, const QString &packageID, const QString &summary) {
+            Q_UNUSED(summary)
+            Q_ASSERT(info == PackageKit::Transaction::InfoInstalled);
+            const QString version = PackageKit::Transaction::packageVersion(packageID);
+            m_localDeveloperModePackagePath = get_cached_package(version);
+            emit repositoryAccessRequiredChanged();
+            qCDebug(lcDeveloperModeLog) << "Preload package version: " << version << ", local package path: " << m_localDeveloperModePackagePath;
+        });
 
-    connect(resolvePackage, &PackageKit::Transaction::errorCode, this, &DeveloperModeSettings::reportTransactionErrorCode);
-    connect(resolvePackage, &PackageKit::Transaction::package,
-            this, [this](PackageKit::Transaction::Info info, const QString &packageId, const QString &summary) {
-        qCDebug(lcDeveloperModeLog) << "Package transaction:" << info << packageId << "summary:" << summary;
-        m_developerModePackageId = packageId;
-    });
-
-    connect(resolvePackage, &PackageKit::Transaction::finished,
-            this, [this, command](PackageKit::Transaction::Exit status, uint runtime) {
-        Q_UNUSED(runtime)
-
-        if (status != PackageKit::Transaction::ExitSuccess || m_developerModePackageId.isEmpty()) {
-            if (command == InstallCommand) {
-                if (m_refreshedForInstall) {
-                    qCWarning(lcDeveloperModeLog) << "Failed to install developer mode, package didn't resolve.";
-                    resetState();
-                } else {
-                    refreshPackageCacheAndInstall(); // try once if it helps
-                }
-            } else if (command == RemoveCommand) {
-                qCWarning(lcDeveloperModeLog) << "Removing developer mode but package didn't resolve into anything. Shouldn't happen.";
-                resetState();
-            }
-
-        } else if (command == InstallCommand) {
-            PackageKit::Transaction *tx = PackageKit::Daemon::installPackage(m_developerModePackageId);
-            connectCommandSignals(tx);
-
-            if (m_refreshedForInstall) {
-                connect(tx, &PackageKit::Transaction::finished,
-                        this, [this](PackageKit::Transaction::Exit status, uint runtime) {
-                    qCDebug(lcDeveloperModeLog) << "Developer mode installation transaction done (with refresh):" << status << runtime;
-                    resetState();
-                });
+        connect(resolvePackage, &PackageKit::Transaction::finished,
+                this, [this](PackageKit::Transaction::Exit status, uint runtime) {
+            Q_UNUSED(runtime)
+            if (status != PackageKit::Transaction::ExitSuccess || m_localDeveloperModePackagePath.isEmpty()) {
+                qCDebug(lcDeveloperModeLog) << "Preloaded package not found, must use remote package";
+                // No cached package => install from repos
+                resolveAndExecute(InstallCommand);
             } else {
+                PackageKit::Transaction *tx = PackageKit::Daemon::installFiles(QStringList() << m_localDeveloperModePackagePath);
+                connectCommandSignals(tx);
                 connect(tx, &PackageKit::Transaction::finished,
                         this, [this](PackageKit::Transaction::Exit status, uint runtime) {
                     if (status == PackageKit::Transaction::ExitSuccess) {
-                        qCDebug(lcDeveloperModeLog) << "Developer mode installation transaction done:" << status << runtime;
+                        qCDebug(lcDeveloperModeLog) << "Developer mode installation from local package transaction done:" << status << runtime;
                         resetState();
-                    } else {
-                        qCDebug(lcDeveloperModeLog) << "Developer mode installation failed, trying again after refresh";
-                        refreshPackageCacheAndInstall();
-                    }
+                    } else if (status == PackageKit::Transaction::ExitFailed) {
+                        qCWarning(lcDeveloperModeLog) << "Developer mode installation from local package failed, trying from repos";
+                        m_localInstallFailed = true;
+                        emit repositoryAccessRequiredChanged();
+                        resolveAndExecute(InstallCommand);  // TODO: If repo access is not available this can not bail out
+                    } // else ExitUnknown (ignored)
                 });
             }
+        });
+
+    } else {
+        PackageKit::Transaction::Filters filters;
+        if (command == RemoveCommand) {
+            filters = PackageKit::Transaction::FilterInstalled;
         } else {
-            PackageKit::Transaction *tx = PackageKit::Daemon::removePackage(m_developerModePackageId, true, true);
-            connectCommandSignals(tx);
-            connect(tx, &PackageKit::Transaction::finished,
-                    this, [this](PackageKit::Transaction::Exit status, uint runtime) {
-                qCDebug(lcDeveloperModeLog) << "Developer mode removal transaction done:" << status << runtime;
-                resetState();
-            });
+            filters = PackageKit::Transaction::FilterNewest;
         }
-    });
+        PackageKit::Transaction *resolvePackage = PackageKit::Daemon::resolve(DEVELOPER_MODE_PACKAGE, filters);
+
+        connect(resolvePackage, &PackageKit::Transaction::errorCode, this, &DeveloperModeSettings::reportTransactionErrorCode);
+        connect(resolvePackage, &PackageKit::Transaction::package,
+                this, [this](PackageKit::Transaction::Info info, const QString &packageId, const QString &summary) {
+            qCDebug(lcDeveloperModeLog) << "Package transaction:" << info << packageId << "summary:" << summary;
+            m_developerModePackageId = packageId;
+        });
+
+        connect(resolvePackage, &PackageKit::Transaction::finished,
+                this, [this, command](PackageKit::Transaction::Exit status, uint runtime) {
+            Q_UNUSED(runtime)
+
+            if (status != PackageKit::Transaction::ExitSuccess || m_developerModePackageId.isEmpty()) {
+                if (command == InstallCommand) {
+                    if (m_refreshedForInstall) {
+                        qCWarning(lcDeveloperModeLog) << "Failed to install developer mode, package didn't resolve.";
+                        resetState();
+                    } else {
+                        refreshPackageCacheAndInstall(); // try once if it helps
+                    }
+                } else if (command == RemoveCommand) {
+                    qCWarning(lcDeveloperModeLog) << "Removing developer mode but package didn't resolve into anything. Shouldn't happen.";
+                    resetState();
+                }
+
+            } else if (command == InstallCommand) {
+                PackageKit::Transaction *tx = PackageKit::Daemon::installPackage(m_developerModePackageId);
+                connectCommandSignals(tx);
+
+                if (m_refreshedForInstall) {
+                    connect(tx, &PackageKit::Transaction::finished,
+                            this, [this](PackageKit::Transaction::Exit status, uint runtime) {
+                        qCDebug(lcDeveloperModeLog) << "Developer mode installation transaction done (with refresh):" << status << runtime;
+                        resetState();
+                    });
+                } else {
+                    connect(tx, &PackageKit::Transaction::finished,
+                            this, [this](PackageKit::Transaction::Exit status, uint runtime) {
+                        if (status == PackageKit::Transaction::ExitSuccess) {
+                            qCDebug(lcDeveloperModeLog) << "Developer mode installation transaction done:" << status << runtime;
+                            resetState();
+                        } else {
+                            qCDebug(lcDeveloperModeLog) << "Developer mode installation failed, trying again after refresh";
+                            refreshPackageCacheAndInstall();
+                        }
+                    });
+                }
+            } else {
+                PackageKit::Transaction *tx = PackageKit::Daemon::removePackage(m_developerModePackageId, true, true);
+                connectCommandSignals(tx);
+                connect(tx, &PackageKit::Transaction::finished,
+                        this, [this](PackageKit::Transaction::Exit status, uint runtime) {
+                    qCDebug(lcDeveloperModeLog) << "Developer mode removal transaction done:" << status << runtime;
+                    resetState();
+                });
+            }
+        });
+    }
 }
 
 void DeveloperModeSettings::connectCommandSignals(PackageKit::Transaction *transaction)
@@ -319,18 +399,15 @@ void DeveloperModeSettings::connectCommandSignals(PackageKit::Transaction *trans
 
 void DeveloperModeSettings::updateState(int percentage, PackageKit::Transaction::Status status, PackageKit::Transaction::Role role)
 {
-    // Do not update progress when finished.
-    if (status == PackageKit::Transaction::StatusFinished) {
-        return;
-    }
-
     // Expected changes from PackageKit when installing packages:
-    // 1. Change to 'install packages' role
+    // 1. Change to 'install packages' role or 'install files' if installing from local package file
     // 2. Status changes:
     //      setup -> refresh cache -> query -> resolve deps -> install (refer to as 'Preparing' status)
     //      -> download ('DownloadingPackages' status)
     //      -> install ('InstallingPackages' status)
     //      -> finished
+    //
+    // If installing from local package fails, it starts over!
     //
     // Expected changes from PackageKit when removing packages:
     // 1. Change to 'remove packages' role
@@ -347,10 +424,17 @@ void DeveloperModeSettings::updateState(int percentage, PackageKit::Transaction:
     m_transactionRole = role;
     m_transactionStatus = status;
 
+    // Do not update progress when finished or role is unknown.
+    if (m_transactionStatus == PackageKit::Transaction::StatusFinished
+            || m_transactionRole == PackageKit::Transaction::RoleUnknown) {
+        return;
+    }
+
     if (percentage >= 0 && percentage <= 100) {
         int rangeStart = 0;
         int rangeEnd = 0;
-        if (m_transactionRole == PackageKit::Transaction::RoleInstallPackages) {
+        if (m_transactionRole == PackageKit::Transaction::RoleInstallPackages
+                || m_transactionRole == PackageKit::Transaction::RoleInstallFiles) {
             switch (m_transactionStatus) {
             case PackageKit::Transaction::StatusRefreshCache:   // 0-10 %
                 rangeStart = 0;
@@ -362,7 +446,10 @@ void DeveloperModeSettings::updateState(int percentage, PackageKit::Transaction:
                 rangeEnd = 20;
                 break;
             case PackageKit::Transaction::StatusDownload:    // 20-60 %
-                workStatus = DownloadingPackages;
+                // Skip downloading when installing from local file
+                if (m_transactionRole != PackageKit::Transaction::RoleInstallFiles) {
+                    workStatus = DownloadingPackages;
+                }
                 rangeStart = 20;
                 rangeEnd = 60;
                 break;
