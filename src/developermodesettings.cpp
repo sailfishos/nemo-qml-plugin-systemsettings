@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013-2018 Jolla Ltd.
+ * Copyright (c) 2013 – 2019 Jolla Ltd.
+ * Copyright (c) 2019 Open Mobile Platform LLC.
  * Contact: Thomas Perl <thomas.perl@jollamobile.com>
  * Contact: Raine Makelainen <raine.makelainen@jolla.com>
  *
