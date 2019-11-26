@@ -71,7 +71,6 @@ SettingsVpnModel::SettingsVpnModel(QObject* parent)
     connect(manager, &VpnManager::connectionAdded, this, &SettingsVpnModel::connectionAdded, Qt::UniqueConnection);
     connect(manager, &VpnManager::connectionRemoved, this, &SettingsVpnModel::connectionRemoved, Qt::UniqueConnection);
     connect(manager, &VpnManager::connectionsRefreshed, this, &SettingsVpnModel::connectionsRefreshed, Qt::UniqueConnection);
-    connect(manager, &VpnManager::connectionsClearingAll, this, &SettingsVpnModel::connectionsClearingAll, Qt::UniqueConnection);
 }
 
 SettingsVpnModel::~SettingsVpnModel()
@@ -320,16 +319,6 @@ void SettingsVpnModel::connectionRemoved(const QString &path)
         disconnect(conn, 0, this, 0);
     }
 }
-
-void SettingsVpnModel::connectionsClearingAll()
-{
-    qCDebug(lcVpnLog) << "VPN clearing all connections";
-    QVector<VpnConnection*> connections = vpnManager()->connections();
-    for (VpnConnection *conn : connections) {
-        disconnect(conn, 0, this, 0);
-    }
-}
-
 
 void SettingsVpnModel::connectionsRefreshed()
 {

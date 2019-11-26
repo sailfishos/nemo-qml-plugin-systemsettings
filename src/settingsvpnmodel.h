@@ -102,7 +102,6 @@ private:
 private Q_SLOTS:
     void connectionAdded(const QString &path);
     void connectionRemoved(const QString &path);
-    void connectionsClearingAll();
     void connectionsRefreshed();
     void updatedConnectionPosition();
     void connectedChanged();
