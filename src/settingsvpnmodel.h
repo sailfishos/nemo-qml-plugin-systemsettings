@@ -98,11 +98,11 @@ private:
     virtual void orderConnections(QVector<VpnConnection*> &connections) override;
     bool compareConnections(const VpnConnection *i, const VpnConnection *j);
     QVariantMap processOpenVpnProvisioningFile(QFile &provisioningFile);
+    void updateBestState(VpnConnection::ConnectionState maxState);
 
 private Q_SLOTS:
     void connectionAdded(const QString &path);
     void connectionRemoved(const QString &path);
-    void connectionsClearingAll();
     void connectionsRefreshed();
     void updatedConnectionPosition();
     void connectedChanged();

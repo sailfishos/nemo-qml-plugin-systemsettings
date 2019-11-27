@@ -49,8 +49,16 @@ const auto legacyDefaultDomain(QStringLiteral("merproject.org"));
 int numericValue(VpnConnection::ConnectionState state)
 {
     return (state == VpnConnection::Ready ? 3 :
-                (state == VpnConnection::Configuration ? 2 :
-                (state == VpnConnection::Failure ? 1 : 0)));
+                (state == VpnConnection::Configuration ? 2 : 0));
+}
+
+VpnConnection::ConnectionState getMaxState(VpnConnection::ConnectionState newState, VpnConnection::ConnectionState oldState)
+{
+    if (numericValue(newState) > numericValue(oldState)) {
+        return newState;
+    }
+
+    return oldState;
 }
 
 } // end anonymous namespace
@@ -71,7 +79,6 @@ SettingsVpnModel::SettingsVpnModel(QObject* parent)
     connect(manager, &VpnManager::connectionAdded, this, &SettingsVpnModel::connectionAdded, Qt::UniqueConnection);
     connect(manager, &VpnManager::connectionRemoved, this, &SettingsVpnModel::connectionRemoved, Qt::UniqueConnection);
     connect(manager, &VpnManager::connectionsRefreshed, this, &SettingsVpnModel::connectionsRefreshed, Qt::UniqueConnection);
-    connect(manager, &VpnManager::connectionsClearingAll, this, &SettingsVpnModel::connectionsClearingAll, Qt::UniqueConnection);
 }
 
 SettingsVpnModel::~SettingsVpnModel()
@@ -321,25 +328,22 @@ void SettingsVpnModel::connectionRemoved(const QString &path)
     }
 }
 
-void SettingsVpnModel::connectionsClearingAll()
-{
-    qCDebug(lcVpnLog) << "VPN clearing all connections";
-    QVector<VpnConnection*> connections = vpnManager()->connections();
-    for (VpnConnection *conn : connections) {
-        disconnect(conn, 0, this, 0);
-    }
-}
-
-
 void SettingsVpnModel::connectionsRefreshed()
 {
     qCDebug(lcVpnLog) << "VPN connections refreshed";
     QVector<VpnConnection*> connections = vpnManager()->connections();
+
+    // Check to see if the best state has changed
+    VpnConnection::ConnectionState maxState = VpnConnection::Idle;
     for (VpnConnection *conn : connections) {
         connect(conn, &VpnConnection::nameChanged, this, &SettingsVpnModel::updatedConnectionPosition, Qt::UniqueConnection);
         connect(conn, &VpnConnection::connectedChanged, this, &SettingsVpnModel::connectedChanged, Qt::UniqueConnection);
         connect(conn, &VpnConnection::stateChanged, this, &SettingsVpnModel::stateChanged, Qt::UniqueConnection);
+
+        maxState = getMaxState(conn->state(), maxState);
     }
+
+    updateBestState(maxState);
 }
 
 void SettingsVpnModel::stateChanged()
@@ -349,17 +353,8 @@ void SettingsVpnModel::stateChanged()
     emit connectionStateChanged(conn->path(), conn->state());
 
     // Check to see if the best state has changed
-    VpnConnection::ConnectionState maxState = VpnConnection::Idle;
-    for (VpnConnection *conn : connections()) {
-        VpnConnection::ConnectionState state(conn->state());
-        if (numericValue(state) > numericValue(maxState)) {
-            maxState = state;
-        }
-    }
-    if (bestState_ != maxState) {
-        bestState_ = maxState;
-        emit bestStateChanged();
-    }
+    VpnConnection::ConnectionState maxState = getMaxState(conn->state(), VpnConnection::Idle);
+    updateBestState(maxState);
 }
 
 // ==========================================================================
@@ -840,4 +835,12 @@ QVariantMap SettingsVpnModel::processOpenVpnProvisioningFile(QFile &provisioning
     }
 
     return rv;
+}
+
+void SettingsVpnModel::updateBestState(VpnConnection::ConnectionState maxState)
+{
+    if (bestState_ != maxState) {
+        bestState_ = maxState;
+        emit bestStateChanged();
+    }
 }
