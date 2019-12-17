@@ -50,6 +50,7 @@
 #include "settingsvpnmodel.h"
 #include "locationsettings.h"
 #include "deviceinfo.h"
+#include "nfcsettings.h"
 
 template<class T>
 static QObject *api_factory(QQmlEngine *, QJSEngine *)
@@ -89,6 +90,7 @@ public:
         qmlRegisterType<DiskUsage>(uri, 1, 0, "DiskUsage");
         qmlRegisterType<LocationSettings>(uri, 1, 0, "LocationSettings");
         qmlRegisterType<DeviceInfo>(uri, 1, 0, "DeviceInfo");
+        qmlRegisterType<NfcSettings>(uri, 1, 0, "NfcSettings");
     }
 };
 
