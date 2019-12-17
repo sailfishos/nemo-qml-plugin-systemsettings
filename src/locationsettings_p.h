@@ -38,6 +38,7 @@
 #include <QDBusInterface>
 #include <QVariant>
 #include <QString>
+#include <QStringList>
 
 #include <sailfishkeyprovider_processmutex.h>
 
@@ -60,22 +61,22 @@ public:
 
     LocationSettings::LocationMode calculateLocationMode() const;
     void writeSettings();
+    void removePendingAgreement(const QString &agreement);
 
-    bool mlsAvailable() const;
-    bool yandexLocatorAvailable() const;
-    bool hereAvailable() const;
+    int m_hereAvailable;
+    int m_mlsAvailable;
+    int m_yandexAvailable;
 
     QFileSystemWatcher m_watcher;
     bool m_locationEnabled;
     bool m_gpsEnabled;
     bool m_mlsEnabled;
-    bool m_yandexLocatorEnabled;
     LocationSettings::OnlineAGpsState m_mlsOnlineState;
-    LocationSettings::OnlineAGpsState m_yandexLocatorOnlineState;
+    LocationSettings::OnlineAGpsState m_yandexOnlineState;
     LocationSettings::OnlineAGpsState m_hereState;
     LocationSettings::LocationMode m_locationMode;
-    bool m_settingLocationMode;
     bool m_settingMultipleSettings;
+    QStringList m_pendingAgreements;
     LocationSettings::DataSources m_allowedDataSources;
     NetworkManager *m_connMan;
     NetworkTechnology *m_gpsTech;
@@ -85,7 +86,6 @@ private slots:
     void readSettings();
     void findGpsTech();
     void gpsTechPropertyChanged(const QString &propertyName, const QVariant &value);
-    void recalculateLocationMode();
 };
 
 // TODO: replace this with DBus calls to a central settings service...

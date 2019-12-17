@@ -34,8 +34,6 @@
 #include "locationsettings_p.h"
 
 #include <QFile>
-#include <QSettings>
-#include <QStringList>
 #include <QTimer>
 #include <QDebug>
 
@@ -49,26 +47,24 @@
 #include <limits>
 
 namespace {
+    const QString LocationSettingsDeprecatedCellIdPositioningEnabledKey = QStringLiteral("cell_id_positioning_enabled");
+    const QString LocationSettingsDeprecatedHereEnabledKey = QStringLiteral("here_agreement_accepted");
+    const QString LocationSettingsDeprecatedHereAgreementAcceptedKey = QStringLiteral("agreement_accepted");
+
     const QString PoweredPropertyName = QStringLiteral("Powered");
     const QString LocationSettingsDir = QStringLiteral("/etc/location/");
     const QString LocationSettingsFile = QStringLiteral("/etc/location/location.conf");
     const QString LocationSettingsSection = QStringLiteral("location");
-    const QString LocationSettingsDeprecatedCellIdPositioningEnabledKey = QStringLiteral("cell_id_positioning_enabled");
-    const QString LocationSettingsDeprecatedHereEnabledKey = QStringLiteral("here_agreement_accepted");
-    const QString LocationSettingsDeprecatedHereAgreementAcceptedKey = QStringLiteral("agreement_accepted");
     const QString LocationSettingsEnabledKey = QStringLiteral("enabled");
     const QString LocationSettingsCustomModeKey = QStringLiteral("custom_mode");
-    const QString LocationSettingsAgpsProvidersKey = QStringLiteral("agps_providers");
     const QString LocationSettingsGpsEnabledKey = QStringLiteral("gps\\enabled");
     const QString LocationSettingsMlsEnabledKey = QStringLiteral("mls\\enabled");
     const QString LocationSettingsMlsAgreementAcceptedKey = QStringLiteral("mls\\agreement_accepted");
     const QString LocationSettingsMlsOnlineEnabledKey = QStringLiteral("mls\\online_enabled");
     const QString LocationSettingsHereEnabledKey = QStringLiteral("here\\enabled");
     const QString LocationSettingsHereAgreementAcceptedKey = QStringLiteral("here\\agreement_accepted");
-    const QString LocationSettingsHereOnlineEnabledKey = QStringLiteral("here\\online_enabled");
-    const QString LocationSettingsYandexLocatorEnabledKey = QStringLiteral("yandex\\enabled");
-    const QString LocationSettingsYandexLocatorAgreementAcceptedKey = QStringLiteral("yandex\\agreement_accepted");
-    const QString LocationSettingsYandexLocatorOnlineEnabledKey = QStringLiteral("yandex\\online_enabled");
+    const QString LocationSettingsYandexAgreementAcceptedKey = QStringLiteral("yandex\\agreement_accepted");
+    const QString LocationSettingsYandexOnlineEnabledKey = QStringLiteral("yandex\\online_enabled");
     const QMap<LocationSettings::DataSource, QString> AllowedDataSourcesKeys {
         { LocationSettings::OnlineDataSources, QStringLiteral("allowed_data_sources\\online") },
         { LocationSettings::DeviceSensorsData, QStringLiteral("allowed_data_sources\\device_sensors") },
@@ -183,12 +179,10 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
     , m_locationEnabled(false)
     , m_gpsEnabled(false)
     , m_mlsEnabled(true)
-    , m_yandexLocatorEnabled(true)
     , m_mlsOnlineState(LocationSettings::OnlineAGpsAgreementNotAccepted)
-    , m_yandexLocatorOnlineState(LocationSettings::OnlineAGpsAgreementNotAccepted)
+    , m_yandexOnlineState(LocationSettings::OnlineAGpsAgreementNotAccepted)
     , m_hereState(LocationSettings::OnlineAGpsAgreementNotAccepted)
     , m_locationMode(LocationSettings::CustomMode)
-    , m_settingLocationMode(true)
     , m_settingMultipleSettings(false)
     , m_allowedDataSources(static_cast<LocationSettings::DataSources>(std::numeric_limits<quint32>::max()))
     , m_connMan(Q_NULLPTR)
@@ -200,18 +194,9 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
                                               "net.connman.Technology",
                                               QDBusConnection::systemBus()))
 {
-    connect(q, &LocationSettings::gpsEnabledChanged,
-            this, &LocationSettingsPrivate::recalculateLocationMode);
-    connect(q, &LocationSettings::mlsEnabledChanged,
-            this, &LocationSettingsPrivate::recalculateLocationMode);
-    connect(q, &LocationSettings::mlsOnlineStateChanged,
-            this, &LocationSettingsPrivate::recalculateLocationMode);
-    connect(q, &LocationSettings::yandexLocatorEnabledChanged,
-            this, &LocationSettingsPrivate::recalculateLocationMode);
-    connect(q, &LocationSettings::yandexLocatorOnlineStateChanged,
-            this, &LocationSettingsPrivate::recalculateLocationMode);
-    connect(q, &LocationSettings::hereStateChanged,
-            this, &LocationSettingsPrivate::recalculateLocationMode);
+    m_hereAvailable = QFile::exists(QStringLiteral("/usr/libexec/geoclue-here"));
+    m_mlsAvailable = QFile::exists(QStringLiteral("/usr/libexec/geoclue-mlsdb"));
+    m_yandexAvailable = QFile::exists(QStringLiteral("/usr/libexec/geoclue-yandex"));
 
     connect(&m_watcher, SIGNAL(fileChanged(QString)), this, SLOT(readSettings()));
     connect(&m_watcher, SIGNAL(directoryChanged(QString)), this, SLOT(readSettings()));
@@ -222,8 +207,6 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
     } else {
         qWarning() << "Unable to follow location configuration file changes";
     }
-
-    this->m_settingLocationMode = false;
 
     if (m_gpsTechInterface) {
         QDBusConnection::systemBus().connect("net.connman",
@@ -247,10 +230,9 @@ LocationSettingsPrivate::~LocationSettingsPrivate()
         disconnect(m_gpsTech, 0, q, 0);
         m_gpsTech = 0;
     }
-    if (m_gpsTechInterface) {
-        delete m_gpsTechInterface;
-        m_gpsTechInterface = 0;
-    }
+
+    delete m_gpsTechInterface;
+    m_gpsTechInterface = 0;
 }
 
 void LocationSettingsPrivate::gpsTechPropertyChanged(const QString &propertyName, const QVariant &)
@@ -277,66 +259,44 @@ void LocationSettingsPrivate::findGpsTech()
     emit q->gpsFlightModeChanged();
 }
 
+static void checkOnlineStates(bool available, LocationSettings::OnlineAGpsState mode, bool *allOn, bool *allOff)
+{
+    if (!available) {
+        return;
+    }
+    if (mode == LocationSettings::OnlineAGpsEnabled) {
+        *allOff = false;
+    } else {
+        *allOn = false;
+    }
+}
+
 LocationSettings::LocationMode
 LocationSettingsPrivate::calculateLocationMode() const
 {
-    bool nls = m_mlsEnabled || m_yandexLocatorEnabled;
-    bool nls_available = mlsAvailable() || yandexLocatorAvailable();
+    bool allNetworkOn = true;
+    bool allNetworkOff = true;
+    checkOnlineStates(m_hereAvailable, m_hereState, &allNetworkOn, &allNetworkOff);
+    checkOnlineStates(m_mlsAvailable, m_mlsOnlineState, &allNetworkOn, &allNetworkOff);
+    checkOnlineStates(m_yandexAvailable, m_yandexOnlineState, &allNetworkOn, &allNetworkOff);
 
-    if (m_gpsEnabled
-            && (!nls_available ||
-                    (nls && (m_mlsOnlineState == LocationSettings::OnlineAGpsEnabled || m_yandexLocatorOnlineState == LocationSettings::OnlineAGpsEnabled)))
-            && (!hereAvailable() || m_hereState == LocationSettings::OnlineAGpsEnabled)) {
+    bool networkLocationExists = m_hereAvailable || m_mlsOnlineState || m_mlsOnlineState;
+
+    bool allOfflineEnabled = true;
+    if (m_mlsAvailable && !m_mlsEnabled) {
+        allOfflineEnabled = false;
+    }
+
+    if (m_gpsEnabled && allNetworkOn && networkLocationExists && allOfflineEnabled) {
         return LocationSettings::HighAccuracyMode;
-    } else if (!m_gpsEnabled
-            && (!nls_available ||
-                    (nls &&
-                        ((m_mlsOnlineState == LocationSettings::OnlineAGpsEnabled || m_yandexLocatorOnlineState == LocationSettings::OnlineAGpsEnabled )
-                        || (m_mlsOnlineState == LocationSettings::OnlineAGpsAgreementNotAccepted || m_yandexLocatorOnlineState == LocationSettings::OnlineAGpsAgreementNotAccepted))))
-            && (!hereAvailable() ||
-                    (m_hereState == LocationSettings::OnlineAGpsEnabled
-                    || m_hereState == LocationSettings::OnlineAGpsAgreementNotAccepted))) {
+    } else if (!m_gpsEnabled && allNetworkOn && allOfflineEnabled) {
         return LocationSettings::BatterySavingMode;
-    } else if (m_gpsEnabled
-            && (!nls_available ||
-                    (nls &&
-                        ((m_mlsOnlineState == LocationSettings::OnlineAGpsDisabled || m_yandexLocatorOnlineState == LocationSettings::OnlineAGpsDisabled)
-                        ||(m_mlsOnlineState == LocationSettings::OnlineAGpsAgreementNotAccepted || m_yandexLocatorOnlineState == LocationSettings::OnlineAGpsAgreementNotAccepted))))
-            && (!hereAvailable() ||
-                    (m_hereState == LocationSettings::OnlineAGpsDisabled
-                    || m_hereState == LocationSettings::OnlineAGpsAgreementNotAccepted))) {
+    } else if (m_gpsEnabled && allNetworkOff && allOfflineEnabled) {
         return LocationSettings::DeviceOnlyMode;
-    } else {
-        return LocationSettings::CustomMode;
     }
-}
 
-void LocationSettingsPrivate::recalculateLocationMode()
-{
-    if (!m_settingLocationMode && m_locationMode != LocationSettings::CustomMode) {
-        LocationSettings::LocationMode currentMode = calculateLocationMode();
-        if (currentMode != m_locationMode) {
-            m_locationMode = currentMode;
-            emit q->locationModeChanged();
-        }
-    }
+    return LocationSettings::CustomMode;
 }
-
-bool LocationSettingsPrivate::mlsAvailable() const
-{
-    return QFile::exists(QStringLiteral("/usr/libexec/geoclue-mlsdb"));
-}
-
-bool LocationSettingsPrivate::yandexLocatorAvailable() const
-{
-    return QFile::exists(QStringLiteral("/usr/libexec/geoclue-yandex"));
-}
-
-bool LocationSettingsPrivate::hereAvailable() const
-{
-    return QFile::exists(QStringLiteral("/usr/libexec/geoclue-here"));
-}
-
 
 LocationSettings::LocationSettings(QObject *parent)
     : QObject(parent)
@@ -458,54 +418,46 @@ void LocationSettings::setMlsOnlineState(LocationSettings::OnlineAGpsState state
 
     d->m_mlsOnlineState = state;
     d->writeSettings();
+    if (state != OnlineAGpsAgreementNotAccepted) {
+        d->removePendingAgreement(QLatin1String("mls"));
+    }
+
     emit mlsOnlineStateChanged();
 }
 
 bool LocationSettings::mlsAvailable() const
 {
     Q_D(const LocationSettings);
-    return d->mlsAvailable();
+    return d->m_mlsAvailable;
 }
 
-/*Yandex locator services*/
+/*Yandex  services*/
 
-bool LocationSettings::yandexLocatorEnabled() const
+LocationSettings::OnlineAGpsState LocationSettings::yandexOnlineState() const
 {
     Q_D(const LocationSettings);
-    return d->m_yandexLocatorEnabled;
+    return d->m_yandexOnlineState;
 }
 
-void LocationSettings::setYandexLocatorEnabled(bool enabled)
+void LocationSettings::setYandexOnlineState(LocationSettings::OnlineAGpsState state)
 {
     Q_D(LocationSettings);
-    if (enabled != d->m_yandexLocatorEnabled) {
-        d->m_yandexLocatorEnabled = enabled;
-        d->writeSettings();
-        emit yandexLocatorEnabledChanged();
-    }
-}
-
-LocationSettings::OnlineAGpsState LocationSettings::yandexLocatorOnlineState() const
-{
-    Q_D(const LocationSettings);
-    return d->m_yandexLocatorOnlineState;
-}
-
-void LocationSettings::setYandexLocatorOnlineState(LocationSettings::OnlineAGpsState state)
-{
-    Q_D(LocationSettings);
-    if (state == d->m_yandexLocatorOnlineState)
+    if (state == d->m_yandexOnlineState)
         return;
 
-    d->m_yandexLocatorOnlineState = state;
+    d->m_yandexOnlineState = state;
     d->writeSettings();
-    emit yandexLocatorOnlineStateChanged();
+    if (state != OnlineAGpsAgreementNotAccepted) {
+        d->removePendingAgreement(QLatin1String("yandex"));
+    }
+
+    emit yandexOnlineStateChanged();
 }
 
-bool LocationSettings::yandexLocatorAvailable() const
+bool LocationSettings::yandexAvailable() const
 {
     Q_D(const LocationSettings);
-    return d->yandexLocatorAvailable();
+    return d->m_yandexAvailable;
 }
 
 /*HERE*/
@@ -523,13 +475,16 @@ void LocationSettings::setHereState(LocationSettings::OnlineAGpsState state)
 
     d->m_hereState = state;
     d->writeSettings();
+    if (state != OnlineAGpsAgreementNotAccepted) {
+        d->removePendingAgreement(QLatin1String("here"));
+    }
     emit hereStateChanged();
 }
 
 bool LocationSettings::hereAvailable() const
 {
     Q_D(const LocationSettings);
-    return d->hereAvailable();
+    return d->m_hereAvailable;
 }
 
 LocationSettings::LocationMode LocationSettings::locationMode() const
@@ -547,65 +502,36 @@ void LocationSettings::setLocationMode(LocationMode locationMode)
         return;
     }
 
-    d->m_settingLocationMode = true;
     d->m_settingMultipleSettings = true;
     d->m_locationMode = locationMode;
+    QStringList pendingAgreements;
 
-    if (locationMode == HighAccuracyMode) {
-        setGpsEnabled(true);
+    if (locationMode != CustomMode) {
+        setGpsEnabled(locationMode == HighAccuracyMode || locationMode == DeviceOnlyMode);
+
+        OnlineAGpsState agpsState = (locationMode == DeviceOnlyMode) ? OnlineAGpsDisabled : OnlineAGpsEnabled;
+        bool needOnlineAgreements = locationMode != DeviceOnlyMode;
+
         if (mlsAvailable()) {
             setMlsEnabled(true);
             if (mlsOnlineState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
-                setMlsOnlineState(LocationSettings::OnlineAGpsEnabled);
+                setMlsOnlineState(agpsState);
+            } else if (needOnlineAgreements) {
+                pendingAgreements.append(QLatin1String("mls"));
             }
         }
-        if (yandexLocatorAvailable()) {
-            setYandexLocatorEnabled(true);
-            if (yandexLocatorOnlineState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
-                setYandexLocatorOnlineState(LocationSettings::OnlineAGpsEnabled);
+        if (yandexAvailable()) {
+            if (yandexOnlineState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
+                setYandexOnlineState(agpsState);
+            } else if (needOnlineAgreements) {
+                pendingAgreements.append(QLatin1String("yandex"));
             }
         }
         if (hereAvailable()) {
             if (hereState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
-                setHereState(LocationSettings::OnlineAGpsEnabled);
-            }
-        }
-    } else if (locationMode == BatterySavingMode) {
-        setGpsEnabled(false);
-        if (mlsAvailable()) {
-            setMlsEnabled(true);
-            if (mlsOnlineState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
-                setMlsOnlineState(LocationSettings::OnlineAGpsEnabled);
-            }
-        }
-        if (yandexLocatorAvailable()) {
-            setYandexLocatorEnabled(true);
-            if (yandexLocatorOnlineState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
-                setYandexLocatorOnlineState(LocationSettings::OnlineAGpsEnabled);
-            }
-        }
-        if (hereAvailable()) {
-            if (hereState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
-                setHereState(LocationSettings::OnlineAGpsEnabled);
-            }
-        }
-    } else if (locationMode == DeviceOnlyMode) {
-        setGpsEnabled(true);
-        if (mlsAvailable()) {
-            setMlsEnabled(true);
-            if (mlsOnlineState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
-                setMlsOnlineState(LocationSettings::OnlineAGpsDisabled);
-            }
-        }
-        if (yandexLocatorAvailable()) {
-            setYandexLocatorEnabled(true);
-            if (yandexLocatorOnlineState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
-                setYandexLocatorOnlineState(LocationSettings::OnlineAGpsDisabled);
-            }
-        }
-        if (hereAvailable()) {
-            if (hereState() != LocationSettings::OnlineAGpsAgreementNotAccepted) {
-                setHereState(LocationSettings::OnlineAGpsDisabled);
+                setHereState(agpsState);
+            } else if (needOnlineAgreements) {
+                pendingAgreements.append(QLatin1String("here"));
             }
         }
     }
@@ -614,7 +540,16 @@ void LocationSettings::setLocationMode(LocationMode locationMode)
     d->writeSettings();
     emit locationModeChanged();
 
-    d->m_settingLocationMode = false;
+    if (pendingAgreements != d->m_pendingAgreements) {
+        d->m_pendingAgreements = pendingAgreements;
+        emit pendingAgreementsChanged();
+    }
+}
+
+QStringList LocationSettings::pendingAgreements() const
+{
+    Q_D(const LocationSettings);
+    return d->m_pendingAgreements;
 }
 
 LocationSettings::DataSources LocationSettings::allowedDataSources() const
@@ -640,7 +575,6 @@ void LocationSettingsPrivate::readSettings()
     bool oldMlsEnabled = false;
     bool oldHereEnabled = false;
     bool oldHereAgreementAccepted = false;
-    bool oldYandexLocatorEnabled = false;
 
     // current key values
     bool locationEnabled = false;
@@ -649,9 +583,8 @@ void LocationSettingsPrivate::readSettings()
     bool mlsEnabled = false;
     bool mlsAgreementAccepted = false;
     bool mlsOnlineEnabled = false;
-    bool yandexLocatorEnabled = false;
-    bool yandexLocatorAgreementAccepted = false;
-    bool yandexLocatorOnlineEnabled = false;
+    bool yandexAgreementAccepted = false;
+    bool yandexOnlineEnabled = false;
 
     bool hereEnabled = false;
     bool hereAgreementAccepted = false;
@@ -679,9 +612,8 @@ void LocationSettingsPrivate::readSettings()
         ini.readBool(LocationSettingsSection, LocationSettingsMlsEnabledKey, &mlsEnabled, oldMlsEnabled);
         ini.readBool(LocationSettingsSection, LocationSettingsMlsAgreementAcceptedKey, &mlsAgreementAccepted);
         ini.readBool(LocationSettingsSection, LocationSettingsMlsOnlineEnabledKey, &mlsOnlineEnabled);
-        ini.readBool(LocationSettingsSection, LocationSettingsYandexLocatorEnabledKey, &yandexLocatorEnabled, oldYandexLocatorEnabled);
-        ini.readBool(LocationSettingsSection, LocationSettingsYandexLocatorAgreementAcceptedKey, &yandexLocatorAgreementAccepted);
-        ini.readBool(LocationSettingsSection, LocationSettingsYandexLocatorOnlineEnabledKey, &yandexLocatorOnlineEnabled);
+        ini.readBool(LocationSettingsSection, LocationSettingsYandexAgreementAcceptedKey, &yandexAgreementAccepted);
+        ini.readBool(LocationSettingsSection, LocationSettingsYandexOnlineEnabledKey, &yandexOnlineEnabled);
         ini.readBool(LocationSettingsSection, LocationSettingsHereEnabledKey, &hereEnabled, oldHereEnabled);
         ini.readBool(LocationSettingsSection, LocationSettingsHereAgreementAcceptedKey, &hereAgreementAccepted, oldHereAgreementAccepted);
 
@@ -726,11 +658,6 @@ void LocationSettingsPrivate::readSettings()
         emit q->mlsEnabledChanged();
     }
 
-    if (m_yandexLocatorEnabled != yandexLocatorEnabled) {
-        m_yandexLocatorEnabled = yandexLocatorEnabled;
-        emit q->yandexLocatorEnabledChanged();
-    }
-
     LocationSettings::OnlineAGpsState mlsOnlineState = mlsAgreementAccepted
             ? ((mlsOnlineEnabled && m_mlsEnabled) ? LocationSettings::OnlineAGpsEnabled : LocationSettings::OnlineAGpsDisabled)
             : LocationSettings::OnlineAGpsAgreementNotAccepted;
@@ -739,18 +666,22 @@ void LocationSettingsPrivate::readSettings()
         emit q->mlsOnlineStateChanged();
     }
 
-    LocationSettings::OnlineAGpsState yandexLocatorOnlineState = yandexLocatorAgreementAccepted
-            ? ((yandexLocatorOnlineEnabled && m_yandexLocatorEnabled) ? LocationSettings::OnlineAGpsEnabled : LocationSettings::OnlineAGpsDisabled)
+    LocationSettings::OnlineAGpsState yandexOnlineState = yandexAgreementAccepted
+            ? (yandexOnlineEnabled ? LocationSettings::OnlineAGpsEnabled : LocationSettings::OnlineAGpsDisabled)
             : LocationSettings::OnlineAGpsAgreementNotAccepted;
-    if (m_yandexLocatorOnlineState != yandexLocatorOnlineState) {
-        m_yandexLocatorOnlineState = yandexLocatorOnlineState;
-        emit q->yandexLocatorOnlineStateChanged();
+    if (m_yandexOnlineState != yandexOnlineState) {
+        m_yandexOnlineState = yandexOnlineState;
+        emit q->yandexOnlineStateChanged();
     }
 
     if ((m_locationMode == LocationSettings::CustomMode) != customMode) {
         if (customMode) {
             m_locationMode = LocationSettings::CustomMode;
             emit q->locationModeChanged();
+            if (!m_pendingAgreements.isEmpty()) {
+                m_pendingAgreements.clear();
+                emit q->pendingAgreementsChanged();
+            }
         } else {
             m_locationMode = calculateLocationMode();
             emit q->locationModeChanged();
@@ -770,44 +701,20 @@ void LocationSettingsPrivate::writeSettings()
         return;
     }
 
-    // set the available location providers value based upon the enabled providers
-    QStringList agps_providers;
-
-    if (m_mlsEnabled) {
-        agps_providers.append("mls");
-    }
-    if (m_hereState == LocationSettings::OnlineAGpsEnabled) {
-        agps_providers.append("here");
-    }
-    if (m_yandexLocatorEnabled) {
-        agps_providers.append("yandex");
-    }
-
     // write the values to the conf file
     {
         IniFile ini(LocationSettingsFile);
 
-        // write deprecated keys for backward compatibility
-        ini.writeBool(LocationSettingsSection, LocationSettingsDeprecatedCellIdPositioningEnabledKey, m_mlsEnabled);
-        ini.writeBool(LocationSettingsSection, LocationSettingsDeprecatedHereEnabledKey, m_hereState == LocationSettings::OnlineAGpsEnabled);
-        ini.writeBool(LocationSettingsSection, LocationSettingsDeprecatedHereAgreementAcceptedKey, m_hereState != LocationSettings::OnlineAGpsAgreementNotAccepted);
-
-        // then write the current keys
         ini.writeBool(LocationSettingsSection, LocationSettingsEnabledKey, m_locationEnabled);
         ini.writeBool(LocationSettingsSection, LocationSettingsCustomModeKey, m_locationMode == LocationSettings::CustomMode);
         ini.writeBool(LocationSettingsSection, LocationSettingsGpsEnabledKey, m_gpsEnabled);
         ini.writeBool(LocationSettingsSection, LocationSettingsMlsEnabledKey, m_mlsEnabled);
         ini.writeBool(LocationSettingsSection, LocationSettingsMlsAgreementAcceptedKey, m_mlsOnlineState != LocationSettings::OnlineAGpsAgreementNotAccepted);
         ini.writeBool(LocationSettingsSection, LocationSettingsMlsOnlineEnabledKey, m_mlsOnlineState == LocationSettings::OnlineAGpsEnabled);
-        ini.writeBool(LocationSettingsSection, LocationSettingsYandexLocatorEnabledKey, m_yandexLocatorEnabled);
-        ini.writeBool(LocationSettingsSection, LocationSettingsYandexLocatorAgreementAcceptedKey, m_yandexLocatorOnlineState != LocationSettings::OnlineAGpsAgreementNotAccepted);
-        ini.writeBool(LocationSettingsSection, LocationSettingsYandexLocatorOnlineEnabledKey, m_yandexLocatorOnlineState == LocationSettings::OnlineAGpsEnabled);
+        ini.writeBool(LocationSettingsSection, LocationSettingsYandexAgreementAcceptedKey, m_yandexOnlineState != LocationSettings::OnlineAGpsAgreementNotAccepted);
+        ini.writeBool(LocationSettingsSection, LocationSettingsYandexOnlineEnabledKey, m_yandexOnlineState == LocationSettings::OnlineAGpsEnabled);
         ini.writeBool(LocationSettingsSection, LocationSettingsHereEnabledKey, m_hereState == LocationSettings::OnlineAGpsEnabled);
         ini.writeBool(LocationSettingsSection, LocationSettingsHereAgreementAcceptedKey, m_hereState != LocationSettings::OnlineAGpsAgreementNotAccepted);
-        ini.writeBool(LocationSettingsSection, LocationSettingsHereOnlineEnabledKey, m_hereState == LocationSettings::OnlineAGpsEnabled);
-
-        // write the available location providers based on the enabled plugins
-        ini.writeString(LocationSettingsSection, LocationSettingsAgpsProvidersKey, "\""+agps_providers.join(",")+"\"");
 
         // write the MDM allowed allowed data source keys
         for (QMap<LocationSettings::DataSource, QString>::const_iterator
@@ -816,5 +723,13 @@ void LocationSettingsPrivate::writeSettings()
                 it++) {
             ini.writeBool(LocationSettingsSection, it.value(), m_allowedDataSources & it.key());
         }
+    }
+}
+
+void LocationSettingsPrivate::removePendingAgreement(const QString &agreement)
+{
+    if (m_pendingAgreements.contains(agreement)) {
+        m_pendingAgreements.removeOne(agreement);
+        emit q->pendingAgreementsChanged();
     }
 }
