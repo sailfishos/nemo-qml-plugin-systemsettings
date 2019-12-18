@@ -38,6 +38,7 @@
 
 NfcSettings::NfcSettings(QObject *parent)
     : QObject(parent)
+    , m_valid(false)
     , m_enabled(false)
     , m_available(false)
 {
@@ -67,6 +68,11 @@ NfcSettings::~NfcSettings()
 {
 }
 
+bool NfcSettings::valid() const
+{
+    return m_valid;
+}
+
 bool NfcSettings::available() const
 {
     return m_available;
@@ -89,6 +95,8 @@ void NfcSettings::getEnableStateFinished(QDBusPendingCallWatcher *call)
         qWarning() << "Get dbus error:" << reply.error();
     } else {
         updateEnabledState(reply.value());
+        m_valid = true;
+        emit validChanged();
     }
     call->deleteLater();
 }
