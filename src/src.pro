@@ -16,6 +16,7 @@ SOURCES += \
     localeconfig.cpp \
     logging.cpp \
     datetimesettings.cpp \
+    nfcsettings.cpp \
     profilecontrol.cpp \
     alarmtonemodel.cpp \
     mceiface.cpp \
@@ -70,6 +71,7 @@ HEADERS += \
     diskusage_p.h \
     locationsettings_p.h \
     logging_p.h \
+    nfcsettings.h \
     partition_p.h \
     partitionmanager_p.h \
     udisks2blockdevices_p.h \
