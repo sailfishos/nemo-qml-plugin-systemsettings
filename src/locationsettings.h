@@ -41,6 +41,15 @@
 
 #define LOCATION_SETTINGS_LAST_DATA_SOURCE_BIT 31
 
+struct LocationProvider {
+    bool hasAgreement = false;
+    bool agreementAccepted = false;
+    bool onlineCapable = true;
+    bool onlineEnabled = false;
+    bool offlineCapable = false;
+    bool offlineEnabled = false;
+};
+
 // The settings component here expects two types of usage for modifications.
 // Either locationMode to high level location types, after which pendingAgreements tells
 // which location services need to be explicitly turned on to ensure the usage agreement is acknowledged.
@@ -55,18 +64,17 @@ class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
     Q_PROPERTY(LocationMode locationMode READ locationMode WRITE setLocationMode NOTIFY locationModeChanged)
     Q_PROPERTY(QStringList pendingAgreements READ pendingAgreements NOTIFY pendingAgreementsChanged)
     Q_PROPERTY(DataSources allowedDataSources READ allowedDataSources WRITE setAllowedDataSources NOTIFY allowedDataSourcesChanged)
-
     Q_PROPERTY(bool gpsAvailable READ gpsAvailable CONSTANT)
     Q_PROPERTY(bool gpsEnabled READ gpsEnabled WRITE setGpsEnabled NOTIFY gpsEnabledChanged)
     Q_PROPERTY(bool gpsFlightMode READ gpsFlightMode WRITE setGpsFlightMode NOTIFY gpsFlightModeChanged)
+    Q_PROPERTY(QStringList locationProviders READ locationProviders CONSTANT)
 
+    // Some specific locators provided as convenience for qml
     Q_PROPERTY(bool hereAvailable READ hereAvailable CONSTANT)
     Q_PROPERTY(OnlineAGpsState hereState READ hereState WRITE setHereState NOTIFY hereStateChanged)
-
     Q_PROPERTY(bool mlsAvailable READ mlsAvailable CONSTANT)
     Q_PROPERTY(bool mlsEnabled READ mlsEnabled WRITE setMlsEnabled NOTIFY mlsEnabledChanged)
     Q_PROPERTY(OnlineAGpsState mlsOnlineState READ mlsOnlineState WRITE setMlsOnlineState NOTIFY mlsOnlineStateChanged)
-
     Q_PROPERTY(bool yandexAvailable READ yandexAvailable CONSTANT)
     Q_PROPERTY(OnlineAGpsState yandexOnlineState READ yandexOnlineState WRITE setYandexOnlineState NOTIFY yandexOnlineStateChanged)
 
@@ -129,6 +137,11 @@ public:
     void setGpsFlightMode(bool flightMode);
     bool gpsAvailable() const;
 
+    QStringList locationProviders() const;
+    LocationProvider providerInfo(const QString &name) const;
+    bool updateLocationProvider(const QString &name, const LocationProvider &providerState);
+
+    // qml helpers for specific location providers
     OnlineAGpsState hereState() const;
     void setHereState(OnlineAGpsState state);
     bool hereAvailable() const;
@@ -151,16 +164,16 @@ public:
     void setAllowedDataSources(DataSources dataSources);
 
 signals:
-    void hereStateChanged();
     void locationEnabledChanged();
     void gpsEnabledChanged();
     void gpsFlightModeChanged();
-    void mlsEnabledChanged();
-    void mlsOnlineStateChanged();
-    void yandexOnlineStateChanged();
     void locationModeChanged();
     void pendingAgreementsChanged();
     void allowedDataSourcesChanged();
+    void hereStateChanged();
+    void mlsEnabledChanged();
+    void mlsOnlineStateChanged();
+    void yandexOnlineStateChanged();
 
 private:
     LocationSettingsPrivate *d_ptr;

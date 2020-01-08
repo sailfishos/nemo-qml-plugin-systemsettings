@@ -39,6 +39,7 @@
 #include <QVariant>
 #include <QString>
 #include <QStringList>
+#include <QHash>
 
 #include <sailfishkeyprovider_processmutex.h>
 
@@ -59,21 +60,17 @@ public:
     LocationSettingsPrivate(LocationSettings::Mode mode, LocationSettings *settings);
     ~LocationSettingsPrivate();
 
+    void loadProviders();
+    bool updateProvider(const QString &name, const LocationProvider &state);
+    LocationSettings::OnlineAGpsState onlineState(const QString &name, bool *valid = nullptr) const;
+    void updateOnlineAgpsState(const QString &name, LocationSettings::OnlineAGpsState state);
     LocationSettings::LocationMode calculateLocationMode() const;
     void writeSettings();
-    void removePendingAgreement(const QString &agreement);
-
-    int m_hereAvailable;
-    int m_mlsAvailable;
-    int m_yandexAvailable;
 
     QFileSystemWatcher m_watcher;
     bool m_locationEnabled;
     bool m_gpsEnabled;
-    bool m_mlsEnabled;
-    LocationSettings::OnlineAGpsState m_mlsOnlineState;
-    LocationSettings::OnlineAGpsState m_yandexOnlineState;
-    LocationSettings::OnlineAGpsState m_hereState;
+    QHash<QString, LocationProvider> m_providers;
     LocationSettings::LocationMode m_locationMode;
     bool m_settingMultipleSettings;
     QStringList m_pendingAgreements;
