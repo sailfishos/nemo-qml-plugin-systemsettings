@@ -38,6 +38,8 @@
 #include <QDBusInterface>
 #include <QVariant>
 #include <QString>
+#include <QStringList>
+#include <QHash>
 
 #include <sailfishkeyprovider_processmutex.h>
 
@@ -58,24 +60,20 @@ public:
     LocationSettingsPrivate(LocationSettings::Mode mode, LocationSettings *settings);
     ~LocationSettingsPrivate();
 
+    void loadProviders();
+    bool updateProvider(const QString &name, const LocationProvider &state);
+    LocationSettings::OnlineAGpsState onlineState(const QString &name, bool *valid = nullptr) const;
+    void updateOnlineAgpsState(const QString &name, LocationSettings::OnlineAGpsState state);
     LocationSettings::LocationMode calculateLocationMode() const;
     void writeSettings();
-
-    bool mlsAvailable() const;
-    bool yandexLocatorAvailable() const;
-    bool hereAvailable() const;
 
     QFileSystemWatcher m_watcher;
     bool m_locationEnabled;
     bool m_gpsEnabled;
-    bool m_mlsEnabled;
-    bool m_yandexLocatorEnabled;
-    LocationSettings::OnlineAGpsState m_mlsOnlineState;
-    LocationSettings::OnlineAGpsState m_yandexLocatorOnlineState;
-    LocationSettings::OnlineAGpsState m_hereState;
+    QHash<QString, LocationProvider> m_providers;
     LocationSettings::LocationMode m_locationMode;
-    bool m_settingLocationMode;
     bool m_settingMultipleSettings;
+    QStringList m_pendingAgreements;
     LocationSettings::DataSources m_allowedDataSources;
     NetworkManager *m_connMan;
     NetworkTechnology *m_gpsTech;
@@ -85,7 +83,6 @@ private slots:
     void readSettings();
     void findGpsTech();
     void gpsTechPropertyChanged(const QString &propertyName, const QVariant &value);
-    void recalculateLocationMode();
 };
 
 // TODO: replace this with DBus calls to a central settings service...
