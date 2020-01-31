@@ -288,9 +288,14 @@ bool LocationSettingsPrivate::updateProvider(const QString &name, const Location
                 m_pendingAgreements.removeOne(name);
                 emit q->pendingAgreementsChanged();
             }
-        } else if (provider.hasAgreement && !provider.agreementAccepted && !m_pendingAgreements.contains(name)) {
-            m_pendingAgreements.append(name);
-            emit q->pendingAgreementsChanged();
+        } else if (provider.hasAgreement) {
+            if (!provider.agreementAccepted && !m_pendingAgreements.contains(name)) {
+                m_pendingAgreements.append(name);
+                emit q->pendingAgreementsChanged();
+            } else if (provider.agreementAccepted && m_pendingAgreements.contains(name)) {
+                m_pendingAgreements.removeOne(name);
+                emit q->pendingAgreementsChanged();
+            }
         }
     }
 
