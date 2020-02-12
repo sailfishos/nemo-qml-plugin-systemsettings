@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 Jolla Ltd.
+ * Copyright (C) 2020 Open Mobile Platform LLC.
  * Contact: Pekka Vuorela <pekka.vuorela@jolla.com>
  *
  * You may use this file under the terms of the BSD license as follows:
@@ -36,17 +37,15 @@
 
 #include <unistd.h>
 #include <sys/types.h>
-#include <pwd.h>
 
 QString localeConfigPath()
 {
-    struct passwd *passwdInfo = getpwuid(getuid());
+    // User-wide locale config
+    return QString("/home/.system/var/lib/environment/%1/locale.conf").arg(getuid());
+}
 
-    if (passwdInfo) {
-        QString userName = passwdInfo->pw_name;
-        return QString("/var/lib/environment/%1/locale.conf").arg(userName);
-    } else {
-        qWarning() << "Unable to get user info";
-        return QString();
-    }
+QString systemLocaleConfigPath()
+{
+    // System-wide locale config
+    return QString("/etc/locale.conf");
 }
