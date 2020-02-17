@@ -110,6 +110,11 @@ int main(int argc, char *argv[])
         return EXIT_FAILURE;
     }
 
+    if (!sailfish_access_control_hasgroup(getuid(), "users")) {
+        qWarning() << "User with id" << getuid() << "is not member of users group";
+        return EXIT_FAILURE;
+    }
+
     QString configPath = localeConfigPath();
 
     if (configPath.isEmpty()) {
