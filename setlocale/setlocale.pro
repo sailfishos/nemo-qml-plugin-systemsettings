@@ -5,6 +5,9 @@ target.path = $$TARGETPATH
 
 QT = core
 
+CONFIG += link_pkgconfig
+PKGCONFIG += sailfishaccesscontrol
+
 SOURCES += \
     main.cpp \
     ../src/localeconfig.cpp

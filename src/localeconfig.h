@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2019 Jolla Ltd.
+ * Copyright (C) 2020 Open Mobile Platform LLC.
  * Contact: Pekka Vuorela <pekka.vuorela@jolla.com>
  *
  * You may use this file under the terms of the BSD license as follows:
@@ -36,5 +37,6 @@
 #include <QString>
 
 QString localeConfigPath();
+QString systemLocaleConfigPath();
 
 #endif

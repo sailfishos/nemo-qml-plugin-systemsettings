@@ -12,6 +12,7 @@ Requires:       connman
 Requires:       mce >= 1.83.0
 Requires:       libsailfishkeyprovider >= 0.0.14
 Requires:       connman-qt5 >= 1.2.21
+Requires(post): coreutils
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5SystemInfo)
 BuildRequires:  pkgconfig(Qt5Test)
@@ -30,6 +31,7 @@ BuildRequires:  pkgconfig(connman-qt5) >= 1.2.23
 BuildRequires:  pkgconfig(ssu-sysinfo) >= 1.1.0
 BuildRequires:  pkgconfig(packagekitqt5)
 BuildRequires:  pkgconfig(glib-2.0)
+BuildRequires:  pkgconfig(sailfishaccesscontrol)
 
 %description
 %{summary}.
@@ -60,7 +62,23 @@ make %{?_smp_mflags}
 rm -rf %{buildroot}
 %qmake5_install
 
-%post -p /sbin/ldconfig
+%post
+/sbin/ldconfig
+# Migrate old installations to system/user locale, see JB#47651
+if [ -e /var/lib/environment/nemo/locale.conf ]
+then
+    # Copy system locale to user location
+    if [ ! -e /home/.system/var/lib/environment/100000/locale.conf ]
+    then
+        mkdir -p /home/.system/var/lib/environment/100000 || :
+        # Fix an issue with dir perms, from connman
+        chmod +rx /home/.system /home/.system/var /home/.system/var/lib || :
+        cp /var/lib/environment/nemo/locale.conf /home/.system/var/lib/environment/100000/ || :
+    fi
+
+    # Migrate to new system locale location
+    mv /var/lib/environment/nemo/locale.conf /etc/locale.conf || :
+fi
 
 %postun -p /sbin/ldconfig
 
