@@ -7,7 +7,7 @@ QT -= gui
 
 CONFIG += c++11 hide_symbols link_pkgconfig
 PKGCONFIG += profile mlite5 mce timed-qt5 libshadowutils blkid libcrypto nemomodels-qt5 libsailfishkeyprovider connman-qt5 glib-2.0
-PKGCONFIG += ssu-sysinfo nemodbus packagekitqt5
+PKGCONFIG += ssu-sysinfo nemodbus packagekitqt5 libsystemd
 
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
 
@@ -37,7 +37,8 @@ SOURCES += \
     udisks2block.cpp \
     udisks2blockdevices.cpp \
     udisks2job.cpp \
-    udisks2monitor.cpp
+    udisks2monitor.cpp \
+    userinfo.cpp
 
 PUBLIC_HEADERS = \
     languagemodel.h \
@@ -60,7 +61,8 @@ PUBLIC_HEADERS = \
     systemsettingsglobal.h \
     deviceinfo.h \
     locationsettings.h \
-    timezoneinfo.h
+    timezoneinfo.h \
+    userinfo.h
 
 HEADERS += \
     $$PUBLIC_HEADERS \
@@ -76,7 +78,8 @@ HEADERS += \
     partitionmanager_p.h \
     udisks2blockdevices_p.h \
     udisks2job_p.h \
-    udisks2monitor_p.h
+    udisks2monitor_p.h \
+    userinfo_p.h
 
 DEFINES += \
     SYSTEMSETTINGS_BUILD_LIBRARY

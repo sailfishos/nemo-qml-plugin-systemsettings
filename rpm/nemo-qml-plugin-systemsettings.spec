@@ -32,6 +32,7 @@ BuildRequires:  pkgconfig(ssu-sysinfo) >= 1.1.0
 BuildRequires:  pkgconfig(packagekitqt5)
 BuildRequires:  pkgconfig(glib-2.0)
 BuildRequires:  pkgconfig(sailfishaccesscontrol)
+BuildRequires:  pkgconfig(libsystemd)
 
 %description
 %{summary}.
