@@ -39,6 +39,7 @@
 #include "systemsettingsglobal.h"
 
 class UserInfoPrivate;
+class UserModel;
 
 class SYSTEMSETTINGS_EXPORT UserInfo: public QObject
 {
@@ -50,6 +51,8 @@ class SYSTEMSETTINGS_EXPORT UserInfo: public QObject
     Q_PROPERTY(UserType type READ type CONSTANT)
     Q_PROPERTY(int uid READ uid NOTIFY uidChanged)
     Q_PROPERTY(bool current READ current CONSTANT)
+
+    friend class UserModel;
 
 public:
     enum UserType {

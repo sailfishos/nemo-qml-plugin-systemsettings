@@ -7,7 +7,7 @@ QT -= gui
 
 CONFIG += c++11 hide_symbols link_pkgconfig
 PKGCONFIG += profile mlite5 mce timed-qt5 libshadowutils blkid libcrypto nemomodels-qt5 libsailfishkeyprovider connman-qt5 glib-2.0
-PKGCONFIG += ssu-sysinfo nemodbus packagekitqt5 libsystemd
+PKGCONFIG += ssu-sysinfo nemodbus packagekitqt5 libsystemd sailfishusermanager
 
 system(qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
 
@@ -38,7 +38,8 @@ SOURCES += \
     udisks2blockdevices.cpp \
     udisks2job.cpp \
     udisks2monitor.cpp \
-    userinfo.cpp
+    userinfo.cpp \
+    usermodel.cpp
 
 PUBLIC_HEADERS = \
     languagemodel.h \
@@ -62,7 +63,8 @@ PUBLIC_HEADERS = \
     deviceinfo.h \
     locationsettings.h \
     timezoneinfo.h \
-    userinfo.h
+    userinfo.h \
+    usermodel.h
 
 HEADERS += \
     $$PUBLIC_HEADERS \
