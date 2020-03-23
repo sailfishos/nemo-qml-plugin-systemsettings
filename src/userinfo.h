@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Jolla Ltd. <raine.makelainen@jolla.com>
+ * Copyright (C) 2020 Open Mobile Platform LLC.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -29,9 +29,72 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#include "logging_p.h"
+#ifndef USERINFO_H
+#define USERINFO_H
 
-Q_LOGGING_CATEGORY(lcVpnLog, "org.sailfishos.settings.vpn", QtWarningMsg)
-Q_LOGGING_CATEGORY(lcDeveloperModeLog, "org.sailfishos.settings.developermode", QtWarningMsg)
-Q_LOGGING_CATEGORY(lcMemoryCardLog, "org.sailfishos.settings.memorycard", QtWarningMsg)
-Q_LOGGING_CATEGORY(lcUsersLog, "org.sailfishos.settings.users", QtWarningMsg)
+#include <QObject>
+#include <QList>
+#include <QSharedPointer>
+
+#include "systemsettingsglobal.h"
+
+class UserInfoPrivate;
+class UserModel;
+
+class SYSTEMSETTINGS_EXPORT UserInfo: public QObject
+{
+    Q_OBJECT
+    Q_DECLARE_PRIVATE(UserInfo)
+
+    Q_PROPERTY(QString username READ username NOTIFY usernameChanged)
+    Q_PROPERTY(QString name READ name NOTIFY nameChanged)
+    Q_PROPERTY(UserType type READ type CONSTANT)
+    Q_PROPERTY(int uid READ uid NOTIFY uidChanged)
+    Q_PROPERTY(bool current READ current CONSTANT)
+
+    friend class UserModel;
+
+public:
+    enum UserType {
+        User = 0,
+        DeviceOwner = 1,
+    };
+    Q_ENUM(UserType)
+
+    UserInfo();
+    UserInfo(const UserInfo &other);
+    ~UserInfo();
+
+    static UserInfo placeholder();
+
+    bool isValid() const;
+
+    QString username() const;
+    QString name() const;
+    UserType type() const;
+    int uid() const;
+    bool current() const;
+
+    Q_INVOKABLE void reset();
+
+    UserInfo &operator=(const UserInfo &other);
+    bool operator==(const UserInfo &other) const;
+    bool operator!=(const UserInfo &other) const;
+
+signals:
+    void usernameChanged();
+    void nameChanged();
+    void uidChanged();
+
+private:
+    explicit UserInfo(int uid);
+    explicit UserInfo(QString username);
+
+    void setUsername(QString username);
+    void setName(QString name);
+
+    void connectSignals();
+
+    QSharedPointer<UserInfoPrivate> d_ptr;
+};
+#endif /* USERINFO_H */

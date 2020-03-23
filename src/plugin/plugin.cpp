@@ -51,6 +51,8 @@
 #include "locationsettings.h"
 #include "deviceinfo.h"
 #include "nfcsettings.h"
+#include "userinfo.h"
+#include "usermodel.h"
 
 template<class T>
 static QObject *api_factory(QQmlEngine *, QJSEngine *)
@@ -91,6 +93,8 @@ public:
         qmlRegisterType<LocationSettings>(uri, 1, 0, "LocationSettings");
         qmlRegisterType<DeviceInfo>(uri, 1, 0, "DeviceInfo");
         qmlRegisterType<NfcSettings>(uri, 1, 0, "NfcSettings");
+        qmlRegisterType<UserInfo>(uri, 1, 0, "UserInfo");
+        qmlRegisterType<UserModel>(uri, 1, 0, "UserModel");
     }
 };
 

@@ -12,6 +12,7 @@ Requires:       connman
 Requires:       mce >= 1.83.0
 Requires:       libsailfishkeyprovider >= 0.0.14
 Requires:       connman-qt5 >= 1.2.21
+Requires:       user-managerd
 Requires(post): coreutils
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5SystemInfo)
@@ -32,6 +33,8 @@ BuildRequires:  pkgconfig(ssu-sysinfo) >= 1.1.0
 BuildRequires:  pkgconfig(packagekitqt5)
 BuildRequires:  pkgconfig(glib-2.0)
 BuildRequires:  pkgconfig(sailfishaccesscontrol)
+BuildRequires:  pkgconfig(libsystemd)
+BuildRequires:  pkgconfig(sailfishusermanager)
 
 %description
 %{summary}.

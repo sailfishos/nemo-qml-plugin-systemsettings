@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 Jolla Ltd. <raine.makelainen@jolla.com>
+ * Copyright (C) 2020 Open Mobile Platform LLC.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -29,9 +29,34 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#include "logging_p.h"
+#ifndef USERINFOPRIVATE_H
+#define USERINFOPRIVATE_H
 
-Q_LOGGING_CATEGORY(lcVpnLog, "org.sailfishos.settings.vpn", QtWarningMsg)
-Q_LOGGING_CATEGORY(lcDeveloperModeLog, "org.sailfishos.settings.developermode", QtWarningMsg)
-Q_LOGGING_CATEGORY(lcMemoryCardLog, "org.sailfishos.settings.memorycard", QtWarningMsg)
-Q_LOGGING_CATEGORY(lcUsersLog, "org.sailfishos.settings.users", QtWarningMsg)
+#include <QObject>
+#include <QString>
+#include <QWeakPointer>
+
+class UserInfoPrivate : public QObject
+{
+    Q_OBJECT
+
+public:
+    UserInfoPrivate();
+    UserInfoPrivate(struct passwd *pwd);
+    ~UserInfoPrivate();
+
+    uid_t m_uid;
+    QString m_username;
+    QString m_name;
+    bool m_loggedIn;
+    static QWeakPointer<UserInfoPrivate> s_current;
+
+    void set(struct passwd *pwd);
+
+signals:
+    void usernameChanged();
+    void nameChanged();
+    void uidChanged();
+};
+
+#endif /* USERINFOPRIVATE_H */
