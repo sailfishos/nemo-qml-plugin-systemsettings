@@ -68,10 +68,10 @@ UserInfoPrivate::UserInfoPrivate(struct passwd *pwd)
     : m_uid(pwd->pw_uid)
     , m_username(QString::fromUtf8(pwd->pw_name))
     , m_name(nameFromGecos(pwd->pw_gecos))
-    // require_active == false -> both online and active are logged in.
+    // require_active == true -> only active user is logged in.
     // Specifying seat should make sure that remote users are not
     // counted as they don't have seats.
-    , m_loggedIn(sd_uid_is_on_seat(m_uid, 0, "seat0") > 0)
+    , m_loggedIn(sd_uid_is_on_seat(m_uid, 1, "seat0") > 0)
 {
 }
 
@@ -113,9 +113,7 @@ void UserInfoPrivate::set(struct passwd *pwd)
  */
 UserInfo::UserInfo()
 {
-    if (!UserInfoPrivate::s_current.isNull()) {
-        d_ptr = QSharedPointer<UserInfoPrivate>(UserInfoPrivate::s_current);
-    }
+    d_ptr = UserInfoPrivate::s_current.toStrongRef();
     if (d_ptr.isNull()) {
         uid_t uid = InvalidId;
         struct passwd *pwd;
@@ -251,10 +249,27 @@ bool UserInfo::current() const
     return d->m_loggedIn;
 }
 
+bool UserInfo::updateCurrent()
+{
+    Q_D(UserInfo);
+    bool previous = d->m_loggedIn;
+    d->m_loggedIn = sd_uid_is_on_seat(d->m_uid, 1, "seat0") > 0;
+    if (d->m_loggedIn != previous) {
+        if (d->m_loggedIn)
+            UserInfoPrivate::s_current = d_ptr;
+        else if (UserInfoPrivate::s_current == d_ptr)
+            UserInfoPrivate::s_current.clear();
+        emit d_ptr->currentChanged();
+        return true;
+    }
+    return false;
+}
+
 void UserInfo::reset()
 {
     Q_D(UserInfo);
     d->set((isValid()) ? getpwuid(d->m_uid) : nullptr);
+    updateCurrent();
 }
 
 UserInfo &UserInfo::operator=(const UserInfo &other)
@@ -286,4 +301,5 @@ void UserInfo::connectSignals()
     connect(d_ptr.data(), &UserInfoPrivate::usernameChanged, this, &UserInfo::usernameChanged);
     connect(d_ptr.data(), &UserInfoPrivate::nameChanged, this, &UserInfo::nameChanged);
     connect(d_ptr.data(), &UserInfoPrivate::uidChanged, this, &UserInfo::uidChanged);
+    connect(d_ptr.data(), &UserInfoPrivate::currentChanged, this, &UserInfo::currentChanged);
 }

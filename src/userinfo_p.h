@@ -59,6 +59,7 @@ signals:
     void usernameChanged();
     void nameChanged();
     void uidChanged();
+    void currentChanged();
 };
 
 #endif /* USERINFOPRIVATE_H */
