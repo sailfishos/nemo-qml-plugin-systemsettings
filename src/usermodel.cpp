@@ -232,6 +232,22 @@ void UserModel::removeUser(int row)
             this, std::bind(&UserModel::userRemoveFinished, this, std::placeholders::_1, row));
 }
 
+void UserModel::setCurrentUser(int row)
+{
+    if (row < 0 || row >= m_users.count())
+        return;
+
+    auto user = m_users.at(row);
+    if (!user.isValid())
+        return;
+
+    createInterface();
+    auto call = m_dBusInterface->asyncCall(QStringLiteral("setCurrentUser"), (uint)user.uid());
+    auto *watcher = new QDBusPendingCallWatcher(call, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished,
+            this, std::bind(&UserModel::setCurrentUserFinished, this, std::placeholders::_1, row));
+}
+
 void UserModel::reset(int row)
 {
     if (row < 0 || row >= m_users.count())
@@ -247,7 +263,7 @@ UserInfo * UserModel::getCurrentUser() const
     return new UserInfo();
 }
 
-void UserModel::userAdded(const SailfishUserManagerEntry &entry)
+void UserModel::onUserAdded(const SailfishUserManagerEntry &entry)
 {
     if (m_uidsToRows.contains(entry.uid))
         return;
@@ -263,7 +279,7 @@ void UserModel::userAdded(const SailfishUserManagerEntry &entry)
     }
 }
 
-void UserModel::userModified(uint uid, const QString &newName)
+void UserModel::onUserModified(uint uid, const QString &newName)
 {
     if (!m_uidsToRows.contains(uid))
         return;
@@ -277,7 +293,7 @@ void UserModel::userModified(uint uid, const QString &newName)
     }
 }
 
-void UserModel::userRemoved(uint uid)
+void UserModel::onUserRemoved(uint uid)
 {
     if (!m_uidsToRows.contains(uid))
         return;
@@ -289,6 +305,30 @@ void UserModel::userRemoved(uint uid)
     endRemoveRows();
 }
 
+void UserModel::onCurrentUserChanged(uint uid)
+{
+    UserInfo *previous = getCurrentUser();
+    if (previous) {
+        if (previous->updateCurrent()) {
+            auto idx = index(m_uidsToRows[previous->uid()], 0);
+            emit dataChanged(idx, idx, QVector<int>() << CurrentRole);
+        }
+        delete previous;
+    }
+    if (m_uidsToRows.contains(uid) && m_users[m_uidsToRows[uid]].updateCurrent()) {
+        auto idx = index(m_uidsToRows[uid], 0);
+        emit dataChanged(idx, idx, QVector<int>() << CurrentRole);
+    }
+}
+
+void UserModel::onCurrentUserChangeFailed(uint uid)
+{
+    if (m_uidsToRows.contains(uid)) {
+        int row = m_uidsToRows[uid];
+        emit setCurrentUserFailed(row, m_users[row].name());
+    }
+}
+
 void UserModel::userAddFinished(QDBusPendingCallWatcher *call, int row)
 {
     QDBusPendingReply<uint> reply = *call;
@@ -297,7 +337,7 @@ void UserModel::userAddFinished(QDBusPendingCallWatcher *call, int row)
         qWarning() << "Adding user with usermanager failed:" << reply.error();
     } else {
         uint uid = reply.value();
-        // Check that this was not just added to the list by userAdded
+        // Check that this was not just added to the list by onUserAdded
         if (!m_uidsToRows.contains(uid)) {
             beginInsertRows(QModelIndex(), row, row);
             m_users.insert(row, UserInfo(uid));
@@ -331,6 +371,16 @@ void UserModel::userRemoveFinished(QDBusPendingCallWatcher *call, int row)
     call->deleteLater();
 }
 
+void UserModel::setCurrentUserFinished(QDBusPendingCallWatcher *call, int row)
+{
+    QDBusPendingReply<void> reply = *call;
+    if (reply.isError()) {
+        emit setCurrentUserFailed(row, m_users.at(row).name());
+        qWarning() << "Switching user with usermanager failed:" << reply.error();
+    } // else user switching was initiated successfully
+    call->deleteLater();
+}
+
 void UserModel::createInterface()
 {
     if (!m_dBusInterface) {
@@ -338,11 +388,15 @@ void UserModel::createInterface()
         m_dBusInterface = new QDBusInterface(UserManagerService, UserManagerPath, UserManagerInterface,
                                              QDBusConnection::systemBus(), this);
         connect(m_dBusInterface, SIGNAL(userAdded(const SailfishUserManagerEntry &)),
-                this, SLOT(userAdded(const SailfishUserManagerEntry &)), Qt::QueuedConnection);
+                this, SLOT(onUserAdded(const SailfishUserManagerEntry &)), Qt::QueuedConnection);
         connect(m_dBusInterface, SIGNAL(userModified(uint, const QString &)),
-                this, SLOT(userModified(uint, const QString &)));
+                this, SLOT(onUserModified(uint, const QString &)));
         connect(m_dBusInterface, SIGNAL(userRemoved(uint)),
-                this, SLOT(userRemoved(uint)));
+                this, SLOT(onUserRemoved(uint)));
+        connect(m_dBusInterface, SIGNAL(currentUserChanged(uint)),
+                this, SLOT(onCurrentUserChanged(uint)));
+        connect(m_dBusInterface, SIGNAL(currentUserChangeFailed(uint)),
+                this, SLOT(onCurrentUserChangeFailed(uint)));
     }
 }
 

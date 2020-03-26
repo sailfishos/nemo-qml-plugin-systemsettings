@@ -81,6 +81,7 @@ public:
     Q_INVOKABLE void createUser();
     Q_INVOKABLE void removeUser(int row);
     Q_INVOKABLE void reset(int row);
+    Q_INVOKABLE void setCurrentUser(int row);
     Q_INVOKABLE UserInfo * getCurrentUser() const;
 
 signals:
@@ -88,14 +89,20 @@ signals:
     void userAddFailed();
     void userModifyFailed(int row, const QString &name);
     void userRemoveFailed(int row, const QString &name);
+    void setCurrentUserFailed(int row, const QString &name);
 
 private slots:
-    void userAdded(const SailfishUserManagerEntry &entry);
-    void userModified(uint uid, const QString &newName);
-    void userRemoved(uint uid);
+    void onUserAdded(const SailfishUserManagerEntry &entry);
+    void onUserModified(uint uid, const QString &newName);
+    void onUserRemoved(uint uid);
+    void onCurrentUserChanged(uint uid);
+    void onCurrentUserChangeFailed(uint uid);
+
     void userAddFinished(QDBusPendingCallWatcher *call, int row);
     void userModifyFinished(QDBusPendingCallWatcher *call, int row);
     void userRemoveFinished(QDBusPendingCallWatcher *call, int row);
+    void setCurrentUserFinished(QDBusPendingCallWatcher *call, int row);
+
     void createInterface();
     void destroyInterface();
 
