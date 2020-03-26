@@ -32,6 +32,8 @@
 #ifndef USERINFOPRIVATE_H
 #define USERINFOPRIVATE_H
 
+#include <sys/types.h>
+
 #include <QObject>
 #include <QString>
 #include <QWeakPointer>
