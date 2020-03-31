@@ -232,7 +232,7 @@ void UserModel::createUser()
     auto call = m_dBusInterface->asyncCall(QStringLiteral("addUser"), user.name());
     auto *watcher = new QDBusPendingCallWatcher(call, this);
     connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::userAddFinished, this, std::placeholders::_1, m_users.count()-1));
+            this, &UserModel::userAddFinished);
 }
 
 void UserModel::removeUser(int row)
@@ -320,7 +320,12 @@ void UserModel::onUserRemoved(uint uid)
     int row = m_uidsToRows.value(uid);
     beginRemoveRows(QModelIndex(), row, row);
     m_users.remove(row);
+    // It is slightly costly to remove users since some row numbers may need to be updated
     m_uidsToRows.remove(uid);
+    for (auto iter = m_uidsToRows.begin(); iter != m_uidsToRows.end(); ++iter) {
+        if (iter.value() > row)
+            iter.value() -= 1;
+    }
     endRemoveRows();
 }
 
@@ -329,13 +334,13 @@ void UserModel::onCurrentUserChanged(uint uid)
     UserInfo *previous = getCurrentUser();
     if (previous) {
         if (previous->updateCurrent()) {
-            auto idx = index(m_uidsToRows[previous->uid()], 0);
+            auto idx = index(m_uidsToRows.value(previous->uid()), 0);
             emit dataChanged(idx, idx, QVector<int>() << CurrentRole);
         }
         delete previous;
     }
-    if (m_uidsToRows.contains(uid) && m_users[m_uidsToRows[uid]].updateCurrent()) {
-        auto idx = index(m_uidsToRows[uid], 0);
+    if (m_uidsToRows.contains(uid) && m_users[m_uidsToRows.value(uid)].updateCurrent()) {
+        auto idx = index(m_uidsToRows.value(uid), 0);
         emit dataChanged(idx, idx, QVector<int>() << CurrentRole);
     }
 }
@@ -343,12 +348,12 @@ void UserModel::onCurrentUserChanged(uint uid)
 void UserModel::onCurrentUserChangeFailed(uint uid)
 {
     if (m_uidsToRows.contains(uid)) {
-        int row = m_uidsToRows[uid];
+        int row = m_uidsToRows.value(uid);
         emit setCurrentUserFailed(row, Failure);
     }
 }
 
-void UserModel::userAddFinished(QDBusPendingCallWatcher *call, int row)
+void UserModel::userAddFinished(QDBusPendingCallWatcher *call)
 {
     QDBusPendingReply<uint> reply = *call;
     if (reply.isError()) {
@@ -359,6 +364,8 @@ void UserModel::userAddFinished(QDBusPendingCallWatcher *call, int row)
         uint uid = reply.value();
         // Check that this was not just added to the list by onUserAdded
         if (!m_uidsToRows.contains(uid)) {
+            // Add to the end
+            int row = m_users.count()-1;
             beginInsertRows(QModelIndex(), row, row);
             m_users.insert(row, UserInfo(uid));
             m_uidsToRows.insert(uid, row);

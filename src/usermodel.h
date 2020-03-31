@@ -114,7 +114,7 @@ private slots:
     void onCurrentUserChanged(uint uid);
     void onCurrentUserChangeFailed(uint uid);
 
-    void userAddFinished(QDBusPendingCallWatcher *call, int row);
+    void userAddFinished(QDBusPendingCallWatcher *call);
     void userModifyFinished(QDBusPendingCallWatcher *call, int row);
     void userRemoveFinished(QDBusPendingCallWatcher *call, int row);
     void setCurrentUserFinished(QDBusPendingCallWatcher *call, int row);
