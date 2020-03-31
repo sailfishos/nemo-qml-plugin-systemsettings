@@ -33,6 +33,7 @@
 #define USERMODEL_H
 
 #include <QAbstractListModel>
+#include <QDBusError>
 #include <QHash>
 #include <QVector>
 
@@ -66,6 +67,21 @@ public:
     };
     Q_ENUM(UserType)
 
+    enum ErrorType {
+        Failure = QDBusError::Failed,
+        OtherError = QDBusError::Other,
+        InvalidArgs = QDBusError::InvalidArgs,
+        Busy = 100,
+        HomeCreateFailed,
+        HomeRemoveFailed,
+        GroupCreateFailed,
+        UserAddFailed,
+        UserModifyFailed,
+        UserRemoveFailed,
+        GetUidFailed,
+    };
+    Q_ENUM(ErrorType)
+
     explicit UserModel(QObject *parent = 0);
     ~UserModel();
 
@@ -86,10 +102,10 @@ public:
 
 signals:
     void placeholderChanged();
-    void userAddFailed();
-    void userModifyFailed(int row, const QString &name);
-    void userRemoveFailed(int row, const QString &name);
-    void setCurrentUserFailed(int row, const QString &name);
+    void userAddFailed(int error);
+    void userModifyFailed(int row, int error);
+    void userRemoveFailed(int row, int error);
+    void setCurrentUserFailed(int row, int error);
 
 private slots:
     void onUserAdded(const SailfishUserManagerEntry &entry);

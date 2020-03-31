@@ -42,13 +42,32 @@
 #include <QString>
 #include <functional>
 #include <sailfishusermanagerinterface.h>
-#include <grp.h>
 #include <sys/types.h>
+#include <grp.h>
 
 namespace {
 const auto UserManagerService = QStringLiteral(SAILFISH_USERMANAGER_DBUS_INTERFACE);
 const auto UserManagerPath = QStringLiteral(SAILFISH_USERMANAGER_DBUS_OBJECT_PATH);
 const auto UserManagerInterface = QStringLiteral(SAILFISH_USERMANAGER_DBUS_INTERFACE);
+
+const QHash<const QString, int> errorTypeMap = {
+    { QStringLiteral(SailfishUserManagerErrorBusy), UserModel::Busy },
+    { QStringLiteral(SailfishUserManagerErrorHomeCreateFailed), UserModel::HomeCreateFailed },
+    { QStringLiteral(SailfishUserManagerErrorHomeRemoveFailed), UserModel::HomeRemoveFailed },
+    { QStringLiteral(SailfishUserManagerErrorGroupCreateFailed), UserModel::GroupCreateFailed },
+    { QStringLiteral(SailfishUserManagerErrorUserAddFailed), UserModel::UserAddFailed },
+    { QStringLiteral(SailfishUserManagerErrorUserModifyFailed), UserModel::UserModifyFailed },
+    { QStringLiteral(SailfishUserManagerErrorUserRemoveFailed), UserModel::UserRemoveFailed },
+    { QStringLiteral(SailfishUserManagerErrorGetUidFailed), UserModel::GetUidFailed },
+};
+
+int getErrorType(QDBusError &error)
+{
+    if (error.type() != QDBusError::Other)
+        return error.type();
+
+    return errorTypeMap.value(error.name(), UserModel::OtherError);
+}
 }
 
 UserModel::UserModel(QObject *parent)
@@ -93,12 +112,12 @@ void UserModel::setPlaceholder(bool value)
         return;
 
     if (value) {
-        auto row = m_users.count();
+        int row = m_users.count();
         beginInsertRows(QModelIndex(), row, row);
         m_users.append(UserInfo::placeholder());
         endInsertRows();
     } else {
-        auto row = m_users.count()-1;
+        int row = m_users.count()-1;
         beginRemoveRows(QModelIndex(), row, row);
         m_users.remove(row);
         endRemoveRows();
@@ -325,7 +344,7 @@ void UserModel::onCurrentUserChangeFailed(uint uid)
 {
     if (m_uidsToRows.contains(uid)) {
         int row = m_uidsToRows[uid];
-        emit setCurrentUserFailed(row, m_users[row].name());
+        emit setCurrentUserFailed(row, Failure);
     }
 }
 
@@ -333,8 +352,9 @@ void UserModel::userAddFinished(QDBusPendingCallWatcher *call, int row)
 {
     QDBusPendingReply<uint> reply = *call;
     if (reply.isError()) {
-        emit userAddFailed();
-        qWarning() << "Adding user with usermanager failed:" << reply.error();
+        auto error = reply.error();
+        emit userAddFailed(getErrorType(error));
+        qCWarning(lcUsersLog) << "Adding user with usermanager failed:" << error;
     } else {
         uint uid = reply.value();
         // Check that this was not just added to the list by onUserAdded
@@ -354,8 +374,9 @@ void UserModel::userModifyFinished(QDBusPendingCallWatcher *call, int row)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
-        emit userModifyFailed(row, m_users.at(row).name());
-        qWarning() << "Modifying user with usermanager failed:" << reply.error();
+        auto error = reply.error();
+        emit userModifyFailed(row, getErrorType(error));
+        qCWarning(lcUsersLog) << "Modifying user with usermanager failed:" << error;
         reset(row);
     } // else awesome! (data was changed already)
     call->deleteLater();
@@ -365,8 +386,9 @@ void UserModel::userRemoveFinished(QDBusPendingCallWatcher *call, int row)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
-        emit userRemoveFailed(row, m_users.at(row).name());
-        qWarning() << "Removing user with usermanager failed:" << reply.error();
+        auto error = reply.error();
+        emit userRemoveFailed(row, getErrorType(error));
+        qCWarning(lcUsersLog) << "Removing user with usermanager failed:" << error;
     } // else awesome! (waiting for signal to alter data)
     call->deleteLater();
 }
@@ -375,8 +397,9 @@ void UserModel::setCurrentUserFinished(QDBusPendingCallWatcher *call, int row)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
-        emit setCurrentUserFailed(row, m_users.at(row).name());
-        qWarning() << "Switching user with usermanager failed:" << reply.error();
+        auto error = reply.error();
+        emit setCurrentUserFailed(row, getErrorType(error));
+        qCWarning(lcUsersLog) << "Switching user with usermanager failed:" << error;
     } // else user switching was initiated successfully
     call->deleteLater();
 }
