@@ -33,6 +33,7 @@
 #define USERMODEL_H
 
 #include <QAbstractListModel>
+#include <QDBusError>
 #include <QHash>
 #include <QVector>
 
@@ -66,6 +67,21 @@ public:
     };
     Q_ENUM(UserType)
 
+    enum ErrorType {
+        Failure = QDBusError::Failed,
+        OtherError = QDBusError::Other,
+        InvalidArgs = QDBusError::InvalidArgs,
+        Busy = 100,
+        HomeCreateFailed,
+        HomeRemoveFailed,
+        GroupCreateFailed,
+        UserAddFailed,
+        UserModifyFailed,
+        UserRemoveFailed,
+        GetUidFailed,
+    };
+    Q_ENUM(ErrorType)
+
     explicit UserModel(QObject *parent = 0);
     ~UserModel();
 
@@ -81,21 +97,28 @@ public:
     Q_INVOKABLE void createUser();
     Q_INVOKABLE void removeUser(int row);
     Q_INVOKABLE void reset(int row);
+    Q_INVOKABLE void setCurrentUser(int row);
     Q_INVOKABLE UserInfo * getCurrentUser() const;
 
 signals:
     void placeholderChanged();
-    void userAddFailed();
-    void userModifyFailed(int row, const QString &name);
-    void userRemoveFailed(int row, const QString &name);
+    void userAddFailed(int error);
+    void userModifyFailed(int row, int error);
+    void userRemoveFailed(int row, int error);
+    void setCurrentUserFailed(int row, int error);
 
 private slots:
-    void userAdded(const SailfishUserManagerEntry &entry);
-    void userModified(uint uid, const QString &newName);
-    void userRemoved(uint uid);
-    void userAddFinished(QDBusPendingCallWatcher *call, int row);
+    void onUserAdded(const SailfishUserManagerEntry &entry);
+    void onUserModified(uint uid, const QString &newName);
+    void onUserRemoved(uint uid);
+    void onCurrentUserChanged(uint uid);
+    void onCurrentUserChangeFailed(uint uid);
+
+    void userAddFinished(QDBusPendingCallWatcher *call);
     void userModifyFinished(QDBusPendingCallWatcher *call, int row);
     void userRemoveFinished(QDBusPendingCallWatcher *call, int row);
+    void setCurrentUserFinished(QDBusPendingCallWatcher *call, int row);
+
     void createInterface();
     void destroyInterface();
 

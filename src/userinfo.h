@@ -50,7 +50,7 @@ class SYSTEMSETTINGS_EXPORT UserInfo: public QObject
     Q_PROPERTY(QString name READ name NOTIFY nameChanged)
     Q_PROPERTY(UserType type READ type CONSTANT)
     Q_PROPERTY(int uid READ uid NOTIFY uidChanged)
-    Q_PROPERTY(bool current READ current CONSTANT)
+    Q_PROPERTY(bool current READ current NOTIFY currentChanged)
 
     friend class UserModel;
 
@@ -85,6 +85,7 @@ signals:
     void usernameChanged();
     void nameChanged();
     void uidChanged();
+    void currentChanged();
 
 private:
     explicit UserInfo(int uid);
@@ -92,6 +93,7 @@ private:
 
     void setUsername(QString username);
     void setName(QString name);
+    bool updateCurrent();
 
     void connectSignals();
 
