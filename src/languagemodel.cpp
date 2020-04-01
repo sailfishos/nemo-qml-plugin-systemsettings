@@ -204,7 +204,7 @@ QList<Language> LanguageModel::supportedLanguages()
         QString localeCode = settings.value("LocaleCode").toString();
         QString region = settings.value("Region").toString();
         //% "Region: %1"
-        QString regionLabel = settings.value("RegionLabel", qtTrId("settings_system-la-region")).toString();
+        QString regionLabel = settings.value("RegionLabel", qtTrId("systemsettings-la-region")).toString();
         if (name.isEmpty() || localeCode.isEmpty()) {
             continue;
         }
