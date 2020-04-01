@@ -153,7 +153,7 @@ QVariant UserModel::data(const QModelIndex &index, int role) const
     const UserInfo &user = m_users.at(index.row());
     switch (role) {
     case Qt::DisplayRole:
-        return (user.name().isEmpty()) ? user.username() : user.name();
+        return user.displayName();
     case UsernameRole:
         return user.username();
     case NameRole:

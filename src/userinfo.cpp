@@ -98,11 +98,14 @@ void UserInfoPrivate::set(struct passwd *pwd)
     if (m_username != username) {
         m_username = username;
         emit usernameChanged();
+        if (m_name.isEmpty() && name.isEmpty())
+            emit displayNameChanged();
     }
 
     if (m_name != name) {
         m_name = name;
         emit nameChanged();
+        emit displayNameChanged();
     }
 }
 
@@ -193,6 +196,20 @@ bool UserInfo::isValid() const
     return d->m_uid != InvalidId;
 }
 
+QString UserInfo::displayName() const
+{
+    Q_D(const UserInfo);
+    if (d->m_name.isEmpty()) {
+        if (type() == DeviceOwner) {
+            //: Default value for device owner's name when it is not set
+            //% "Device owner"
+            return qtTrId("systemsettings-li-device_owner");
+        }
+        return d->m_username;
+    }
+    return d->m_name;
+}
+
 QString UserInfo::username() const
 {
     Q_D(const UserInfo);
@@ -205,6 +222,8 @@ void UserInfo::setUsername(QString username)
     if (d->m_username != username) {
         d->m_username = username;
         emit d_ptr->usernameChanged();
+        if (d->m_name.isEmpty())
+            emit d_ptr->displayNameChanged();
     }
 }
 
@@ -220,6 +239,7 @@ void UserInfo::setName(QString name)
     if (d->m_name != name) {
         d->m_name = name;
         emit d_ptr->nameChanged();
+        emit d_ptr->displayNameChanged();
     }
 }
 
@@ -298,6 +318,7 @@ bool UserInfo::operator!=(const UserInfo &other) const
 
 void UserInfo::connectSignals()
 {
+    connect(d_ptr.data(), &UserInfoPrivate::displayNameChanged, this, &UserInfo::displayNameChanged);
     connect(d_ptr.data(), &UserInfoPrivate::usernameChanged, this, &UserInfo::usernameChanged);
     connect(d_ptr.data(), &UserInfoPrivate::nameChanged, this, &UserInfo::nameChanged);
     connect(d_ptr.data(), &UserInfoPrivate::uidChanged, this, &UserInfo::uidChanged);

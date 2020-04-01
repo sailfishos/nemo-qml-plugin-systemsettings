@@ -56,6 +56,7 @@ public:
     void set(struct passwd *pwd);
 
 signals:
+    void displayNameChanged();
     void usernameChanged();
     void nameChanged();
     void uidChanged();

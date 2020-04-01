@@ -46,6 +46,7 @@ class SYSTEMSETTINGS_EXPORT UserInfo: public QObject
     Q_OBJECT
     Q_DECLARE_PRIVATE(UserInfo)
 
+    Q_PROPERTY(QString displayName READ displayName NOTIFY displayNameChanged)
     Q_PROPERTY(QString username READ username NOTIFY usernameChanged)
     Q_PROPERTY(QString name READ name NOTIFY nameChanged)
     Q_PROPERTY(UserType type READ type CONSTANT)
@@ -69,6 +70,7 @@ public:
 
     bool isValid() const;
 
+    QString displayName() const;
     QString username() const;
     QString name() const;
     UserType type() const;
@@ -82,6 +84,7 @@ public:
     bool operator!=(const UserInfo &other) const;
 
 signals:
+    void displayNameChanged();
     void usernameChanged();
     void nameChanged();
     void uidChanged();
