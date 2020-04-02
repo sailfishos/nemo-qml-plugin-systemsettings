@@ -82,7 +82,7 @@ public:
 private slots:
     void readSettings();
     void findGpsTech();
-    void gpsTechPropertyChanged(const QString &propertyName, const QVariant &value);
+    void gpsTechPropertyChanged(const QString &propertyName, const QDBusVariant &value);
 };
 
 // TODO: replace this with DBus calls to a central settings service...
