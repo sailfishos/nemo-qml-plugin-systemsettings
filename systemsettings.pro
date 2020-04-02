@@ -6,4 +6,4 @@ src_plugins.depends = src
 
 OTHER_FILES += rpm/nemo-qml-plugin-systemsettings.spec
 
-SUBDIRS = src src_plugins setlocale tests
+SUBDIRS = src src_plugins setlocale tests translations

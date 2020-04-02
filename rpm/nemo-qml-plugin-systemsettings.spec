@@ -2,7 +2,6 @@ Name:       nemo-qml-plugin-systemsettings
 Summary:    System settings plugin for Nemo Mobile
 Version:    0.5.37
 Release:    1
-Group:      System/Libraries
 License:    BSD
 URL:        https://git.sailfishos.org/mer-core/nemo-qml-plugin-systemsettings
 Source0:    %{name}-%{version}.tar.bz2
@@ -35,13 +34,13 @@ BuildRequires:  pkgconfig(glib-2.0)
 BuildRequires:  pkgconfig(sailfishaccesscontrol)
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(sailfishusermanager)
+BuildRequires:  qt5-qttools-linguist
 
 %description
 %{summary}.
 
 %package devel
 Summary:    System settings C++ library
-Group:      System/Libraries
 Requires:   %{name} = %{version}-%{release}
 
 %description devel
@@ -49,9 +48,14 @@ Requires:   %{name} = %{version}-%{release}
 
 %package tests
 Summary:    System settings C++ library (unit tests)
-Group:      System/Libraries
 
 %description tests
+%{summary}.
+
+%package ts-devel
+Summary: Translation source for %{name}
+
+%description ts-devel
 %{summary}.
 
 %prep
@@ -94,6 +98,7 @@ fi
 %attr(4710,-,privileged) %{_libexecdir}/setlocale
 %dir %attr(0775, root, privileged) /etc/location
 %config %attr(0664, root, privileged) /etc/location/location.conf
+%{_datadir}/translations/*.qm
 
 %files devel
 %defattr(-,root,root,-)
@@ -105,3 +110,6 @@ fi
 %defattr(-,root,root,-)
 %{_libdir}/%{name}-tests/ut_diskusage
 %{_datadir}/%{name}-tests/tests.xml
+
+%files ts-devel
+%{_datadir}/translations/source/*.ts
