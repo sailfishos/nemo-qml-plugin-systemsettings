@@ -209,7 +209,7 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
                                              "/net/connman/technology/gps",
                                              "net.connman.Technology",
                                              "PropertyChanged",
-                                             this, SLOT(gpsTechPropertyChanged(QString,QVariant)));
+                                             this, SLOT(gpsTechPropertyChanged(QString, QDBusVariant)));
     } else {
         m_connMan = NetworkManagerFactory::createInstance();
         connect(m_connMan, &NetworkManager::technologiesChanged,
@@ -359,7 +359,7 @@ void LocationSettingsPrivate::updateOnlineAgpsState(const QString &name, Locatio
     writeSettings();
 }
 
-void LocationSettingsPrivate::gpsTechPropertyChanged(const QString &propertyName, const QVariant &)
+void LocationSettingsPrivate::gpsTechPropertyChanged(const QString &propertyName, const QDBusVariant &)
 {
     if (propertyName == PoweredPropertyName) {
         emit q->gpsFlightModeChanged();
