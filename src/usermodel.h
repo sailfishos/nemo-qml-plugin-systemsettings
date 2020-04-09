@@ -79,6 +79,9 @@ public:
         UserModifyFailed,
         UserRemoveFailed,
         GetUidFailed,
+        UserNotFound,
+        AddToGroupFailed,
+        RemoveFromGroupFailed,
     };
     Q_ENUM(ErrorType)
 
@@ -94,18 +97,27 @@ public:
     bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole);
     QModelIndex index(int row, int column, const QModelIndex &parent = QModelIndex()) const;
 
+    // Methods to modify users
     Q_INVOKABLE void createUser();
     Q_INVOKABLE void removeUser(int row);
     Q_INVOKABLE void reset(int row);
     Q_INVOKABLE void setCurrentUser(int row);
     Q_INVOKABLE UserInfo * getCurrentUser() const;
 
+    // Methods to modify user's groups
+    Q_INVOKABLE bool hasGroup(int row, const QString &group) const;
+    Q_INVOKABLE void addGroups(int row, const QStringList &groups);
+    Q_INVOKABLE void removeGroups(int row, const QStringList &groups);
+
 signals:
     void placeholderChanged();
+    void userGroupsChanged(int row);
     void userAddFailed(int error);
     void userModifyFailed(int row, int error);
     void userRemoveFailed(int row, int error);
     void setCurrentUserFailed(int row, int error);
+    void addGroupsFailed(int row, int error);
+    void removeGroupsFailed(int row, int error);
 
 private slots:
     void onUserAdded(const SailfishUserManagerEntry &entry);
@@ -118,6 +130,8 @@ private slots:
     void userModifyFinished(QDBusPendingCallWatcher *call, int row);
     void userRemoveFinished(QDBusPendingCallWatcher *call, int row);
     void setCurrentUserFinished(QDBusPendingCallWatcher *call, int row);
+    void addToGroupsFinished(QDBusPendingCallWatcher *call, int row);
+    void removeFromGroupsFinished(QDBusPendingCallWatcher *call, int row);
 
     void createInterface();
     void destroyInterface();

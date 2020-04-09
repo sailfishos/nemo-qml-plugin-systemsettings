@@ -41,9 +41,10 @@
 #include <QDBusServiceWatcher>
 #include <QString>
 #include <functional>
+#include <grp.h>
+#include <sailfishaccesscontrol.h>
 #include <sailfishusermanagerinterface.h>
 #include <sys/types.h>
-#include <grp.h>
 
 namespace {
 const auto UserManagerService = QStringLiteral(SAILFISH_USERMANAGER_DBUS_INTERFACE);
@@ -59,6 +60,9 @@ const QHash<const QString, int> errorTypeMap = {
     { QStringLiteral(SailfishUserManagerErrorUserModifyFailed), UserModel::UserModifyFailed },
     { QStringLiteral(SailfishUserManagerErrorUserRemoveFailed), UserModel::UserRemoveFailed },
     { QStringLiteral(SailfishUserManagerErrorGetUidFailed), UserModel::GetUidFailed },
+    { QStringLiteral(SailfishUserManagerErrorUserNotFound), UserModel::UserNotFound },
+    { QStringLiteral(SailfishUserManagerErrorAddToGroupFailed), UserModel::AddToGroupFailed },
+    { QStringLiteral(SailfishUserManagerErrorRemoveFromGroupFailed), UserModel::RemoveFromGroupFailed },
 };
 
 int getErrorType(QDBusError &error)
@@ -282,6 +286,50 @@ UserInfo * UserModel::getCurrentUser() const
     return new UserInfo();
 }
 
+bool UserModel::hasGroup(int row, const QString &group) const
+{
+    if (row < 0 || row >= m_users.count())
+        return false;
+
+    auto user = m_users.at(row);
+    if (!user.isValid())
+        return false;
+
+    return sailfish_access_control_hasgroup(user.uid(), group.toUtf8().constData());
+}
+
+void UserModel::addGroups(int row, const QStringList &groups)
+{
+    if (row < 0 || row >= m_users.count())
+        return;
+
+    auto user = m_users.at(row);
+    if (!user.isValid())
+        return;
+
+    createInterface();
+    auto call = m_dBusInterface->asyncCall(QStringLiteral("addToGroups"), (uint)user.uid(), groups);
+    auto *watcher = new QDBusPendingCallWatcher(call, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished,
+            this, std::bind(&UserModel::addToGroupsFinished, this, std::placeholders::_1, row));
+}
+
+void UserModel::removeGroups(int row, const QStringList &groups)
+{
+    if (row < 0 || row >= m_users.count())
+        return;
+
+    auto user = m_users.at(row);
+    if (!user.isValid())
+        return;
+
+    createInterface();
+    auto call = m_dBusInterface->asyncCall(QStringLiteral("removeFromGroups"), (uint)user.uid(), groups);
+    auto *watcher = new QDBusPendingCallWatcher(call, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished,
+            this, std::bind(&UserModel::removeFromGroupsFinished, this, std::placeholders::_1, row));
+}
+
 void UserModel::onUserAdded(const SailfishUserManagerEntry &entry)
 {
     if (m_uidsToRows.contains(entry.uid))
@@ -408,6 +456,32 @@ void UserModel::setCurrentUserFinished(QDBusPendingCallWatcher *call, int row)
         emit setCurrentUserFailed(row, getErrorType(error));
         qCWarning(lcUsersLog) << "Switching user with usermanager failed:" << error;
     } // else user switching was initiated successfully
+    call->deleteLater();
+}
+
+void UserModel::addToGroupsFinished(QDBusPendingCallWatcher *call, int row)
+{
+    QDBusPendingReply<void> reply = *call;
+    if (reply.isError()) {
+        auto error = reply.error();
+        emit addGroupsFailed(row, getErrorType(error));
+        qCWarning(lcUsersLog) << "Adding user to groups failed:" << error;
+    } else {
+        emit userGroupsChanged(row);
+    }
+    call->deleteLater();
+}
+
+void UserModel::removeFromGroupsFinished(QDBusPendingCallWatcher *call, int row)
+{
+    QDBusPendingReply<void> reply = *call;
+    if (reply.isError()) {
+        auto error = reply.error();
+        emit removeGroupsFailed(row, getErrorType(error));
+        qCWarning(lcUsersLog) << "Adding user to groups failed:" << error;
+    } else {
+        emit userGroupsChanged(row);
+    }
     call->deleteLater();
 }
 
