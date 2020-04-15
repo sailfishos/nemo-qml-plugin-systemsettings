@@ -97,8 +97,10 @@ private:
     void setUsername(QString username);
     void setName(QString name);
     bool updateCurrent();
+    void replace(QSharedPointer<UserInfoPrivate> other);
 
     void connectSignals();
+    void waitForActivation();
 
     QSharedPointer<UserInfoPrivate> d_ptr;
 };

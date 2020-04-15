@@ -31,7 +31,10 @@
 
 #include "userinfo.h"
 #include "userinfo_p.h"
+#include "logging_p.h"
 
+#include <QSocketNotifier>
+#include <poll.h>
 #include <pwd.h>
 #include <sys/types.h>
 #include <systemd/sd-login.h>
@@ -40,6 +43,7 @@ namespace {
 
 enum SpecialIds : uid_t {
     DeviceOwnerId = 100000,
+    UnknownCurrentUserId = (uid_t)(-2),
     InvalidId = (uid_t)(-1),
 };
 
@@ -98,6 +102,7 @@ void UserInfoPrivate::set(struct passwd *pwd)
     if (m_username != username) {
         m_username = username;
         emit usernameChanged();
+        // Username is used as displayName only if name is empty, avoid emitting changed twice
         if (m_name.isEmpty() && name.isEmpty())
             emit displayNameChanged();
     }
@@ -113,6 +118,10 @@ void UserInfoPrivate::set(struct passwd *pwd)
  * Construct UserInfo for the current user
  *
  * If it has been constructed before, this reuses the old data.
+ * If it can not determine the current user, then it constructs
+ * an object that doesn't point to any user until a user becomes
+ * active on seat0. That should happen very soon after user
+ * session has been started.
  */
 UserInfo::UserInfo()
 {
@@ -120,10 +129,18 @@ UserInfo::UserInfo()
     if (d_ptr.isNull()) {
         uid_t uid = InvalidId;
         struct passwd *pwd;
-        if (sd_seat_get_active("seat0", NULL, &uid) < 0 || uid == InvalidId || !(pwd = getpwuid(uid))) {
-            d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate);
+        if (sd_seat_get_active("seat0", NULL, &uid) >= 0 && uid != InvalidId) {
+            if ((pwd = getpwuid(uid))) {
+                d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate(pwd));
+            } else {
+                // User did not exist, should not happen
+                d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate);
+            }
         } else {
-            d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate(pwd));
+            // User is not active yet
+            d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate);
+            d_ptr->m_uid = UnknownCurrentUserId;
+            waitForActivation();
         }
         // pwd must not be free'd
     }
@@ -188,12 +205,12 @@ UserInfo::~UserInfo()
 }
 
 /**
- * Returns true if user exists
+ * Returns true if the user exists
  */
 bool UserInfo::isValid() const
 {
     Q_D(const UserInfo);
-    return d->m_uid != InvalidId;
+    return d->m_uid != InvalidId && d->m_uid != UnknownCurrentUserId;
 }
 
 QString UserInfo::displayName() const
@@ -292,12 +309,36 @@ void UserInfo::reset()
     updateCurrent();
 }
 
+void UserInfo::replace(QSharedPointer<UserInfoPrivate> other)
+{
+    auto old = d_ptr;
+    d_ptr = other;
+
+    if (old->m_username != d_ptr->m_username) {
+        emit usernameChanged();
+        // Username is used as displayName only if name is empty, avoid emitting changed twice
+        if (old->m_name.isEmpty() && d_ptr->m_name.isEmpty())
+            emit displayNameChanged();
+    }
+
+    if (old->m_name != d_ptr->m_name) {
+        emit nameChanged();
+        emit displayNameChanged();
+    }
+
+    if (old->m_uid != d_ptr->m_uid)
+        emit uidChanged();
+
+    if (old->m_loggedIn != d_ptr->m_loggedIn)
+        emit currentChanged();
+}
+
 UserInfo &UserInfo::operator=(const UserInfo &other)
 {
     if (this == &other)
         return *this;
 
-    d_ptr = other.d_ptr;
+    replace(other.d_ptr);
 
     return *this;
 }
@@ -323,4 +364,44 @@ void UserInfo::connectSignals()
     connect(d_ptr.data(), &UserInfoPrivate::nameChanged, this, &UserInfo::nameChanged);
     connect(d_ptr.data(), &UserInfoPrivate::uidChanged, this, &UserInfo::uidChanged);
     connect(d_ptr.data(), &UserInfoPrivate::currentChanged, this, &UserInfo::currentChanged);
+}
+
+void UserInfo::waitForActivation()
+{
+    // Monitor systemd-logind for changes on seats
+    sd_login_monitor *monitor;
+    if (sd_login_monitor_new("seat", &monitor) < 0) {
+        qCWarning(lcUsersLog) << "Could not start monitoring seat changes";
+    } else {
+        int fd = sd_login_monitor_get_fd(monitor);
+        if (fd < 0) {
+            qCWarning(lcUsersLog) << "Could not get file descriptor, not monitoring seat changes";
+            sd_login_monitor_unref(monitor);
+        } else if (!(sd_login_monitor_get_events(monitor) & POLLIN)) {
+            // Should not happen
+            qCWarning(lcUsersLog) << "Wrong events bits, not monitoring seat changes";
+            sd_login_monitor_unref(monitor);
+        } else {
+            auto *notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
+            connect(notifier, &QSocketNotifier::activated, this, [this, notifier, monitor](int socket) {
+                Q_UNUSED(socket)
+                // Check if seat0 has got active user
+                uid_t uid = InvalidId;
+                if (sd_seat_get_active("seat0", NULL, &uid) >= 0 && uid != InvalidId) {
+                    qCDebug(lcUsersLog) << "User activated on seat0";
+                    replace(UserInfo().d_ptr);
+                    notifier->deleteLater();
+                // Otherwise it was not the event we are waiting for, just flush
+                } else if (sd_login_monitor_flush(monitor) < 0) {
+                    qCWarning(lcUsersLog) << "Monitor flush failed";
+                    notifier->deleteLater();
+                }
+            });
+            connect(notifier, &QObject::destroyed, [monitor] {
+                qCDebug(lcUsersLog) << "Stopped monitoring seat changes";
+                sd_login_monitor_unref(monitor);
+            });
+            qCDebug(lcUsersLog) << "Started monitoring seat changes";
+        }
+    }
 }
