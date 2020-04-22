@@ -38,6 +38,8 @@
 #include <QString>
 #include <QWeakPointer>
 
+class QFileSystemWatcher;
+
 class UserInfoPrivate : public QObject
 {
     Q_OBJECT
@@ -52,6 +54,7 @@ public:
     QString m_name;
     bool m_loggedIn;
     static QWeakPointer<UserInfoPrivate> s_current;
+    QFileSystemWatcher *m_watcher;
 
     void set(struct passwd *pwd);
 

@@ -33,6 +33,8 @@
 #include "userinfo_p.h"
 #include "logging_p.h"
 
+#include <QFile>
+#include <QFileSystemWatcher>
 #include <QSocketNotifier>
 #include <poll.h>
 #include <pwd.h>
@@ -40,6 +42,8 @@
 #include <systemd/sd-login.h>
 
 namespace {
+
+const auto UserDatabaseFile = QStringLiteral("/etc/passwd");
 
 enum SpecialIds : uid_t {
     DeviceOwnerId = 100000,
@@ -65,6 +69,7 @@ QString nameFromGecos(const char *gecos)
 UserInfoPrivate::UserInfoPrivate()
     : m_uid(InvalidId)
     , m_loggedIn(false)
+    , m_watcher(nullptr)
 {
 }
 
@@ -76,6 +81,7 @@ UserInfoPrivate::UserInfoPrivate(struct passwd *pwd)
     // Specifying seat should make sure that remote users are not
     // counted as they don't have seats.
     , m_loggedIn(sd_uid_is_on_seat(m_uid, 1, "seat0") > 0)
+    , m_watcher(nullptr)
 {
 }
 
@@ -143,10 +149,11 @@ UserInfo::UserInfo()
             waitForActivation();
         }
         // pwd must not be free'd
+        if (current())
+            UserInfoPrivate::s_current = d_ptr;
     }
-    if (current())
-        UserInfoPrivate::s_current = d_ptr;
     connectSignals();
+    watchForChanges();
 }
 
 UserInfo::UserInfo(const UserInfo &other)
@@ -161,15 +168,20 @@ UserInfo::UserInfo(const UserInfo &other)
  */
 UserInfo::UserInfo(int uid)
 {
-    struct passwd *pwd = (uid_t)uid != InvalidId ? getpwuid((uid_t)uid) : nullptr;
-    if (pwd) {
-        d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate(pwd));
+    auto current_d = UserInfoPrivate::s_current.toStrongRef();
+    if (!current_d.isNull() && current_d->m_uid == (uid_t)uid) {
+        d_ptr = current_d;
     } else {
-        d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate);
+        struct passwd *pwd = (uid_t)uid != InvalidId ? getpwuid((uid_t)uid) : nullptr;
+        if (pwd) {
+            d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate(pwd));
+        } else {
+            d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate);
+        }
+        // pwd must not be free'd
+        if (current())
+            UserInfoPrivate::s_current = d_ptr;
     }
-    // pwd must not be free'd
-    if (current())
-        UserInfoPrivate::s_current = d_ptr;
     connectSignals();
 }
 
@@ -178,15 +190,20 @@ UserInfo::UserInfo(int uid)
  */
 UserInfo::UserInfo(QString username)
 {
-    struct passwd *pwd = getpwnam(username.toUtf8().constData());
-    if (pwd) {
-        d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate(pwd));
+    auto current_d = UserInfoPrivate::s_current.toStrongRef();
+    if (!current_d.isNull() && current_d->m_username == username) {
+        d_ptr = current_d;
     } else {
-        d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate);
+        struct passwd *pwd = getpwnam(username.toUtf8().constData());
+        if (pwd) {
+            d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate(pwd));
+        } else {
+            d_ptr = QSharedPointer<UserInfoPrivate>(new UserInfoPrivate);
+        }
+        // pwd must not be free'd
+        if (current())
+            UserInfoPrivate::s_current = d_ptr;
     }
-    // pwd must not be free'd
-    if (current())
-        UserInfoPrivate::s_current = d_ptr;
     connectSignals();
 }
 
@@ -312,6 +329,7 @@ void UserInfo::reset()
 void UserInfo::replace(QSharedPointer<UserInfoPrivate> other)
 {
     auto old = d_ptr;
+    disconnect(old.data(), 0, this, 0);
     d_ptr = other;
 
     if (old->m_username != d_ptr->m_username) {
@@ -331,6 +349,11 @@ void UserInfo::replace(QSharedPointer<UserInfoPrivate> other)
 
     if (old->m_loggedIn != d_ptr->m_loggedIn)
         emit currentChanged();
+
+    if (old->m_watcher)
+        watchForChanges();
+
+    connectSignals();
 }
 
 UserInfo &UserInfo::operator=(const UserInfo &other)
@@ -364,6 +387,33 @@ void UserInfo::connectSignals()
     connect(d_ptr.data(), &UserInfoPrivate::nameChanged, this, &UserInfo::nameChanged);
     connect(d_ptr.data(), &UserInfoPrivate::uidChanged, this, &UserInfo::uidChanged);
     connect(d_ptr.data(), &UserInfoPrivate::currentChanged, this, &UserInfo::currentChanged);
+}
+
+void UserInfo::watchForChanges()
+{
+    Q_D(UserInfo);
+    d->m_watcher = new QFileSystemWatcher(this);
+    if (!d->m_watcher->addPath(UserDatabaseFile)) {
+        qCWarning(lcUsersLog) << "Could not watch for changes in user database";
+        delete d->m_watcher;
+        d->m_watcher = nullptr;
+    } else {
+        connect(d->m_watcher, &QFileSystemWatcher::fileChanged, this, [this] {
+            Q_D(UserInfo);
+            if (QFile::exists(UserDatabaseFile)) {
+                // Database updated, reset
+                qCDebug(lcUsersLog) << "Reseting model because user database changed";
+                reset();
+            }
+            if (!d->m_watcher->files().contains(UserDatabaseFile)) {
+                if (QFile::exists(UserDatabaseFile) && d->m_watcher->addPath(UserDatabaseFile)) {
+                    qCDebug(lcUsersLog) << "Re-watching user database for changes";
+                } else {
+                    qCWarning(lcUsersLog) << "Stopped watching user database for changes";
+                }
+            }
+        });
+    }
 }
 
 void UserInfo::waitForActivation()

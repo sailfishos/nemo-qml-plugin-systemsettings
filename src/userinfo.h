@@ -100,6 +100,7 @@ private:
     void replace(QSharedPointer<UserInfoPrivate> other);
 
     void connectSignals();
+    void watchForChanges();
     void waitForActivation();
 
     QSharedPointer<UserInfoPrivate> d_ptr;
