@@ -50,7 +50,7 @@ class SYSTEMSETTINGS_EXPORT UserInfo: public QObject
     Q_PROPERTY(QString username READ username NOTIFY usernameChanged)
     Q_PROPERTY(QString name READ name NOTIFY nameChanged)
     Q_PROPERTY(UserType type READ type CONSTANT)
-    Q_PROPERTY(int uid READ uid NOTIFY uidChanged)
+    Q_PROPERTY(int uid READ uid WRITE setUid NOTIFY uidChanged)
     Q_PROPERTY(bool current READ current NOTIFY currentChanged)
 
     friend class UserModel;
@@ -75,6 +75,7 @@ public:
     QString name() const;
     UserType type() const;
     int uid() const;
+    void setUid(int uid);
     bool current() const;
 
     Q_INVOKABLE void reset();

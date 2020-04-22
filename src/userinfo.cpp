@@ -292,6 +292,13 @@ int UserInfo::uid() const
     return (int)d->m_uid;
 }
 
+void UserInfo::setUid(int uid)
+{
+    Q_D(const UserInfo);
+    if ((uid_t)uid != d->m_uid)
+        replace(UserInfo(uid).d_ptr);
+}
+
 /**
  * Returs true if user is logged in on seat0 and is the active user, i.e. the current user
  */
