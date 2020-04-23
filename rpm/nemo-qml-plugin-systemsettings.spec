@@ -21,7 +21,6 @@ BuildRequires:  pkgconfig(profile)
 BuildRequires:  pkgconfig(mce) >= 1.21.0
 BuildRequires:  pkgconfig(mlite5)
 BuildRequires:  pkgconfig(usb-moded-qt5)
-BuildRequires:  pkgconfig(libshadowutils)
 BuildRequires:  pkgconfig(blkid)
 BuildRequires:  pkgconfig(libcrypto)
 BuildRequires:  pkgconfig(nemodbus) >= 2.1.16

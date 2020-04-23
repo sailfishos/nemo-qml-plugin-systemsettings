@@ -41,9 +41,6 @@
 #include <QNetworkInterface>
 #include <transaction.h>
 
-#include <getdef.h>
-#include <pwd.h>
-
 /* Symbolic constants */
 #define PROGRESS_INDETERMINATE (-1)
 
@@ -103,7 +100,7 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_wlanIpAddress("-")
     , m_usbInterface(USB_NETWORK_FALLBACK_INTERFACE)
     , m_usbIpAddress(USB_NETWORK_FALLBACK_IP)
-    , m_username("nemo")
+    , m_username(qgetenv("USER"))
     , m_developerModeEnabled(QFile::exists(DEVELOPER_MODE_PROVIDED_FILE))
     , m_workStatus(Idle)
     , m_workProgress(PROGRESS_INDETERMINATE)
@@ -113,14 +110,6 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_localInstallFailed(false)
     , m_localDeveloperModePackagePath(get_cached_package(QStringLiteral("*")))  // Initialized to possibly incompatible package
 {
-    int uid = getdef_num("UID_MIN", -1);
-    struct passwd *pwd;
-    if ((pwd = getpwuid(uid)) != NULL) {
-        m_username = QString(pwd->pw_name);
-    } else {
-        qCWarning(lcDeveloperModeLog) << "Failed to return username using getpwuid()";
-    }
-
     // Resolve and update local package path
     if (!m_localDeveloperModePackagePath.isEmpty()) {
         PackageKit::Transaction *resolvePackage = PackageKit::Daemon::resolve(DEVELOPER_MODE_PACKAGE"-preload", PackageKit::Transaction::FilterInstalled);
