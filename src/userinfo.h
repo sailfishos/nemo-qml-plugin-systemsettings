@@ -53,6 +53,7 @@ class SYSTEMSETTINGS_EXPORT UserInfo: public QObject
     Q_PROPERTY(int uid READ uid WRITE setUid NOTIFY uidChanged)
     Q_PROPERTY(bool current READ current NOTIFY currentChanged)
     Q_PROPERTY(bool alone READ alone NOTIFY aloneChanged)
+    Q_PROPERTY(bool watched READ watched WRITE setWatched NOTIFY watchedChanged)
 
     friend class UserModel;
 
@@ -79,6 +80,8 @@ public:
     void setUid(int uid);
     bool current() const;
     bool alone();
+    bool watched();
+    void setWatched(bool watch);
 
     Q_INVOKABLE void reset();
 
@@ -93,6 +96,7 @@ signals:
     void uidChanged();
     void currentChanged();
     void aloneChanged();
+    void watchedChanged();
 
 private:
     explicit UserInfo(int uid);

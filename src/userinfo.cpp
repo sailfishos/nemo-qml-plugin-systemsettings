@@ -91,6 +91,7 @@ UserInfoPrivate::UserInfoPrivate(struct passwd *pwd)
 
 UserInfoPrivate::~UserInfoPrivate()
 {
+    delete m_watcher;
 }
 
 QWeakPointer<UserInfoPrivate> UserInfoPrivate::s_current;
@@ -207,7 +208,6 @@ UserInfo::UserInfo()
             UserInfoPrivate::s_current = d_ptr;
     }
     connectSignals();
-    watchForChanges();
 }
 
 UserInfo::UserInfo(const UserInfo &other)
@@ -390,6 +390,39 @@ bool UserInfo::alone()
 }
 
 /**
+ * Returns true if object follows database changes, defaults to false
+ *
+ * Note that even if watched is false, the object can change and emit
+ * change signals.
+ */
+bool UserInfo::watched()
+{
+    Q_D(const UserInfo);
+    return (bool)d->m_watcher;
+}
+
+/**
+ * If set true object starts to follow database changes.
+ * Setting to false is not allowed but it can change back to false
+ * if watching fails.
+ *
+ * Setting to false would be a bit difficult since if some data sharing
+ * object would like to stop watching it will end watching for all of
+ * them. Thus it's better if you never set this to false. In practice,
+ * it's not necessary to set this to false ever.
+ */
+void UserInfo::setWatched(bool watch)
+{
+    Q_D(UserInfo);
+    // UserInfo objects with uid set to InvalidId can not be watched
+    if (d->m_uid != InvalidId && watch && !d->m_watcher) {
+        watchForChanges();
+        if (d_ptr->m_watcher)
+            emit d->watchedChanged();
+    }
+}
+
+/**
  * Resets object reloading all information
  */
 void UserInfo::reset()
@@ -424,8 +457,13 @@ void UserInfo::replace(QSharedPointer<UserInfoPrivate> other)
     if (old->m_loggedIn != d_ptr->m_loggedIn)
         emit currentChanged();
 
-    if (old->m_watcher)
+    if (old->m_watcher && !d_ptr->m_watcher) {
         watchForChanges();
+        if (!d_ptr->m_watcher)
+            emit watchedChanged();
+    } else if (!old->m_watcher && d_ptr->m_watcher) {
+        emit watchedChanged();
+    }
 
     // If alone value was known, ensure that new d_ptr also knows it
     if (old->m_alone != UserInfoPrivate::Unknown && old->alone() != d_ptr->alone())
@@ -465,13 +503,14 @@ void UserInfo::connectSignals()
     connect(d_ptr.data(), &UserInfoPrivate::nameChanged, this, &UserInfo::nameChanged);
     connect(d_ptr.data(), &UserInfoPrivate::uidChanged, this, &UserInfo::uidChanged);
     connect(d_ptr.data(), &UserInfoPrivate::currentChanged, this, &UserInfo::currentChanged);
+    connect(d_ptr.data(), &UserInfoPrivate::watchedChanged, this, &UserInfo::watchedChanged);
     connect(d_ptr.data(), &UserInfoPrivate::aloneChanged, this, &UserInfo::aloneChanged);
 }
 
 void UserInfo::watchForChanges()
 {
     Q_D(UserInfo);
-    d->m_watcher = new QFileSystemWatcher(this);
+    d->m_watcher = new QFileSystemWatcher(d);
     QStringList missing = d->m_watcher->addPaths(QStringList() << UserDatabaseFile << GroupDatabaseFile);
     if (missing.count() == 2) {
         qCWarning(lcUsersLog) << "Could not watch for changes in user or group database";
@@ -480,27 +519,29 @@ void UserInfo::watchForChanges()
     } else if (missing.count() > 0) {
         qCWarning(lcUsersLog) << "Could not watch for changes in" << missing;
     } else {
-        connect(d->m_watcher, &QFileSystemWatcher::fileChanged, this, [this] (const QString &path) {
-            Q_D(UserInfo);
-            if (QFile::exists(path)) {
-                if (path == UserDatabaseFile) {
-                    // User database updated, reset model
-                    qCDebug(lcUsersLog) << UserDatabaseFile << "changed, reseting model";
-                    reset();
-                } else if (d->m_alone != UserInfoPrivate::Unknown) { // && path == GroupDatabaseFile
-                    // Group database updated, update alone status
-                    qCDebug(lcUsersLog) << GroupDatabaseFile << "changed, checking alone status again";
-                    d->updateAlone();
-                }
-            }
-            if (!d->m_watcher->files().contains(path)) {
-                if (QFile::exists(path) && d->m_watcher->addPath(path)) {
-                    qCDebug(lcUsersLog) << "Re-watching" << path << "for changes";
-                } else {
-                    qCWarning(lcUsersLog) << "Stopped watching" << path << "for changes";
-                }
-            }
-        });
+        connect(d->m_watcher, &QFileSystemWatcher::fileChanged, d, &UserInfoPrivate::databaseChanged);
+    }
+}
+
+void UserInfoPrivate::databaseChanged(const QString &path)
+{
+    if (QFile::exists(path)) {
+        if (path == UserDatabaseFile) {
+            // User database updated, reset model
+            qCDebug(lcUsersLog) << "User database changed, updating data";
+            set(getpwuid(m_uid));
+        } else if (m_alone != Unknown) { // && path == GroupDatabaseFile
+            // Group database updated, update alone status
+            qCDebug(lcUsersLog) << "Group database changed, checking alone status again";
+            updateAlone();
+        }
+    }
+    if (!m_watcher->files().contains(path)) {
+        if (QFile::exists(path) && m_watcher->addPath(path)) {
+            qCDebug(lcUsersLog) << "Re-watching" << path << "for changes";
+        } else {
+            qCWarning(lcUsersLog) << "Stopped watching" << path << "for changes";
+        }
     }
 }
 

@@ -67,12 +67,16 @@ public:
     bool alone();
     void updateAlone(bool force = false);
 
+public slots:
+    void databaseChanged(const QString &path);
+
 signals:
     void displayNameChanged();
     void usernameChanged();
     void nameChanged();
     void uidChanged();
     void currentChanged();
+    void watchedChanged();
     void aloneChanged();
 };
 
