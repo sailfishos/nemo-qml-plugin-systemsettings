@@ -564,6 +564,11 @@ void UserInfo::waitForActivation()
             auto *notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
             connect(notifier, &QSocketNotifier::activated, this, [this, notifier, monitor](int socket) {
                 Q_UNUSED(socket)
+                if (uid() != (int)UnknownCurrentUserId) {
+                    // This user has been changed to someone else already, stop monitoring
+                    qCDebug(lcUsersLog) << "UserInfo uid had been changed";
+                    notifier->deleteLater();
+                }
                 // Check if seat0 has got active user
                 uid_t uid = InvalidId;
                 if (sd_seat_get_active("seat0", NULL, &uid) >= 0 && uid != InvalidId) {
