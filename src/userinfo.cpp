@@ -36,6 +36,7 @@
 #include <QFile>
 #include <QFileSystemWatcher>
 #include <QSocketNotifier>
+#include <grp.h>
 #include <poll.h>
 #include <pwd.h>
 #include <sys/types.h>
@@ -44,6 +45,7 @@
 namespace {
 
 const auto UserDatabaseFile = QStringLiteral("/etc/passwd");
+const auto GroupDatabaseFile = QStringLiteral("/etc/group");
 
 enum SpecialIds : uid_t {
     DeviceOwnerId = 100000,
@@ -70,6 +72,7 @@ UserInfoPrivate::UserInfoPrivate()
     : m_uid(InvalidId)
     , m_loggedIn(false)
     , m_watcher(nullptr)
+    , m_alone(Unknown)
 {
 }
 
@@ -82,6 +85,7 @@ UserInfoPrivate::UserInfoPrivate(struct passwd *pwd)
     // counted as they don't have seats.
     , m_loggedIn(sd_uid_is_on_seat(m_uid, 1, "seat0") > 0)
     , m_watcher(nullptr)
+    , m_alone(Unknown)
 {
 }
 
@@ -117,6 +121,56 @@ void UserInfoPrivate::set(struct passwd *pwd)
         m_name = name;
         emit nameChanged();
         emit displayNameChanged();
+    }
+}
+
+bool UserInfoPrivate::alone()
+{
+    if (m_alone == Unknown)
+        updateAlone(true);
+    return m_alone == Yes;
+}
+
+void UserInfoPrivate::updateAlone(bool force)
+{
+    if (!force && m_alone == Unknown) {
+        // Skip if the value is not needed and the check is not forced
+        return;
+    }
+
+    Tristated alone = Yes;
+
+    if (m_uid != InvalidId && m_uid != UnknownCurrentUserId && m_uid != DeviceOwnerId) {
+        // There must be at least one other user besides device owner
+        // if the uid is valid and known and it's not device owner
+        alone = No;
+    } else {
+        // Can not determine from uid, check users group
+        errno = 0;
+        struct group *grp = getgrnam("users");
+        if (!grp) {
+            qCWarning(lcUsersLog) << "Could not read users group:" << strerror(errno);
+            // Guessing that user is probably alone
+        } else {
+            for (int i = 0; grp->gr_mem[i] != nullptr; ++i) {
+                struct passwd *pwd = getpwnam(grp->gr_mem[i]);
+                if (pwd && pwd->pw_uid != DeviceOwnerId) {
+                    // Found someone that's not device owner
+                    alone = No;
+                    break;
+                }
+                // pwd must not be free'd
+            }
+            // grp must not be free'd
+        }
+    }
+
+    if (m_alone != alone) {
+        m_alone = alone;
+        if (!force) {
+            // Emit only if something needed the value already, i.e. it was known
+            emit aloneChanged();
+        }
     }
 }
 
@@ -326,11 +380,24 @@ bool UserInfo::updateCurrent()
     return false;
 }
 
+/**
+ * Returns true if there is only one user on the device
+ */
+bool UserInfo::alone()
+{
+    Q_D(UserInfo);
+    return d->alone();
+}
+
+/**
+ * Resets object reloading all information
+ */
 void UserInfo::reset()
 {
     Q_D(UserInfo);
     d->set((isValid()) ? getpwuid(d->m_uid) : nullptr);
     updateCurrent();
+    d->updateAlone();
 }
 
 void UserInfo::replace(QSharedPointer<UserInfoPrivate> other)
@@ -359,6 +426,10 @@ void UserInfo::replace(QSharedPointer<UserInfoPrivate> other)
 
     if (old->m_watcher)
         watchForChanges();
+
+    // If alone value was known, ensure that new d_ptr also knows it
+    if (old->m_alone != UserInfoPrivate::Unknown && old->alone() != d_ptr->alone())
+        emit aloneChanged();
 
     connectSignals();
 }
@@ -394,29 +465,39 @@ void UserInfo::connectSignals()
     connect(d_ptr.data(), &UserInfoPrivate::nameChanged, this, &UserInfo::nameChanged);
     connect(d_ptr.data(), &UserInfoPrivate::uidChanged, this, &UserInfo::uidChanged);
     connect(d_ptr.data(), &UserInfoPrivate::currentChanged, this, &UserInfo::currentChanged);
+    connect(d_ptr.data(), &UserInfoPrivate::aloneChanged, this, &UserInfo::aloneChanged);
 }
 
 void UserInfo::watchForChanges()
 {
     Q_D(UserInfo);
     d->m_watcher = new QFileSystemWatcher(this);
-    if (!d->m_watcher->addPath(UserDatabaseFile)) {
-        qCWarning(lcUsersLog) << "Could not watch for changes in user database";
+    QStringList missing = d->m_watcher->addPaths(QStringList() << UserDatabaseFile << GroupDatabaseFile);
+    if (missing.count() == 2) {
+        qCWarning(lcUsersLog) << "Could not watch for changes in user or group database";
         delete d->m_watcher;
         d->m_watcher = nullptr;
+    } else if (missing.count() > 0) {
+        qCWarning(lcUsersLog) << "Could not watch for changes in" << missing;
     } else {
-        connect(d->m_watcher, &QFileSystemWatcher::fileChanged, this, [this] {
+        connect(d->m_watcher, &QFileSystemWatcher::fileChanged, this, [this] (const QString &path) {
             Q_D(UserInfo);
-            if (QFile::exists(UserDatabaseFile)) {
-                // Database updated, reset
-                qCDebug(lcUsersLog) << "Reseting model because user database changed";
-                reset();
+            if (QFile::exists(path)) {
+                if (path == UserDatabaseFile) {
+                    // User database updated, reset model
+                    qCDebug(lcUsersLog) << UserDatabaseFile << "changed, reseting model";
+                    reset();
+                } else if (d->m_alone != UserInfoPrivate::Unknown) { // && path == GroupDatabaseFile
+                    // Group database updated, update alone status
+                    qCDebug(lcUsersLog) << GroupDatabaseFile << "changed, checking alone status again";
+                    d->updateAlone();
+                }
             }
-            if (!d->m_watcher->files().contains(UserDatabaseFile)) {
-                if (QFile::exists(UserDatabaseFile) && d->m_watcher->addPath(UserDatabaseFile)) {
-                    qCDebug(lcUsersLog) << "Re-watching user database for changes";
+            if (!d->m_watcher->files().contains(path)) {
+                if (QFile::exists(path) && d->m_watcher->addPath(path)) {
+                    qCDebug(lcUsersLog) << "Re-watching" << path << "for changes";
                 } else {
-                    qCWarning(lcUsersLog) << "Stopped watching user database for changes";
+                    qCWarning(lcUsersLog) << "Stopped watching" << path << "for changes";
                 }
             }
         });
