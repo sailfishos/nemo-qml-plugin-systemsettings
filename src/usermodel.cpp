@@ -88,11 +88,15 @@ UserModel::UserModel(QObject *parent)
     if (QDBusConnection::systemBus().interface()->isServiceRegistered(UserManagerService))
         createInterface();
     struct group *grp = getgrnam("users");
-    for (int i = 0; grp->gr_mem[i] != nullptr; ++i) {
-        UserInfo user(QString(grp->gr_mem[i]));
-        if (user.isValid()) { // Skip invalid users here
-            m_users.append(user);
-            m_uidsToRows.insert(user.uid(), m_users.count()-1);
+    if (!grp) {
+        qCWarning(lcUsersLog) << "Could not read users group:" << strerror(errno);
+    } else {
+        for (int i = 0; grp->gr_mem[i] != nullptr; ++i) {
+            UserInfo user(QString(grp->gr_mem[i]));
+            if (user.isValid()) { // Skip invalid users here
+                m_users.append(user);
+                m_uidsToRows.insert(user.uid(), m_users.count()-1);
+            }
         }
     }
     // grp must not be free'd

@@ -49,14 +49,26 @@ public:
     UserInfoPrivate(struct passwd *pwd);
     ~UserInfoPrivate();
 
+    enum Tristated {
+        Yes = 1,
+        No = 0,
+        Unknown = -1
+    };
+
     uid_t m_uid;
     QString m_username;
     QString m_name;
     bool m_loggedIn;
     static QWeakPointer<UserInfoPrivate> s_current;
     QFileSystemWatcher *m_watcher;
+    Tristated m_alone;
 
     void set(struct passwd *pwd);
+    bool alone();
+    void updateAlone(bool force = false);
+
+public slots:
+    void databaseChanged(const QString &path);
 
 signals:
     void displayNameChanged();
@@ -64,6 +76,8 @@ signals:
     void nameChanged();
     void uidChanged();
     void currentChanged();
+    void watchedChanged();
+    void aloneChanged();
 };
 
 #endif /* USERINFOPRIVATE_H */

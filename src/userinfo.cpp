@@ -36,6 +36,7 @@
 #include <QFile>
 #include <QFileSystemWatcher>
 #include <QSocketNotifier>
+#include <grp.h>
 #include <poll.h>
 #include <pwd.h>
 #include <sys/types.h>
@@ -44,6 +45,7 @@
 namespace {
 
 const auto UserDatabaseFile = QStringLiteral("/etc/passwd");
+const auto GroupDatabaseFile = QStringLiteral("/etc/group");
 
 enum SpecialIds : uid_t {
     DeviceOwnerId = 100000,
@@ -70,6 +72,7 @@ UserInfoPrivate::UserInfoPrivate()
     : m_uid(InvalidId)
     , m_loggedIn(false)
     , m_watcher(nullptr)
+    , m_alone(Unknown)
 {
 }
 
@@ -82,11 +85,13 @@ UserInfoPrivate::UserInfoPrivate(struct passwd *pwd)
     // counted as they don't have seats.
     , m_loggedIn(sd_uid_is_on_seat(m_uid, 1, "seat0") > 0)
     , m_watcher(nullptr)
+    , m_alone(Unknown)
 {
 }
 
 UserInfoPrivate::~UserInfoPrivate()
 {
+    delete m_watcher;
 }
 
 QWeakPointer<UserInfoPrivate> UserInfoPrivate::s_current;
@@ -117,6 +122,56 @@ void UserInfoPrivate::set(struct passwd *pwd)
         m_name = name;
         emit nameChanged();
         emit displayNameChanged();
+    }
+}
+
+bool UserInfoPrivate::alone()
+{
+    if (m_alone == Unknown)
+        updateAlone(true);
+    return m_alone == Yes;
+}
+
+void UserInfoPrivate::updateAlone(bool force)
+{
+    if (!force && m_alone == Unknown) {
+        // Skip if the value is not needed and the check is not forced
+        return;
+    }
+
+    Tristated alone = Yes;
+
+    if (m_uid != InvalidId && m_uid != UnknownCurrentUserId && m_uid != DeviceOwnerId) {
+        // There must be at least one other user besides device owner
+        // if the uid is valid and known and it's not device owner
+        alone = No;
+    } else {
+        // Can not determine from uid, check users group
+        errno = 0;
+        struct group *grp = getgrnam("users");
+        if (!grp) {
+            qCWarning(lcUsersLog) << "Could not read users group:" << strerror(errno);
+            // Guessing that user is probably alone
+        } else {
+            for (int i = 0; grp->gr_mem[i] != nullptr; ++i) {
+                struct passwd *pwd = getpwnam(grp->gr_mem[i]);
+                if (pwd && pwd->pw_uid != DeviceOwnerId) {
+                    // Found someone that's not device owner
+                    alone = No;
+                    break;
+                }
+                // pwd must not be free'd
+            }
+            // grp must not be free'd
+        }
+    }
+
+    if (m_alone != alone) {
+        m_alone = alone;
+        if (!force) {
+            // Emit only if something needed the value already, i.e. it was known
+            emit aloneChanged();
+        }
     }
 }
 
@@ -153,7 +208,6 @@ UserInfo::UserInfo()
             UserInfoPrivate::s_current = d_ptr;
     }
     connectSignals();
-    watchForChanges();
 }
 
 UserInfo::UserInfo(const UserInfo &other)
@@ -326,11 +380,57 @@ bool UserInfo::updateCurrent()
     return false;
 }
 
+/**
+ * Returns true if there is only one user on the device
+ */
+bool UserInfo::alone()
+{
+    Q_D(UserInfo);
+    return d->alone();
+}
+
+/**
+ * Returns true if object follows database changes, defaults to false
+ *
+ * Note that even if watched is false, the object can change and emit
+ * change signals.
+ */
+bool UserInfo::watched()
+{
+    Q_D(const UserInfo);
+    return (bool)d->m_watcher;
+}
+
+/**
+ * If set true object starts to follow database changes.
+ * Setting to false is not allowed but it can change back to false
+ * if watching fails.
+ *
+ * Setting to false would be a bit difficult since if some data sharing
+ * object would like to stop watching it will end watching for all of
+ * them. Thus it's better if you never set this to false. In practice,
+ * it's not necessary to set this to false ever.
+ */
+void UserInfo::setWatched(bool watch)
+{
+    Q_D(UserInfo);
+    // UserInfo objects with uid set to InvalidId can not be watched
+    if (d->m_uid != InvalidId && watch && !d->m_watcher) {
+        watchForChanges();
+        if (d_ptr->m_watcher)
+            emit d->watchedChanged();
+    }
+}
+
+/**
+ * Resets object reloading all information
+ */
 void UserInfo::reset()
 {
     Q_D(UserInfo);
     d->set((isValid()) ? getpwuid(d->m_uid) : nullptr);
     updateCurrent();
+    d->updateAlone();
 }
 
 void UserInfo::replace(QSharedPointer<UserInfoPrivate> other)
@@ -357,8 +457,17 @@ void UserInfo::replace(QSharedPointer<UserInfoPrivate> other)
     if (old->m_loggedIn != d_ptr->m_loggedIn)
         emit currentChanged();
 
-    if (old->m_watcher)
+    if (old->m_watcher && !d_ptr->m_watcher) {
         watchForChanges();
+        if (!d_ptr->m_watcher)
+            emit watchedChanged();
+    } else if (!old->m_watcher && d_ptr->m_watcher) {
+        emit watchedChanged();
+    }
+
+    // If alone value was known, ensure that new d_ptr also knows it
+    if (old->m_alone != UserInfoPrivate::Unknown && old->alone() != d_ptr->alone())
+        emit aloneChanged();
 
     connectSignals();
 }
@@ -394,32 +503,45 @@ void UserInfo::connectSignals()
     connect(d_ptr.data(), &UserInfoPrivate::nameChanged, this, &UserInfo::nameChanged);
     connect(d_ptr.data(), &UserInfoPrivate::uidChanged, this, &UserInfo::uidChanged);
     connect(d_ptr.data(), &UserInfoPrivate::currentChanged, this, &UserInfo::currentChanged);
+    connect(d_ptr.data(), &UserInfoPrivate::watchedChanged, this, &UserInfo::watchedChanged);
+    connect(d_ptr.data(), &UserInfoPrivate::aloneChanged, this, &UserInfo::aloneChanged);
 }
 
 void UserInfo::watchForChanges()
 {
     Q_D(UserInfo);
-    d->m_watcher = new QFileSystemWatcher(this);
-    if (!d->m_watcher->addPath(UserDatabaseFile)) {
-        qCWarning(lcUsersLog) << "Could not watch for changes in user database";
+    d->m_watcher = new QFileSystemWatcher(d);
+    QStringList missing = d->m_watcher->addPaths(QStringList() << UserDatabaseFile << GroupDatabaseFile);
+    if (missing.count() == 2) {
+        qCWarning(lcUsersLog) << "Could not watch for changes in user or group database";
         delete d->m_watcher;
         d->m_watcher = nullptr;
+    } else if (missing.count() > 0) {
+        qCWarning(lcUsersLog) << "Could not watch for changes in" << missing;
     } else {
-        connect(d->m_watcher, &QFileSystemWatcher::fileChanged, this, [this] {
-            Q_D(UserInfo);
-            if (QFile::exists(UserDatabaseFile)) {
-                // Database updated, reset
-                qCDebug(lcUsersLog) << "Reseting model because user database changed";
-                reset();
-            }
-            if (!d->m_watcher->files().contains(UserDatabaseFile)) {
-                if (QFile::exists(UserDatabaseFile) && d->m_watcher->addPath(UserDatabaseFile)) {
-                    qCDebug(lcUsersLog) << "Re-watching user database for changes";
-                } else {
-                    qCWarning(lcUsersLog) << "Stopped watching user database for changes";
-                }
-            }
-        });
+        connect(d->m_watcher, &QFileSystemWatcher::fileChanged, d, &UserInfoPrivate::databaseChanged);
+    }
+}
+
+void UserInfoPrivate::databaseChanged(const QString &path)
+{
+    if (QFile::exists(path)) {
+        if (path == UserDatabaseFile) {
+            // User database updated, reset model
+            qCDebug(lcUsersLog) << "User database changed, updating data";
+            set(getpwuid(m_uid));
+        } else if (m_alone != Unknown) { // && path == GroupDatabaseFile
+            // Group database updated, update alone status
+            qCDebug(lcUsersLog) << "Group database changed, checking alone status again";
+            updateAlone();
+        }
+    }
+    if (!m_watcher->files().contains(path)) {
+        if (QFile::exists(path) && m_watcher->addPath(path)) {
+            qCDebug(lcUsersLog) << "Re-watching" << path << "for changes";
+        } else {
+            qCWarning(lcUsersLog) << "Stopped watching" << path << "for changes";
+        }
     }
 }
 
@@ -442,6 +564,11 @@ void UserInfo::waitForActivation()
             auto *notifier = new QSocketNotifier(fd, QSocketNotifier::Read, this);
             connect(notifier, &QSocketNotifier::activated, this, [this, notifier, monitor](int socket) {
                 Q_UNUSED(socket)
+                if (uid() != (int)UnknownCurrentUserId) {
+                    // This user has been changed to someone else already, stop monitoring
+                    qCDebug(lcUsersLog) << "UserInfo uid had been changed";
+                    notifier->deleteLater();
+                }
                 // Check if seat0 has got active user
                 uid_t uid = InvalidId;
                 if (sd_seat_get_active("seat0", NULL, &uid) >= 0 && uid != InvalidId) {
