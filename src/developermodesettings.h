@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2013 – 2019 Jolla Ltd.
- * Copyright (c) 2019 Open Mobile Platform LLC.
+ * Copyright (c) 2019 – 2020 Open Mobile Platform LLC.
  * Contact: Thomas Perl <thomas.perl@jollamobile.com>
  *
  * You may use this file under the terms of the BSD license as follows:
@@ -49,6 +49,7 @@ class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
 {
     Q_OBJECT
     Q_ENUMS(Status)
+    Q_ENUMS(InstallationType)
 
     Q_PROPERTY(QString wlanIpAddress READ wlanIpAddress NOTIFY wlanIpAddressChanged)
     Q_PROPERTY(QString usbIpAddress READ usbIpAddress NOTIFY usbIpAddressChanged)
@@ -57,6 +58,8 @@ class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
     Q_PROPERTY(enum DeveloperModeSettings::Status workStatus READ workStatus NOTIFY workStatusChanged)
     Q_PROPERTY(int workProgress READ workProgress NOTIFY workProgressChanged)
     Q_PROPERTY(bool repositoryAccessRequired READ repositoryAccessRequired NOTIFY repositoryAccessRequiredChanged)
+    Q_PROPERTY(bool debugHomeEnabled READ debugHomeEnabled NOTIFY debugHomeEnabledChanged)
+    Q_PROPERTY(enum DeveloperModeSettings::InstallationType installationType READ installationType NOTIFY installationTypeChanged)
 
 public:
     explicit DeveloperModeSettings(QObject *parent = NULL);
@@ -68,6 +71,11 @@ public:
         DownloadingPackages,
         InstallingPackages,
         RemovingPackages
+    };    
+    enum InstallationType {
+        None,
+        DeveloperMode,
+        DebugHome
     };
 
     QString wlanIpAddress() const;
@@ -77,10 +85,14 @@ public:
     enum DeveloperModeSettings::Status workStatus() const;
     int workProgress() const;
     bool repositoryAccessRequired() const;
+    bool debugHomeEnabled() const;
+    QString packageName();
+    enum DeveloperModeSettings::InstallationType installationType() const;
 
     Q_INVOKABLE void setDeveloperMode(bool enabled);
     Q_INVOKABLE void setUsbIpAddress(const QString &usbIpAddress);
     Q_INVOKABLE void refresh();
+    Q_INVOKABLE void moveDebugToHome(bool enabled);
 
 signals:
     void wlanIpAddressChanged();
@@ -89,6 +101,8 @@ signals:
     void workStatusChanged();
     void workProgressChanged();
     void repositoryAccessRequiredChanged();
+    void debugHomeEnabledChanged();
+    void installationTypeChanged();
 
 private slots:
     void reportTransactionErrorCode(PackageKit::Transaction::Error code, const QString &details);
@@ -104,7 +118,9 @@ private:
     void setWorkStatus(Status status);
     void refreshPackageCacheAndInstall();
     void resolveAndExecute(Command command);
+    bool installAndRemove(Command command);
     void connectCommandSignals(PackageKit::Transaction *transaction);
+    void setInstallationType(InstallationType type);
 
     QString usbModedGetConfig(const QString &key, const QString &fallback);
     void usbModedSetConfig(const QString &key, const QString &value);
@@ -114,7 +130,7 @@ private:
     QString m_usbInterface;
     QString m_usbIpAddress;
     QString m_username;
-    QString m_developerModePackageId;
+    QString m_packageId;
     bool m_developerModeEnabled;
     DeveloperModeSettings::Status m_workStatus;
     int m_workProgress;
@@ -123,8 +139,11 @@ private:
     bool m_refreshedForInstall;
     bool m_localInstallFailed;
     QString m_localDeveloperModePackagePath;
+    bool m_debugHomeEnabled;
+    DeveloperModeSettings::InstallationType m_installationType;
 };
 
 Q_DECLARE_METATYPE(DeveloperModeSettings::Status)
+Q_DECLARE_METATYPE(DeveloperModeSettings::InstallationType)
 
 #endif /* DEVELOPERMODESETTINGS_H */
