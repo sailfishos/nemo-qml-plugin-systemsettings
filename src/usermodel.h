@@ -35,6 +35,7 @@
 #include <QAbstractListModel>
 #include <QDBusError>
 #include <QHash>
+#include <QSet>
 #include <QVector>
 
 #include "systemsettingsglobal.h"
@@ -58,6 +59,7 @@ public:
         UidRole,
         CurrentRole,
         PlaceholderRole,
+        TransitioningRole,
     };
     Q_ENUM(Roles)
 
@@ -137,8 +139,11 @@ private slots:
     void destroyInterface();
 
 private:
+    void add(UserInfo &user);
+
     QVector<UserInfo> m_users;
     QHash<uint, int> m_uidsToRows;
+    QSet<uint> m_transitioning;
     QDBusInterface *m_dBusInterface;
     QDBusServiceWatcher *m_dBusWatcher;
 };
