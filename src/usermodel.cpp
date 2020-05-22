@@ -196,7 +196,7 @@ bool UserModel::setData(const QModelIndex &index, const QVariant &value, int rol
             auto call = m_dBusInterface->asyncCall(QStringLiteral("modifyUser"), (uint)user.uid(), name);
             auto *watcher = new QDBusPendingCallWatcher(call, this);
             connect(watcher, &QDBusPendingCallWatcher::finished,
-                    this, std::bind(&UserModel::userModifyFinished, this, std::placeholders::_1, index.row()));
+                    this, std::bind(&UserModel::userModifyFinished, this, std::placeholders::_1, user.uid()));
         }
         emit dataChanged(index, index, QVector<int>() << role);
         return true;
@@ -256,7 +256,7 @@ void UserModel::removeUser(int row)
     auto call = m_dBusInterface->asyncCall(QStringLiteral("removeUser"), (uint)user.uid());
     auto *watcher = new QDBusPendingCallWatcher(call, this);
     connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::userRemoveFinished, this, std::placeholders::_1, row));
+            this, std::bind(&UserModel::userRemoveFinished, this, std::placeholders::_1, user.uid()));
 }
 
 void UserModel::setCurrentUser(int row)
@@ -272,7 +272,7 @@ void UserModel::setCurrentUser(int row)
     auto call = m_dBusInterface->asyncCall(QStringLiteral("setCurrentUser"), (uint)user.uid());
     auto *watcher = new QDBusPendingCallWatcher(call, this);
     connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::setCurrentUserFinished, this, std::placeholders::_1, row));
+            this, std::bind(&UserModel::setCurrentUserFinished, this, std::placeholders::_1, user.uid()));
 }
 
 void UserModel::reset(int row)
@@ -315,7 +315,7 @@ void UserModel::addGroups(int row, const QStringList &groups)
     auto call = m_dBusInterface->asyncCall(QStringLiteral("addToGroups"), (uint)user.uid(), groups);
     auto *watcher = new QDBusPendingCallWatcher(call, this);
     connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::addToGroupsFinished, this, std::placeholders::_1, row));
+            this, std::bind(&UserModel::addToGroupsFinished, this, std::placeholders::_1, user.uid()));
 }
 
 void UserModel::removeGroups(int row, const QStringList &groups)
@@ -331,7 +331,7 @@ void UserModel::removeGroups(int row, const QStringList &groups)
     auto call = m_dBusInterface->asyncCall(QStringLiteral("removeFromGroups"), (uint)user.uid(), groups);
     auto *watcher = new QDBusPendingCallWatcher(call, this);
     connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::removeFromGroupsFinished, this, std::placeholders::_1, row));
+            this, std::bind(&UserModel::removeFromGroupsFinished, this, std::placeholders::_1, user.uid()));
 }
 
 void UserModel::onUserAdded(const SailfishUserManagerEntry &entry)
@@ -400,8 +400,7 @@ void UserModel::onCurrentUserChanged(uint uid)
 void UserModel::onCurrentUserChangeFailed(uint uid)
 {
     if (m_uidsToRows.contains(uid)) {
-        int row = m_uidsToRows.value(uid);
-        emit setCurrentUserFailed(row, Failure);
+        emit setCurrentUserFailed(m_uidsToRows.value(uid), Failure);
     }
 }
 
@@ -429,10 +428,11 @@ void UserModel::userAddFinished(QDBusPendingCallWatcher *call)
     call->deleteLater();
 }
 
-void UserModel::userModifyFinished(QDBusPendingCallWatcher *call, int row)
+void UserModel::userModifyFinished(QDBusPendingCallWatcher *call, uint uid)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
+        int row = m_uidsToRows.value(uid);
         auto error = reply.error();
         emit userModifyFailed(row, getErrorType(error));
         qCWarning(lcUsersLog) << "Modifying user with usermanager failed:" << error;
@@ -441,10 +441,11 @@ void UserModel::userModifyFinished(QDBusPendingCallWatcher *call, int row)
     call->deleteLater();
 }
 
-void UserModel::userRemoveFinished(QDBusPendingCallWatcher *call, int row)
+void UserModel::userRemoveFinished(QDBusPendingCallWatcher *call, uint uid)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
+        int row = m_uidsToRows.value(uid);
         auto error = reply.error();
         emit userRemoveFailed(row, getErrorType(error));
         qCWarning(lcUsersLog) << "Removing user with usermanager failed:" << error;
@@ -452,39 +453,39 @@ void UserModel::userRemoveFinished(QDBusPendingCallWatcher *call, int row)
     call->deleteLater();
 }
 
-void UserModel::setCurrentUserFinished(QDBusPendingCallWatcher *call, int row)
+void UserModel::setCurrentUserFinished(QDBusPendingCallWatcher *call, uint uid)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
         auto error = reply.error();
-        emit setCurrentUserFailed(row, getErrorType(error));
+        emit setCurrentUserFailed(m_uidsToRows.value(uid), getErrorType(error));
         qCWarning(lcUsersLog) << "Switching user with usermanager failed:" << error;
     } // else user switching was initiated successfully
     call->deleteLater();
 }
 
-void UserModel::addToGroupsFinished(QDBusPendingCallWatcher *call, int row)
+void UserModel::addToGroupsFinished(QDBusPendingCallWatcher *call, uint uid)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
         auto error = reply.error();
-        emit addGroupsFailed(row, getErrorType(error));
+        emit addGroupsFailed(m_uidsToRows.value(uid), getErrorType(error));
         qCWarning(lcUsersLog) << "Adding user to groups failed:" << error;
     } else {
-        emit userGroupsChanged(row);
+        emit userGroupsChanged(m_uidsToRows.value(uid));
     }
     call->deleteLater();
 }
 
-void UserModel::removeFromGroupsFinished(QDBusPendingCallWatcher *call, int row)
+void UserModel::removeFromGroupsFinished(QDBusPendingCallWatcher *call, uint uid)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
         auto error = reply.error();
-        emit removeGroupsFailed(row, getErrorType(error));
+        emit removeGroupsFailed(m_uidsToRows.value(uid), getErrorType(error));
         qCWarning(lcUsersLog) << "Adding user to groups failed:" << error;
     } else {
-        emit userGroupsChanged(row);
+        emit userGroupsChanged(m_uidsToRows.value(uid));
     }
     call->deleteLater();
 }

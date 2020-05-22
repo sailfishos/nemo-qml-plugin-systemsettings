@@ -127,11 +127,11 @@ private slots:
     void onCurrentUserChangeFailed(uint uid);
 
     void userAddFinished(QDBusPendingCallWatcher *call);
-    void userModifyFinished(QDBusPendingCallWatcher *call, int row);
-    void userRemoveFinished(QDBusPendingCallWatcher *call, int row);
-    void setCurrentUserFinished(QDBusPendingCallWatcher *call, int row);
-    void addToGroupsFinished(QDBusPendingCallWatcher *call, int row);
-    void removeFromGroupsFinished(QDBusPendingCallWatcher *call, int row);
+    void userModifyFinished(QDBusPendingCallWatcher *call, uint uid);
+    void userRemoveFinished(QDBusPendingCallWatcher *call, uint uid);
+    void setCurrentUserFinished(QDBusPendingCallWatcher *call, uint uid);
+    void addToGroupsFinished(QDBusPendingCallWatcher *call, uint uid);
+    void removeFromGroupsFinished(QDBusPendingCallWatcher *call, uint uid);
 
     void createInterface();
     void destroyInterface();
