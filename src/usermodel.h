@@ -50,6 +50,8 @@ class SYSTEMSETTINGS_EXPORT UserModel: public QAbstractListModel
 {
     Q_OBJECT
     Q_PROPERTY(bool placeholder READ placeholder WRITE setPlaceholder NOTIFY placeholderChanged)
+    Q_PROPERTY(int count READ count NOTIFY countChanged)
+    Q_PROPERTY(int maximumCount READ maximumCount CONSTANT)
 
 public:
     enum Roles {
@@ -84,14 +86,17 @@ public:
         UserNotFound,
         AddToGroupFailed,
         RemoveFromGroupFailed,
+        MaximumNumberOfUsersReached,
     };
     Q_ENUM(ErrorType)
 
     explicit UserModel(QObject *parent = 0);
     ~UserModel();
 
-    bool placeholder();
+    bool placeholder() const;
     void setPlaceholder(bool value);
+    int count() const;
+    int maximumCount() const;
 
     QHash<int, QByteArray> roleNames() const;
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
@@ -113,6 +118,7 @@ public:
 
 signals:
     void placeholderChanged();
+    void countChanged();
     void userGroupsChanged(int row);
     void userAddFailed(int error);
     void userModifyFailed(int row, int error);

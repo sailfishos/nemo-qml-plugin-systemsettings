@@ -57,6 +57,7 @@ const QHash<const QString, int> errorTypeMap = {
     { QStringLiteral(SailfishUserManagerErrorHomeRemoveFailed), UserModel::HomeRemoveFailed },
     { QStringLiteral(SailfishUserManagerErrorGroupCreateFailed), UserModel::GroupCreateFailed },
     { QStringLiteral(SailfishUserManagerErrorUserAddFailed), UserModel::UserAddFailed },
+    { QStringLiteral(SailfishUserManagerErrorMaxUsersReached), UserModel::MaximumNumberOfUsersReached },
     { QStringLiteral(SailfishUserManagerErrorUserModifyFailed), UserModel::UserModifyFailed },
     { QStringLiteral(SailfishUserManagerErrorUserRemoveFailed), UserModel::UserRemoveFailed },
     { QStringLiteral(SailfishUserManagerErrorGetUidFailed), UserModel::GetUidFailed },
@@ -106,7 +107,7 @@ UserModel::~UserModel()
 {
 }
 
-bool UserModel::placeholder()
+bool UserModel::placeholder() const
 {
     // Placeholder is always last and the only item that can be invalid
     if (m_users.count() == 0)
@@ -131,6 +132,27 @@ void UserModel::setPlaceholder(bool value)
         endRemoveRows();
     }
     emit placeholderChanged();
+}
+
+/*
+ * Number of existing users
+ *
+ * If placeholder = false, then this is the same as rowCount.
+ */
+int UserModel::count() const
+{
+    return (placeholder()) ? m_users.count()-1 : m_users.count();
+}
+
+/*
+ * Maximum number of users that can be created
+ *
+ * If more users are created after count reaches this,
+ * MaximumNumberOfUsersReached may be thrown and user creation fails.
+ */
+int UserModel::maximumCount() const
+{
+    return SAILFISH_USERMANAGER_MAX_USERS;
 }
 
 QHash<int, QByteArray> UserModel::roleNames() const
@@ -222,7 +244,6 @@ QModelIndex UserModel::index(int row, int column, const QModelIndex &parent) con
     if (row < 0 || row >= m_users.count() || column != 0)
         return QModelIndex();
 
-    // create index
     return createIndex(row, 0, row);
 }
 
@@ -385,6 +406,7 @@ void UserModel::onUserRemoved(uint uid)
             iter.value() -= 1;
     }
     endRemoveRows();
+    emit countChanged();
 }
 
 void UserModel::onCurrentUserChanged(uint uid)
@@ -544,4 +566,5 @@ void UserModel::add(UserInfo &user)
         m_uidsToRows.insert(user.uid(), row);
         endInsertRows();
     }
+    emit countChanged();
 }
