@@ -35,6 +35,7 @@
 #include <QAbstractListModel>
 #include <QDBusError>
 #include <QHash>
+#include <QSet>
 #include <QVector>
 
 #include "systemsettingsglobal.h"
@@ -49,6 +50,8 @@ class SYSTEMSETTINGS_EXPORT UserModel: public QAbstractListModel
 {
     Q_OBJECT
     Q_PROPERTY(bool placeholder READ placeholder WRITE setPlaceholder NOTIFY placeholderChanged)
+    Q_PROPERTY(int count READ count NOTIFY countChanged)
+    Q_PROPERTY(int maximumCount READ maximumCount CONSTANT)
 
 public:
     enum Roles {
@@ -58,6 +61,7 @@ public:
         UidRole,
         CurrentRole,
         PlaceholderRole,
+        TransitioningRole,
     };
     Q_ENUM(Roles)
 
@@ -82,14 +86,17 @@ public:
         UserNotFound,
         AddToGroupFailed,
         RemoveFromGroupFailed,
+        MaximumNumberOfUsersReached,
     };
     Q_ENUM(ErrorType)
 
     explicit UserModel(QObject *parent = 0);
     ~UserModel();
 
-    bool placeholder();
+    bool placeholder() const;
     void setPlaceholder(bool value);
+    int count() const;
+    int maximumCount() const;
 
     QHash<int, QByteArray> roleNames() const;
     int rowCount(const QModelIndex &parent = QModelIndex()) const;
@@ -111,6 +118,7 @@ public:
 
 signals:
     void placeholderChanged();
+    void countChanged();
     void userGroupsChanged(int row);
     void userAddFailed(int error);
     void userModifyFailed(int row, int error);
@@ -127,18 +135,21 @@ private slots:
     void onCurrentUserChangeFailed(uint uid);
 
     void userAddFinished(QDBusPendingCallWatcher *call);
-    void userModifyFinished(QDBusPendingCallWatcher *call, int row);
-    void userRemoveFinished(QDBusPendingCallWatcher *call, int row);
-    void setCurrentUserFinished(QDBusPendingCallWatcher *call, int row);
-    void addToGroupsFinished(QDBusPendingCallWatcher *call, int row);
-    void removeFromGroupsFinished(QDBusPendingCallWatcher *call, int row);
+    void userModifyFinished(QDBusPendingCallWatcher *call, uint uid);
+    void userRemoveFinished(QDBusPendingCallWatcher *call, uint uid);
+    void setCurrentUserFinished(QDBusPendingCallWatcher *call, uint uid);
+    void addToGroupsFinished(QDBusPendingCallWatcher *call, uint uid);
+    void removeFromGroupsFinished(QDBusPendingCallWatcher *call, uint uid);
 
     void createInterface();
     void destroyInterface();
 
 private:
+    void add(UserInfo &user);
+
     QVector<UserInfo> m_users;
     QHash<uint, int> m_uidsToRows;
+    QSet<uint> m_transitioning;
     QDBusInterface *m_dBusInterface;
     QDBusServiceWatcher *m_dBusWatcher;
 };

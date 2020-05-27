@@ -57,6 +57,7 @@ const QHash<const QString, int> errorTypeMap = {
     { QStringLiteral(SailfishUserManagerErrorHomeRemoveFailed), UserModel::HomeRemoveFailed },
     { QStringLiteral(SailfishUserManagerErrorGroupCreateFailed), UserModel::GroupCreateFailed },
     { QStringLiteral(SailfishUserManagerErrorUserAddFailed), UserModel::UserAddFailed },
+    { QStringLiteral(SailfishUserManagerErrorMaxUsersReached), UserModel::MaximumNumberOfUsersReached },
     { QStringLiteral(SailfishUserManagerErrorUserModifyFailed), UserModel::UserModifyFailed },
     { QStringLiteral(SailfishUserManagerErrorUserRemoveFailed), UserModel::UserRemoveFailed },
     { QStringLiteral(SailfishUserManagerErrorGetUidFailed), UserModel::GetUidFailed },
@@ -106,7 +107,7 @@ UserModel::~UserModel()
 {
 }
 
-bool UserModel::placeholder()
+bool UserModel::placeholder() const
 {
     // Placeholder is always last and the only item that can be invalid
     if (m_users.count() == 0)
@@ -133,6 +134,27 @@ void UserModel::setPlaceholder(bool value)
     emit placeholderChanged();
 }
 
+/*
+ * Number of existing users
+ *
+ * If placeholder = false, then this is the same as rowCount.
+ */
+int UserModel::count() const
+{
+    return (placeholder()) ? m_users.count()-1 : m_users.count();
+}
+
+/*
+ * Maximum number of users that can be created
+ *
+ * If more users are created after count reaches this,
+ * MaximumNumberOfUsersReached may be thrown and user creation fails.
+ */
+int UserModel::maximumCount() const
+{
+    return SAILFISH_USERMANAGER_MAX_USERS;
+}
+
 QHash<int, QByteArray> UserModel::roleNames() const
 {
     static const QHash<int, QByteArray> roles = {
@@ -143,6 +165,7 @@ QHash<int, QByteArray> UserModel::roleNames() const
         { UidRole, "uid" },
         { CurrentRole, "current" },
         { PlaceholderRole, "placeholder" },
+        { TransitioningRole, "transitioning" },
     };
     return roles;
 }
@@ -174,6 +197,8 @@ QVariant UserModel::data(const QModelIndex &index, int role) const
         return user.current();
     case PlaceholderRole:
         return !user.isValid();
+    case TransitioningRole:
+        return m_transitioning.contains(user.uid());
     default:
         return QVariant();
     }
@@ -196,7 +221,7 @@ bool UserModel::setData(const QModelIndex &index, const QVariant &value, int rol
             auto call = m_dBusInterface->asyncCall(QStringLiteral("modifyUser"), (uint)user.uid(), name);
             auto *watcher = new QDBusPendingCallWatcher(call, this);
             connect(watcher, &QDBusPendingCallWatcher::finished,
-                    this, std::bind(&UserModel::userModifyFinished, this, std::placeholders::_1, index.row()));
+                    this, std::bind(&UserModel::userModifyFinished, this, std::placeholders::_1, user.uid()));
         }
         emit dataChanged(index, index, QVector<int>() << role);
         return true;
@@ -207,6 +232,7 @@ bool UserModel::setData(const QModelIndex &index, const QVariant &value, int rol
     case UidRole:
     case CurrentRole:
     case PlaceholderRole:
+    case TransitioningRole:
     default:
         return false;
     }
@@ -218,7 +244,6 @@ QModelIndex UserModel::index(int row, int column, const QModelIndex &parent) con
     if (row < 0 || row >= m_users.count() || column != 0)
         return QModelIndex();
 
-    // create index
     return createIndex(row, 0, row);
 }
 
@@ -236,6 +261,9 @@ void UserModel::createUser()
     if (user.name().isEmpty())
         return;
 
+    m_transitioning.insert(user.uid());
+    auto idx = index(m_users.count()-1, 0);
+    emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
     createInterface();
     auto call = m_dBusInterface->asyncCall(QStringLiteral("addUser"), user.name());
     auto *watcher = new QDBusPendingCallWatcher(call, this);
@@ -252,11 +280,14 @@ void UserModel::removeUser(int row)
     if (!user.isValid())
         return;
 
+    m_transitioning.insert(user.uid());
+    auto idx = index(row, 0);
+    emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
     createInterface();
     auto call = m_dBusInterface->asyncCall(QStringLiteral("removeUser"), (uint)user.uid());
     auto *watcher = new QDBusPendingCallWatcher(call, this);
     connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::userRemoveFinished, this, std::placeholders::_1, row));
+            this, std::bind(&UserModel::userRemoveFinished, this, std::placeholders::_1, user.uid()));
 }
 
 void UserModel::setCurrentUser(int row)
@@ -272,7 +303,7 @@ void UserModel::setCurrentUser(int row)
     auto call = m_dBusInterface->asyncCall(QStringLiteral("setCurrentUser"), (uint)user.uid());
     auto *watcher = new QDBusPendingCallWatcher(call, this);
     connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::setCurrentUserFinished, this, std::placeholders::_1, row));
+            this, std::bind(&UserModel::setCurrentUserFinished, this, std::placeholders::_1, user.uid()));
 }
 
 void UserModel::reset(int row)
@@ -315,7 +346,7 @@ void UserModel::addGroups(int row, const QStringList &groups)
     auto call = m_dBusInterface->asyncCall(QStringLiteral("addToGroups"), (uint)user.uid(), groups);
     auto *watcher = new QDBusPendingCallWatcher(call, this);
     connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::addToGroupsFinished, this, std::placeholders::_1, row));
+            this, std::bind(&UserModel::addToGroupsFinished, this, std::placeholders::_1, user.uid()));
 }
 
 void UserModel::removeGroups(int row, const QStringList &groups)
@@ -331,7 +362,7 @@ void UserModel::removeGroups(int row, const QStringList &groups)
     auto call = m_dBusInterface->asyncCall(QStringLiteral("removeFromGroups"), (uint)user.uid(), groups);
     auto *watcher = new QDBusPendingCallWatcher(call, this);
     connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::removeFromGroupsFinished, this, std::placeholders::_1, row));
+            this, std::bind(&UserModel::removeFromGroupsFinished, this, std::placeholders::_1, user.uid()));
 }
 
 void UserModel::onUserAdded(const SailfishUserManagerEntry &entry)
@@ -341,13 +372,8 @@ void UserModel::onUserAdded(const SailfishUserManagerEntry &entry)
 
     // Not found already, appending
     auto user = UserInfo(entry.uid);
-    if (user.isValid()) {
-        int row = placeholder() ? m_users.count()-1 : m_users.count();
-        beginInsertRows(QModelIndex(), row, row);
-        m_users.insert(row, user);
-        m_uidsToRows.insert(entry.uid, row);
-        endInsertRows();
-    }
+    if (user.isValid())
+        add(user);
 }
 
 void UserModel::onUserModified(uint uid, const QString &newName)
@@ -371,6 +397,7 @@ void UserModel::onUserRemoved(uint uid)
 
     int row = m_uidsToRows.value(uid);
     beginRemoveRows(QModelIndex(), row, row);
+    m_transitioning.remove(uid);
     m_users.remove(row);
     // It is slightly costly to remove users since some row numbers may need to be updated
     m_uidsToRows.remove(uid);
@@ -379,6 +406,7 @@ void UserModel::onUserRemoved(uint uid)
             iter.value() -= 1;
     }
     endRemoveRows();
+    emit countChanged();
 }
 
 void UserModel::onCurrentUserChanged(uint uid)
@@ -400,8 +428,7 @@ void UserModel::onCurrentUserChanged(uint uid)
 void UserModel::onCurrentUserChangeFailed(uint uid)
 {
     if (m_uidsToRows.contains(uid)) {
-        int row = m_uidsToRows.value(uid);
-        emit setCurrentUserFailed(row, Failure);
+        emit setCurrentUserFailed(m_uidsToRows.value(uid), Failure);
     }
 }
 
@@ -416,23 +443,18 @@ void UserModel::userAddFinished(QDBusPendingCallWatcher *call)
         uint uid = reply.value();
         // Check that this was not just added to the list by onUserAdded
         if (!m_uidsToRows.contains(uid)) {
-            // Add to the end
-            int row = m_users.count()-1;
-            beginInsertRows(QModelIndex(), row, row);
-            m_users.insert(row, UserInfo(uid));
-            m_uidsToRows.insert(uid, row);
-            endInsertRows();
+            UserInfo user(uid);
+            add(user);
         }
-        // Reset placeholder
-        reset(m_users.count()-1);
     }
     call->deleteLater();
 }
 
-void UserModel::userModifyFinished(QDBusPendingCallWatcher *call, int row)
+void UserModel::userModifyFinished(QDBusPendingCallWatcher *call, uint uid)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
+        int row = m_uidsToRows.value(uid);
         auto error = reply.error();
         emit userModifyFailed(row, getErrorType(error));
         qCWarning(lcUsersLog) << "Modifying user with usermanager failed:" << error;
@@ -441,50 +463,54 @@ void UserModel::userModifyFinished(QDBusPendingCallWatcher *call, int row)
     call->deleteLater();
 }
 
-void UserModel::userRemoveFinished(QDBusPendingCallWatcher *call, int row)
+void UserModel::userRemoveFinished(QDBusPendingCallWatcher *call, uint uid)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
+        int row = m_uidsToRows.value(uid);
         auto error = reply.error();
         emit userRemoveFailed(row, getErrorType(error));
         qCWarning(lcUsersLog) << "Removing user with usermanager failed:" << error;
+        m_transitioning.remove(uid);
+        auto idx = index(row, 0);
+        emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
     } // else awesome! (waiting for signal to alter data)
     call->deleteLater();
 }
 
-void UserModel::setCurrentUserFinished(QDBusPendingCallWatcher *call, int row)
+void UserModel::setCurrentUserFinished(QDBusPendingCallWatcher *call, uint uid)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
         auto error = reply.error();
-        emit setCurrentUserFailed(row, getErrorType(error));
+        emit setCurrentUserFailed(m_uidsToRows.value(uid), getErrorType(error));
         qCWarning(lcUsersLog) << "Switching user with usermanager failed:" << error;
     } // else user switching was initiated successfully
     call->deleteLater();
 }
 
-void UserModel::addToGroupsFinished(QDBusPendingCallWatcher *call, int row)
+void UserModel::addToGroupsFinished(QDBusPendingCallWatcher *call, uint uid)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
         auto error = reply.error();
-        emit addGroupsFailed(row, getErrorType(error));
+        emit addGroupsFailed(m_uidsToRows.value(uid), getErrorType(error));
         qCWarning(lcUsersLog) << "Adding user to groups failed:" << error;
     } else {
-        emit userGroupsChanged(row);
+        emit userGroupsChanged(m_uidsToRows.value(uid));
     }
     call->deleteLater();
 }
 
-void UserModel::removeFromGroupsFinished(QDBusPendingCallWatcher *call, int row)
+void UserModel::removeFromGroupsFinished(QDBusPendingCallWatcher *call, uint uid)
 {
     QDBusPendingReply<void> reply = *call;
     if (reply.isError()) {
         auto error = reply.error();
-        emit removeGroupsFailed(row, getErrorType(error));
+        emit removeGroupsFailed(m_uidsToRows.value(uid), getErrorType(error));
         qCWarning(lcUsersLog) << "Adding user to groups failed:" << error;
     } else {
-        emit userGroupsChanged(row);
+        emit userGroupsChanged(m_uidsToRows.value(uid));
     }
     call->deleteLater();
 }
@@ -515,4 +541,30 @@ void UserModel::destroyInterface() {
         m_dBusInterface->deleteLater();
         m_dBusInterface = nullptr;
     }
+}
+
+void UserModel::add(UserInfo &user)
+{
+    if (placeholder() && m_transitioning.contains(m_users.last().uid())
+            && m_users.last().name() == user.name()) {
+        // This is the placeholder we were adding, "change" that
+        int row = m_users.count()-1;
+        m_users.insert(row, user);
+        m_uidsToRows.insert(user.uid(), row);
+        auto idx = index(row, 0);
+        emit dataChanged(idx, idx, QVector<int>());
+        // And then "add" the placeholder back to its position
+        beginInsertRows(QModelIndex(), row+1, row+1);
+        m_users[row+1].reset();
+        m_transitioning.remove(m_users[row+1].uid());
+        endInsertRows();
+    } else {
+        // Find the last position that's not placeholder and insert there
+        int row = placeholder() ? m_users.count()-1 : m_users.count();
+        beginInsertRows(QModelIndex(), row, row);
+        m_users.insert(row, user);
+        m_uidsToRows.insert(user.uid(), row);
+        endInsertRows();
+    }
+    emit countChanged();
 }
