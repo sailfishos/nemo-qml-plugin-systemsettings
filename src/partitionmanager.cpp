@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2016 Jolla Ltd. <andrew.den.exter@jolla.com>
+ * Copyright (c) 2016 - 2020 Jolla Ltd. <andrew.den.exter@jolla.com>
+ * Copyright (c) 2019 - 2020 Open Mobile Platform LLC.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -37,10 +38,13 @@
 #include <QFile>
 #include <QRegularExpression>
 
+#include <algorithm>
 #include <blkid/blkid.h>
 #include <linux/limits.h>
 #include <mntent.h>
 #include <sys/statvfs.h>
+#include <sys/quota.h>
+#include <unistd.h>
 
 static const auto userName = QString(qgetenv("USER"));
 static const auto externalMountPath = QString("/run/media/%1/").arg(userName);
@@ -274,11 +278,19 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
 
     for (auto partition : partitions) {
         if (partition->status == Partition::Mounted) {
+            qint64 quotaAvailable = -1;
+            struct if_dqblk quota;
+            if (::quotactl(QCMD(Q_GETQUOTA, USRQUOTA), partition->devicePath.toUtf8().constData(), ::getuid(), (caddr_t)&quota) == 0
+                    && quota.dqb_bsoftlimit != 0)
+                quotaAvailable = std::max((qint64)dbtob(quota.dqb_bsoftlimit) - (qint64)quota.dqb_curspace, 0LL);
+
             struct statvfs64 stat;
             if (::statvfs64(partition->mountPath.toUtf8().constData(), &stat) == 0) {
                 partition->bytesTotal = stat.f_blocks * stat.f_frsize;
                 qint64 bytesFree = stat.f_bfree * stat.f_frsize;
                 qint64 bytesAvailable = stat.f_bavail * stat.f_frsize;
+                if (quotaAvailable != -1 && bytesAvailable > quotaAvailable)
+                    bytesAvailable = quotaAvailable;
                 partition->readOnly = (stat.f_flag & ST_RDONLY) != 0;
 
                 if (partition->bytesFree != bytesFree || partition->bytesAvailable != bytesAvailable) {
