@@ -278,7 +278,7 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
 
     for (auto partition : partitions) {
         if (partition->status == Partition::Mounted) {
-            qint64 quotaAvailable = -1;
+            qint64 quotaAvailable = std::numeric_limits<qint64>::max();
             struct if_dqblk quota;
             if (::quotactl(QCMD(Q_GETQUOTA, USRQUOTA), partition->devicePath.toUtf8().constData(), ::getuid(), (caddr_t)&quota) == 0
                     && quota.dqb_bsoftlimit != 0)
@@ -288,9 +288,7 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
             if (::statvfs64(partition->mountPath.toUtf8().constData(), &stat) == 0) {
                 partition->bytesTotal = stat.f_blocks * stat.f_frsize;
                 qint64 bytesFree = stat.f_bfree * stat.f_frsize;
-                qint64 bytesAvailable = stat.f_bavail * stat.f_frsize;
-                if (quotaAvailable != -1 && bytesAvailable > quotaAvailable)
-                    bytesAvailable = quotaAvailable;
+                qint64 bytesAvailable = std::min((qint64)(stat.f_bavail * stat.f_frsize), quotaAvailable);
                 partition->readOnly = (stat.f_flag & ST_RDONLY) != 0;
 
                 if (partition->bytesFree != bytesFree || partition->bytesAvailable != bytesAvailable) {
