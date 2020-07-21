@@ -42,6 +42,8 @@
 #include <sys/types.h>
 #include <systemd/sd-login.h>
 
+#include <sailfishusermanagerinterface.h>
+
 namespace {
 
 const auto UserDatabaseFile = QStringLiteral("/etc/passwd");
@@ -292,6 +294,10 @@ QString UserInfo::displayName() const
             //: Default value for device owner's name when it is not set
             //% "Device owner"
             return qtTrId("systemsettings-li-device_owner");
+        } else if (d->m_uid == SAILFISH_USERMANAGER_GUEST_UID) {
+            //: Default value for device owner's name when it is not set
+            //% "Guest user"
+            return qtTrId("systemsettings-li-guest_user");
         }
         return d->m_username;
     }
@@ -337,7 +343,14 @@ UserInfo::UserType UserInfo::type() const
     // Device lock considers user with id 100000 as device owner.
     // Some other places consider the user belonging to sailfish-system
     // as device owner. We have to pick one here.
-    return (d->m_uid == DeviceOwnerId) ? DeviceOwner : User;
+    switch (d->m_uid) {
+    case DeviceOwnerId:
+        return DeviceOwner;
+    case SAILFISH_USERMANAGER_GUEST_UID:
+        return Guest;
+    default:
+        return User;
+    }
 }
 
 int UserInfo::uid() const
