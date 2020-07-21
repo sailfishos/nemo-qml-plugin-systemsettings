@@ -61,6 +61,7 @@ public:
     enum UserType {
         User = 0,
         DeviceOwner = 1,
+        Guest = 2,
     };
     Q_ENUM(UserType)
 

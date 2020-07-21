@@ -52,6 +52,7 @@ class SYSTEMSETTINGS_EXPORT UserModel: public QAbstractListModel
     Q_PROPERTY(bool placeholder READ placeholder WRITE setPlaceholder NOTIFY placeholderChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
     Q_PROPERTY(int maximumCount READ maximumCount CONSTANT)
+    Q_PROPERTY(bool guestEnabled READ guestEnabled WRITE setGuestEnabled NOTIFY guestEnabledChanged)
 
 public:
     enum Roles {
@@ -68,6 +69,7 @@ public:
     enum UserType {
         User = 0,
         DeviceOwner = 1,
+        Guest = 2,
     };
     Q_ENUM(UserType)
 
@@ -116,6 +118,10 @@ public:
     Q_INVOKABLE void addGroups(int row, const QStringList &groups);
     Q_INVOKABLE void removeGroups(int row, const QStringList &groups);
 
+    // Guest methods
+    bool guestEnabled() const;
+    Q_INVOKABLE void setGuestEnabled(bool enabled);
+
 signals:
     void placeholderChanged();
     void countChanged();
@@ -126,6 +132,7 @@ signals:
     void setCurrentUserFailed(int row, int error);
     void addGroupsFailed(int row, int error);
     void removeGroupsFailed(int row, int error);
+    void guestEnabledChanged();
 
 private slots:
     void onUserAdded(const SailfishUserManagerEntry &entry);
@@ -133,6 +140,7 @@ private slots:
     void onUserRemoved(uint uid);
     void onCurrentUserChanged(uint uid);
     void onCurrentUserChangeFailed(uint uid);
+    void onGuestUserEnabled(bool enabled);
 
     void userAddFinished(QDBusPendingCallWatcher *call);
     void userModifyFinished(QDBusPendingCallWatcher *call, uint uid);
@@ -152,5 +160,6 @@ private:
     QSet<uint> m_transitioning;
     QDBusInterface *m_dBusInterface;
     QDBusServiceWatcher *m_dBusWatcher;
+    bool m_guestEnabled;
 };
 #endif /* USERMODEL_H */
