@@ -80,6 +80,7 @@ UserModel::UserModel(QObject *parent)
     , m_dBusInterface(nullptr)
     , m_dBusWatcher(new QDBusServiceWatcher(UserManagerService, QDBusConnection::systemBus(),
                     QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this))
+    , m_guestEnabled(false)
 {
     qDBusRegisterMetaType<SailfishUserManagerEntry>();
     connect(m_dBusWatcher, &QDBusServiceWatcher::serviceRegistered,
@@ -97,6 +98,9 @@ UserModel::UserModel(QObject *parent)
             if (user.isValid()) { // Skip invalid users here
                 m_users.append(user);
                 m_uidsToRows.insert(user.uid(), m_users.count()-1);
+
+                if (!m_guestEnabled && user.uid() == SAILFISH_USERMANAGER_GUEST_UID)
+                    m_guestEnabled = true;
             }
         }
     }
@@ -432,6 +436,38 @@ void UserModel::onCurrentUserChangeFailed(uint uid)
     }
 }
 
+void UserModel::onGuestUserEnabled(bool enabled)
+{
+    if (enabled != m_guestEnabled) {
+        m_guestEnabled = enabled;
+        emit guestEnabledChanged();
+    }
+}
+
+bool UserModel::guestEnabled() const
+{
+    return m_guestEnabled;
+}
+
+void UserModel::setGuestEnabled(bool enabled)
+{
+    if (enabled == m_guestEnabled)
+        return;
+
+    m_transitioning.insert(SAILFISH_USERMANAGER_GUEST_UID);
+
+    int row;
+    if (enabled) {
+        row = placeholder() ? m_users.count() - 1 : m_users.count();
+    } else {
+        row = m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID);
+    }
+    QModelIndex idx = index(row, 0);
+    emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
+    createInterface();
+    m_dBusInterface->call(QStringLiteral("enableGuestUser"), enabled);
+}
+
 void UserModel::userAddFinished(QDBusPendingCallWatcher *call)
 {
     QDBusPendingReply<uint> reply = *call;
@@ -531,6 +567,8 @@ void UserModel::createInterface()
                 this, SLOT(onCurrentUserChanged(uint)));
         connect(m_dBusInterface, SIGNAL(currentUserChangeFailed(uint)),
                 this, SLOT(onCurrentUserChangeFailed(uint)));
+        connect(m_dBusInterface, SIGNAL(guestUserEnabled(bool)),
+                this, SLOT(onGuestUserEnabled(bool)));
     }
 }
 
@@ -559,11 +597,11 @@ void UserModel::add(UserInfo &user)
         m_transitioning.remove(m_users[row+1].uid());
         endInsertRows();
     } else {
-        // Find the last position that's not placeholder and insert there
-        int row = placeholder() ? m_users.count()-1 : m_users.count();
+        int row = placeholder() ? m_users.count() - 1 : m_users.count();
         beginInsertRows(QModelIndex(), row, row);
         m_users.insert(row, user);
         m_uidsToRows.insert(user.uid(), row);
+        m_transitioning.remove(user.uid());
         endInsertRows();
     }
     emit countChanged();
