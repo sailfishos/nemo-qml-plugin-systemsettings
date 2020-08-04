@@ -175,6 +175,8 @@ void PartitionModel::format(const QString &devicePath, const QVariantMap &argume
     args.insert(QLatin1String("label"), arguments.value(QLatin1String("label"), QString()).toString());
     args.insert(QLatin1String("no-block"), true);
     args.insert(QLatin1String("take-ownership"), true);
+    // set-group-permissions is a custom option patched into udisks2 (JB#50288)
+    args.insert(QLatin1String("set-group-permissions"), true);
     args.insert(QLatin1String("update-partition-type"), true);
     args.insert(QLatin1String("auto-mount"), arguments.value(QLatin1String("auto-mount"), false).toBool());
 
