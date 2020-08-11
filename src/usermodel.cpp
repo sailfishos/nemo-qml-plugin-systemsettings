@@ -42,6 +42,7 @@
 #include <QString>
 #include <functional>
 #include <grp.h>
+#include <pwd.h>
 #include <sailfishaccesscontrol.h>
 #include <sailfishusermanagerinterface.h>
 #include <sys/types.h>
@@ -80,7 +81,7 @@ UserModel::UserModel(QObject *parent)
     , m_dBusInterface(nullptr)
     , m_dBusWatcher(new QDBusServiceWatcher(UserManagerService, QDBusConnection::systemBus(),
                     QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this))
-    , m_guestEnabled(false)
+    , m_guestEnabled(getpwuid((uid_t)SAILFISH_USERMANAGER_GUEST_UID))
 {
     qDBusRegisterMetaType<SailfishUserManagerEntry>();
     connect(m_dBusWatcher, &QDBusServiceWatcher::serviceRegistered,
@@ -98,9 +99,6 @@ UserModel::UserModel(QObject *parent)
             if (user.isValid()) { // Skip invalid users here
                 m_users.append(user);
                 m_uidsToRows.insert(user.uid(), m_users.count()-1);
-
-                if (!m_guestEnabled && user.uid() == SAILFISH_USERMANAGER_GUEST_UID)
-                    m_guestEnabled = true;
             }
         }
     }
