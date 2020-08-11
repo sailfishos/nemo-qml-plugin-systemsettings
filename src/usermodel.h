@@ -51,7 +51,7 @@ class SYSTEMSETTINGS_EXPORT UserModel: public QAbstractListModel
     Q_OBJECT
     Q_PROPERTY(bool placeholder READ placeholder WRITE setPlaceholder NOTIFY placeholderChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
-    Q_PROPERTY(int maximumCount READ maximumCount CONSTANT)
+    Q_PROPERTY(int maximumCount READ maximumCount NOTIFY maximumCountChanged)
     Q_PROPERTY(bool guestEnabled READ guestEnabled WRITE setGuestEnabled NOTIFY guestEnabledChanged)
 
 public:
@@ -125,6 +125,7 @@ public:
 signals:
     void placeholderChanged();
     void countChanged();
+    void maximumCountChanged();
     void guestEnabledChanged();
     void userGroupsChanged(int row);
     void userAddFailed(int error);

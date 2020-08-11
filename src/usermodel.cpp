@@ -83,6 +83,8 @@ UserModel::UserModel(QObject *parent)
                     QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this))
     , m_guestEnabled(getpwuid((uid_t)SAILFISH_USERMANAGER_GUEST_UID))
 {
+    connect(this, &UserModel::guestEnabledChanged,
+            this, &UserModel::maximumCountChanged);
     qDBusRegisterMetaType<SailfishUserManagerEntry>();
     connect(m_dBusWatcher, &QDBusServiceWatcher::serviceRegistered,
             this, &UserModel::createInterface);
@@ -154,7 +156,7 @@ int UserModel::count() const
  */
 int UserModel::maximumCount() const
 {
-    return SAILFISH_USERMANAGER_MAX_USERS;
+    return m_guestEnabled ? SAILFISH_USERMANAGER_MAX_USERS+1 : SAILFISH_USERMANAGER_MAX_USERS;
 }
 
 QHash<int, QByteArray> UserModel::roleNames() const
