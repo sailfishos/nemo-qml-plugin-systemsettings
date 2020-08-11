@@ -212,6 +212,10 @@ bool UserModel::setData(const QModelIndex &index, const QVariant &value, int rol
         return false;
 
     UserInfo &user = m_users[index.row()];
+
+    if (user.type() == UserInfo::Guest)
+        return false;
+
     switch (role) {
     case NameRole: {
         QString name = value.toString();
