@@ -125,6 +125,7 @@ public:
 signals:
     void placeholderChanged();
     void countChanged();
+    void guestEnabledChanged();
     void userGroupsChanged(int row);
     void userAddFailed(int error);
     void userModifyFailed(int row, int error);
@@ -132,7 +133,7 @@ signals:
     void setCurrentUserFailed(int row, int error);
     void addGroupsFailed(int row, int error);
     void removeGroupsFailed(int row, int error);
-    void guestEnabledChanged();
+    void setGuestEnabledFailed(bool enabling, int error);
 
 private slots:
     void onUserAdded(const SailfishUserManagerEntry &entry);
@@ -148,6 +149,7 @@ private slots:
     void setCurrentUserFinished(QDBusPendingCallWatcher *call, uint uid);
     void addToGroupsFinished(QDBusPendingCallWatcher *call, uint uid);
     void removeFromGroupsFinished(QDBusPendingCallWatcher *call, uint uid);
+    void enableGuestUserFinished(QDBusPendingCallWatcher *call, bool enabling);
 
     void createInterface();
     void destroyInterface();

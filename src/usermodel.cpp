@@ -452,18 +452,16 @@ void UserModel::setGuestEnabled(bool enabled)
     if (enabled == m_guestEnabled)
         return;
 
-    m_transitioning.insert(SAILFISH_USERMANAGER_GUEST_UID);
-
-    int row;
-    if (enabled) {
-        row = placeholder() ? m_users.count() - 1 : m_users.count();
-    } else {
-        row = m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID);
+    if (m_guestEnabled) {
+        m_transitioning.insert(SAILFISH_USERMANAGER_GUEST_UID);
+        auto idx = index(m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID), 0);
+        emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
     }
-    QModelIndex idx = index(row, 0);
-    emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
     createInterface();
-    m_dBusInterface->call(QStringLiteral("enableGuestUser"), enabled);
+    auto call = m_dBusInterface->asyncCall(QStringLiteral("enableGuestUser"), enabled);
+    auto *watcher = new QDBusPendingCallWatcher(call, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished,
+            this, std::bind(&UserModel::enableGuestUserFinished, this, std::placeholders::_1, enabled));
 }
 
 void UserModel::userAddFinished(QDBusPendingCallWatcher *call)
@@ -546,6 +544,22 @@ void UserModel::removeFromGroupsFinished(QDBusPendingCallWatcher *call, uint uid
     } else {
         emit userGroupsChanged(m_uidsToRows.value(uid));
     }
+    call->deleteLater();
+}
+
+void UserModel::enableGuestUserFinished(QDBusPendingCallWatcher *call, bool enabling)
+{
+    QDBusPendingReply<void> reply = *call;
+    if (reply.isError()) {
+        auto error = reply.error();
+        emit setGuestEnabledFailed(enabling, getErrorType(error));
+        qCWarning(lcUsersLog) << ((enabling) ? "Enabling" : "Disabling") << "guest user failed:" << error;
+        if (!enabling) {
+            m_transitioning.remove(SAILFISH_USERMANAGER_GUEST_UID);
+            auto idx = index(m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID), 0);
+            emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
+        }
+    } // else wait for signals
     call->deleteLater();
 }
 
