@@ -42,6 +42,7 @@
 #include <QString>
 #include <functional>
 #include <grp.h>
+#include <pwd.h>
 #include <sailfishaccesscontrol.h>
 #include <sailfishusermanagerinterface.h>
 #include <sys/types.h>
@@ -80,8 +81,10 @@ UserModel::UserModel(QObject *parent)
     , m_dBusInterface(nullptr)
     , m_dBusWatcher(new QDBusServiceWatcher(UserManagerService, QDBusConnection::systemBus(),
                     QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this))
-    , m_guestEnabled(false)
+    , m_guestEnabled(getpwuid((uid_t)SAILFISH_USERMANAGER_GUEST_UID))
 {
+    connect(this, &UserModel::guestEnabledChanged,
+            this, &UserModel::maximumCountChanged);
     qDBusRegisterMetaType<SailfishUserManagerEntry>();
     connect(m_dBusWatcher, &QDBusServiceWatcher::serviceRegistered,
             this, &UserModel::createInterface);
@@ -98,9 +101,6 @@ UserModel::UserModel(QObject *parent)
             if (user.isValid()) { // Skip invalid users here
                 m_users.append(user);
                 m_uidsToRows.insert(user.uid(), m_users.count()-1);
-
-                if (!m_guestEnabled && user.uid() == SAILFISH_USERMANAGER_GUEST_UID)
-                    m_guestEnabled = true;
             }
         }
     }
@@ -156,7 +156,7 @@ int UserModel::count() const
  */
 int UserModel::maximumCount() const
 {
-    return SAILFISH_USERMANAGER_MAX_USERS;
+    return m_guestEnabled ? SAILFISH_USERMANAGER_MAX_USERS+1 : SAILFISH_USERMANAGER_MAX_USERS;
 }
 
 QHash<int, QByteArray> UserModel::roleNames() const
@@ -214,6 +214,10 @@ bool UserModel::setData(const QModelIndex &index, const QVariant &value, int rol
         return false;
 
     UserInfo &user = m_users[index.row()];
+
+    if (user.type() == UserInfo::Guest)
+        return false;
+
     switch (role) {
     case NameRole: {
         QString name = value.toString();
@@ -454,18 +458,16 @@ void UserModel::setGuestEnabled(bool enabled)
     if (enabled == m_guestEnabled)
         return;
 
-    m_transitioning.insert(SAILFISH_USERMANAGER_GUEST_UID);
-
-    int row;
-    if (enabled) {
-        row = placeholder() ? m_users.count() - 1 : m_users.count();
-    } else {
-        row = m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID);
+    if (m_guestEnabled) {
+        m_transitioning.insert(SAILFISH_USERMANAGER_GUEST_UID);
+        auto idx = index(m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID), 0);
+        emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
     }
-    QModelIndex idx = index(row, 0);
-    emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
     createInterface();
-    m_dBusInterface->call(QStringLiteral("enableGuestUser"), enabled);
+    auto call = m_dBusInterface->asyncCall(QStringLiteral("enableGuestUser"), enabled);
+    auto *watcher = new QDBusPendingCallWatcher(call, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished,
+            this, std::bind(&UserModel::enableGuestUserFinished, this, std::placeholders::_1, enabled));
 }
 
 void UserModel::userAddFinished(QDBusPendingCallWatcher *call)
@@ -548,6 +550,22 @@ void UserModel::removeFromGroupsFinished(QDBusPendingCallWatcher *call, uint uid
     } else {
         emit userGroupsChanged(m_uidsToRows.value(uid));
     }
+    call->deleteLater();
+}
+
+void UserModel::enableGuestUserFinished(QDBusPendingCallWatcher *call, bool enabling)
+{
+    QDBusPendingReply<void> reply = *call;
+    if (reply.isError()) {
+        auto error = reply.error();
+        emit setGuestEnabledFailed(enabling, getErrorType(error));
+        qCWarning(lcUsersLog) << ((enabling) ? "Enabling" : "Disabling") << "guest user failed:" << error;
+        if (!enabling) {
+            m_transitioning.remove(SAILFISH_USERMANAGER_GUEST_UID);
+            auto idx = index(m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID), 0);
+            emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
+        }
+    } // else wait for signals
     call->deleteLater();
 }
 

@@ -295,7 +295,7 @@ QString UserInfo::displayName() const
             //% "Device owner"
             return qtTrId("systemsettings-li-device_owner");
         } else if (d->m_uid == SAILFISH_USERMANAGER_GUEST_UID) {
-            //: Default value for device owner's name when it is not set
+            //: Default value for guest user's name when it is not set
             //% "Guest user"
             return qtTrId("systemsettings-li-guest_user");
         }

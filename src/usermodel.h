@@ -51,7 +51,7 @@ class SYSTEMSETTINGS_EXPORT UserModel: public QAbstractListModel
     Q_OBJECT
     Q_PROPERTY(bool placeholder READ placeholder WRITE setPlaceholder NOTIFY placeholderChanged)
     Q_PROPERTY(int count READ count NOTIFY countChanged)
-    Q_PROPERTY(int maximumCount READ maximumCount CONSTANT)
+    Q_PROPERTY(int maximumCount READ maximumCount NOTIFY maximumCountChanged)
     Q_PROPERTY(bool guestEnabled READ guestEnabled WRITE setGuestEnabled NOTIFY guestEnabledChanged)
 
 public:
@@ -125,6 +125,8 @@ public:
 signals:
     void placeholderChanged();
     void countChanged();
+    void maximumCountChanged();
+    void guestEnabledChanged();
     void userGroupsChanged(int row);
     void userAddFailed(int error);
     void userModifyFailed(int row, int error);
@@ -132,7 +134,7 @@ signals:
     void setCurrentUserFailed(int row, int error);
     void addGroupsFailed(int row, int error);
     void removeGroupsFailed(int row, int error);
-    void guestEnabledChanged();
+    void setGuestEnabledFailed(bool enabling, int error);
 
 private slots:
     void onUserAdded(const SailfishUserManagerEntry &entry);
@@ -148,6 +150,7 @@ private slots:
     void setCurrentUserFinished(QDBusPendingCallWatcher *call, uint uid);
     void addToGroupsFinished(QDBusPendingCallWatcher *call, uint uid);
     void removeFromGroupsFinished(QDBusPendingCallWatcher *call, uint uid);
+    void enableGuestUserFinished(QDBusPendingCallWatcher *call, bool enabling);
 
     void createInterface();
     void destroyInterface();
