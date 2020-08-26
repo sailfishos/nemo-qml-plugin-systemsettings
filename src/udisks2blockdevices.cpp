@@ -321,11 +321,17 @@ void BlockDevices::complete(Block *block, bool forceAccept)
 
     bool willAccept = !unlocked && (block->isPartition() || block->isMountable() || block->isEncrypted() || block->isFormatting() || forceAccept);
     qCInfo(lcMemoryCardLog) << "Completed block" << qPrintable(block->path())
-                            << "is" << (willAccept ? "accepted" : "rejected");
+                            << "is" << (willAccept ? "accepted" : block->isPartition() ? "kept" : "rejected");
     block->dumpInfo();
 
     if (willAccept) {
+        // Hope that somebody will handle this signal and call insert()
+        // to add this block to m_blockDevices.
         emit newBlock(block);
+    } else if (block->isPartition()) {
+        // Silently keep partitions around so that we can filter out
+        // partition tables in timerEvent().
+        insert(block->path(), block);
     } else {
         // This is garbage block device that should not be exposed
         // from the partition model.

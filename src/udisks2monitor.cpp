@@ -74,7 +74,7 @@ UDisks2::Monitor *UDisks2::Monitor::sharedInstance = nullptr;
 
 UDisks2::Monitor *UDisks2::Monitor::instance()
 {
-    Q_ASSERT(!sharedInstance);
+    Q_ASSERT(sharedInstance);
 
     return sharedInstance;
 }
