@@ -126,8 +126,8 @@ struct X509Certificate
     {
         QList<QPair<QString, QString>> rv;
 
-        for (int i = 0, n = sk_X509_EXTENSION_num(x509->cert_info->extensions); i < n; ++i) {
-            X509_EXTENSION *extension = sk_X509_EXTENSION_value(x509->cert_info->extensions, i);
+        for (int i = 0, n = sk_X509_EXTENSION_num(X509_get0_extensions(x509)); i < n; ++i) {
+            X509_EXTENSION *extension = sk_X509_EXTENSION_value(X509_get0_extensions(x509), i);
 
             ASN1_OBJECT *object = X509_EXTENSION_get_object(extension);
             int nid = OBJ_obj2nid(object);
@@ -151,11 +151,14 @@ struct X509Certificate
     QList<QPair<QString, QString>> signatureList(bool shortForm = false) const
     {
         QList<QPair<QString, QString>> rv;
+        const X509_ALGOR *sig_alg;
+        const ASN1_BIT_STRING *sig;
+        X509_get0_signature(&sig,&sig_alg, x509);
 
-        rv.append(qMakePair(QStringLiteral("Algorithm"), objectToString(x509->sig_alg->algorithm, shortForm)));
+        rv.append(qMakePair(QStringLiteral("Algorithm"), objectToString(sig_alg->algorithm, shortForm)));
 
         BIO *b = BIO_new(BIO_s_mem());
-        X509_signature_dump(b, x509->signature, 0);
+        ASN1_STRING_print_ex(b, sig, 0);
         QString d(bioToString(b).replace(QChar('\n'), QString()));
         rv.append(qMakePair(QStringLiteral("Data"), d.trimmed()));
         BIO_free(b);
@@ -166,7 +169,7 @@ struct X509Certificate
 private:
     static QString stringToString(ASN1_STRING *data)
     {
-        return QString::fromUtf8(reinterpret_cast<char*>(ASN1_STRING_data(data)));
+        return QString::fromUtf8(reinterpret_cast<const char*>(ASN1_STRING_get0_data((data))));
     }
 
     static QString timeToString(ASN1_TIME *data)
@@ -331,7 +334,7 @@ private:
 
     X509Certificate(X509 *x) : x509(x) {}
 
-    X509 *x509;
+    X509 *x509 = X509_new();
 };
 
 namespace {
@@ -496,21 +499,10 @@ class LibCrypto
     {
         Initializer()
         {
-            // As per: https://wiki.openssl.org/index.php/Library_Initialization#libcrypto_Initialization
-            OpenSSL_add_all_algorithms();
-            ERR_load_crypto_strings();
-            OPENSSL_config(NULL);
         }
 
         ~Initializer()
         {
-            FIPS_mode_set(0);
-            ENGINE_cleanup();
-            CONF_modules_unload(1);
-            EVP_cleanup();
-            CRYPTO_cleanup_all_ex_data();
-            ERR_remove_thread_state(NULL);
-            ERR_free_strings();
         }
     };
 
