@@ -35,6 +35,7 @@ BuildRequires:  pkgconfig(sailfishaccesscontrol)
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(sailfishusermanager)
 BuildRequires:  qt5-qttools-linguist
+BuildRequires:  pkgconfig(openssl)
 
 %description
 %{summary}.
