@@ -799,8 +799,26 @@ QVariantMap SettingsVpnModel::processOpenVpnProvisioningFile(QFile &provisioning
                     if (!arguments.isEmpty()) {
                         rv.insert(QStringLiteral("OpenVPN.RemoteCertTls"), arguments.join(QChar(' ')));
                     }
+                } else if (directive == QStringLiteral("ping")) {
+                    if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.Ping"), arguments.join(QChar(' ')));
+                    }
+                } else if (directive == QStringLiteral("ping-exit")) {
+                    if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.PingExit"), arguments.join(QChar(' ')));
+                    }
+                } else if (directive == QStringLiteral("remap-usr1")) {
+                     if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.RemapUsr1"), arguments.join(QChar(' ')));
+                     }
+                } else if (directive == QStringLiteral("ping-restart")) {
+                    // Ignore, must not be set with ConnMan
+                    qInfo() << "Ignoring ping-restart with OpenVPN";
+                } else if (directive == QStringLiteral("connect-retry-max")) {
+                    // Ignore, must not be set with ConnMan
+                    qInfo() << "Ignoring connect-retry-max with OpenVPN";
                 } else {
-                    // A directive that connman does not care about - pass through to the config file
+                    // A directive that ConnMan does not care about - pass through to the config file
                     extraOptions.append(line);
                 }
             }
