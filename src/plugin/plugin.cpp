@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2013-2015 Jolla Ltd. <pekka.vuorela@jollamobile.com>
+ * Copyright (C) 2013 - 2017 Jolla Ltd.
+ * Copyright (C) 2019 - 2020 Open Mobile Platform LLC.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -54,6 +55,7 @@
 #include "nfcsettings.h"
 #include "userinfo.h"
 #include "usermodel.h"
+#include "permissionsmodel.h"
 
 class AppTranslator: public QTranslator
 {
@@ -115,6 +117,7 @@ public:
         qmlRegisterType<NfcSettings>(uri, 1, 0, "NfcSettings");
         qmlRegisterType<UserInfo>(uri, 1, 0, "UserInfo");
         qmlRegisterType<UserModel>(uri, 1, 0, "UserModel");
+        qmlRegisterType<PermissionsModel>(uri, 1, 0, "PermissionsModel");
     }
 };
 
