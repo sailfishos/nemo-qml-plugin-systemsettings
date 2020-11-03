@@ -464,8 +464,17 @@ void UserInfo::replace(QSharedPointer<UserInfoPrivate> other)
         emit displayNameChanged();
     }
 
-    if (old->m_uid != d_ptr->m_uid)
+    if (old->m_uid != d_ptr->m_uid) {
         emit uidChanged();
+        // Having any of these means that type must have changed
+        if (old->m_uid == DeviceOwnerId || old->m_uid == SAILFISH_USERMANAGER_GUEST_UID
+                || d_ptr->m_uid == DeviceOwnerId || d_ptr->m_uid == SAILFISH_USERMANAGER_GUEST_UID) {
+            emit typeChanged();
+            // Technically this would mean that displayName can change
+            // but then username was almost certainly also changed
+            // and the signal has been already emitted
+        }
+    }
 
     if (old->m_loggedIn != d_ptr->m_loggedIn)
         emit currentChanged();

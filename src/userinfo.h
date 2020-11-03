@@ -49,7 +49,7 @@ class SYSTEMSETTINGS_EXPORT UserInfo: public QObject
     Q_PROPERTY(QString displayName READ displayName NOTIFY displayNameChanged)
     Q_PROPERTY(QString username READ username NOTIFY usernameChanged)
     Q_PROPERTY(QString name READ name NOTIFY nameChanged)
-    Q_PROPERTY(UserType type READ type CONSTANT)
+    Q_PROPERTY(UserType type READ type NOTIFY typeChanged)
     Q_PROPERTY(int uid READ uid WRITE setUid NOTIFY uidChanged)
     Q_PROPERTY(bool current READ current NOTIFY currentChanged)
     Q_PROPERTY(bool alone READ alone NOTIFY aloneChanged)
@@ -94,6 +94,7 @@ signals:
     void displayNameChanged();
     void usernameChanged();
     void nameChanged();
+    void typeChanged();
     void uidChanged();
     void currentChanged();
     void aloneChanged();
