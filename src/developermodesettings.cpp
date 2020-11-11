@@ -55,6 +55,8 @@
 #define DEVELOPER_MODE_PACKAGE "jolla-developer-mode"
 #define DEVELOPER_MODE_PACKAGE_PRELOAD_DIR "/var/lib/jolla-developer-mode/preloaded/"
 
+#define EMULATOR_PROVIDED_FILE "/etc/sailfishos-emulator"
+
 /* D-Bus service */
 #define USB_MODED_SERVICE "com.meego.usb_moded"
 #define USB_MODED_PATH "/com/meego/usb_moded"
@@ -115,7 +117,7 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     , m_usbInterface(USB_NETWORK_FALLBACK_INTERFACE)
     , m_usbIpAddress(USB_NETWORK_FALLBACK_IP)
     , m_username(qgetenv("USER"))
-    , m_developerModeEnabled(QFile::exists(DEVELOPER_MODE_PROVIDED_FILE))
+    , m_developerModeEnabled(QFile::exists(DEVELOPER_MODE_PROVIDED_FILE) || QFile::exists(EMULATOR_PROVIDED_FILE))
     , m_workStatus(Idle)
     , m_workProgress(PROGRESS_INDETERMINATE)
     , m_transactionRole(PackageKit::Transaction::RoleUnknown)
@@ -558,7 +560,7 @@ void DeveloperModeSettings::updateState(int percentage, PackageKit::Transaction:
 void DeveloperModeSettings::resetState()
 {
     if (m_installationType == DeveloperMode) {
-        bool enabled = QFile::exists(DEVELOPER_MODE_PROVIDED_FILE);
+        bool enabled = QFile::exists(DEVELOPER_MODE_PROVIDED_FILE) || QFile::exists(EMULATOR_PROVIDED_FILE);
         if (m_developerModeEnabled != enabled) {
             m_developerModeEnabled = enabled;
             emit developerModeEnabledChanged();
