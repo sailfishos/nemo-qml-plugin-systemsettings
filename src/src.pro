@@ -39,7 +39,8 @@ SOURCES += \
     udisks2job.cpp \
     udisks2monitor.cpp \
     userinfo.cpp \
-    usermodel.cpp
+    usermodel.cpp \
+    permissionsmodel.cpp
 
 PUBLIC_HEADERS = \
     languagemodel.h \
@@ -64,7 +65,8 @@ PUBLIC_HEADERS = \
     locationsettings.h \
     timezoneinfo.h \
     userinfo.h \
-    usermodel.h
+    usermodel.h \
+    permissionsmodel.h
 
 HEADERS += \
     $$PUBLIC_HEADERS \
