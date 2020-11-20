@@ -41,6 +41,7 @@ class SYSTEMSETTINGS_EXPORT PermissionsModel: public QAbstractListModel
 {
     Q_OBJECT
     Q_PROPERTY(QString desktopFile READ desktopFile WRITE setDesktopFile NOTIFY desktopFileChanged)
+    Q_PROPERTY(int count READ rowCount NOTIFY countChanged)
 
 public:
     explicit PermissionsModel(QObject *parent = nullptr);
@@ -60,6 +61,7 @@ public:
 
 signals:
     void desktopFileChanged();
+    void countChanged();
 
 private:
     void loadPermissions();

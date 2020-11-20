@@ -53,6 +53,7 @@ void PermissionsModel::setDesktopFile(QString file)
         m_desktopFile = file;
         loadPermissions();
         emit desktopFileChanged();
+        emit countChanged();
     }
 }
 
