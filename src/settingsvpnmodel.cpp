@@ -609,6 +609,8 @@ QVariantMap SettingsVpnModel::processProvisioningFile(const QString &path, const
     if (provisioningFile.open(QIODevice::ReadOnly)) {
         if (type == QString("openvpn")) {
             rv = processOpenVpnProvisioningFile(provisioningFile);
+        } else if (type == QStringLiteral("openconnect")) {
+            rv = processOpenconnectProvisioningFile(provisioningFile);
         } else if (type == QStringLiteral("openfortivpn")) {
             rv = processOpenfortivpnProvisioningFile(provisioningFile);
         } else {
@@ -857,6 +859,139 @@ QVariantMap SettingsVpnModel::processOpenVpnProvisioningFile(QFile &provisioning
     }
 
     return rv;
+}
+
+QVariantMap SettingsVpnModel::processOpenconnectProvisioningFile(QFile &provisioningFile)
+{
+    char first;
+    QVariantMap rv;
+
+    if (provisioningFile.peek(&first, 1) != 1) {
+        return QVariantMap();
+    }
+
+    if (first == '<') {
+#define NS "declare default element namespace \"http://schemas.xmlsoap.org/encoding/\"; "
+        QXmlQuery query;
+        QXmlResultItems entries;
+
+        if (!query.setFocus(&provisioningFile)) {
+            qWarning() << "Unable to read provisioning configuration file";
+            return QVariantMap();
+        }
+
+        query.setQuery(QStringLiteral(NS "/AnyConnectProfile/ServerList/HostEntry"));
+        query.evaluateTo(&entries);
+        if (!query.isValid()) {
+            qWarning() << "Unable to query provisioning configuration file";
+            return QVariantMap();
+        }
+
+        for (QXmlItem entry = entries.next(); !entry.isNull(); entry = entries.next()) {
+            QXmlQuery subQuery(query.namePool());
+            QStringList name;
+            QStringList address;
+            QStringList userGroup;
+            subQuery.setFocus(entry);
+            subQuery.setQuery(QStringLiteral(NS "normalize-space(HostName[1]/text())"));
+            subQuery.evaluateTo(&name);
+            subQuery.setQuery(QStringLiteral(NS "normalize-space(HostAddress[1]/text())"));
+            subQuery.evaluateTo(&address);
+            subQuery.setQuery(QStringLiteral(NS "normalize-space(UserGroup[1]/text())"));
+            subQuery.evaluateTo(&userGroup);
+
+            if (!name[0].isEmpty()) {
+                rv.insert(QStringLiteral("Name"), name[0]);
+            }
+
+            if (!address[0].isEmpty()) {
+                rv.insert(QStringLiteral("Host"), address[0]);
+            }
+
+            if (!userGroup[0].isEmpty()) {
+                rv.insert(QStringLiteral("OpenConnect.Usergroup"), userGroup[0]);
+            }
+        }
+    } else {
+        struct ArgMapping {
+            bool hasArgument;
+            QString targetProperty;
+        };
+#define ENTRY(x, y, z) { QStringLiteral(x), { y, QStringLiteral(z) }}
+        static const QHash<QString, ArgMapping> fields {
+            ENTRY("user", true, "OpenConnect.Username"),
+            ENTRY("certificate", true, "OpenConnect.ClientCert"),
+            ENTRY("sslkey", true, "OpenConnect.UserPrivateKey"),
+            ENTRY("key-password", true, "OpenConnect.PKCSPassword"),
+            ENTRY("cookie", true, "OpenConnect.Cookie"),
+            ENTRY("cafile", true, "OpenConnect.CACert"),
+            ENTRY("disable-ipv6", false, "OpenConnect.DisableIPv6"),
+            ENTRY("protocol", true, "OpenConnect.Protocol"),
+            ENTRY("no-http-keepalive", false, "OpenConnect.NoHTTPKeepalive"),
+            ENTRY("servercert", true, "OpenConnect.ServerCert"),
+            ENTRY("usergroup", true, "OpenConnect.Usergroup"),
+            ENTRY("base-mtu", true, "OpenConnect.MTU"),
+        };
+#undef ENTRY
+        QTextStream is(&provisioningFile);
+
+        const QRegularExpression commentLine(QStringLiteral("^\\s*(?:\\#|$)"));
+        const QRegularExpression record(QStringLiteral("^\\s*([^ \\t=]+)\\s*(?:=\\s*|)(.*?)$"));
+
+        while (!is.atEnd()) {
+            QString line(is.readLine());
+
+            if (line.contains(commentLine)) {
+                continue;
+            }
+
+            QRegularExpressionMatch match = record.match(line);
+
+            if (!match.hasMatch()) {
+                continue;
+            }
+
+            QString field = match.captured(1);
+            auto i = fields.find(field);
+
+            if (i != fields.end()) {
+                if (i.value().hasArgument) {
+                    if (!match.captured(2).isEmpty()) {
+                        rv[i.value().targetProperty] = match.captured(2);
+                    }
+                } else {
+                    rv[i.value().targetProperty] = true;
+                }
+            }
+        }
+
+        if (rv.contains(QStringLiteral("OpenConnect.UserPrivateKey"))) {
+            rv[QStringLiteral("OpenConnect.AuthType")] = QStringLiteral("publickey");
+        } else if (rv.contains(QStringLiteral("OpenConnect.ClientCert"))) {
+            rv[QStringLiteral("OpenConnect.PKCSClientCert")] = rv[QStringLiteral("OpenConnect.ClientCert")];
+            rv.remove(QStringLiteral("OpenConnect.ClientCert"));
+            rv[QStringLiteral("OpenConnect.AuthType")] = QStringLiteral("pkcs");
+        } else if (rv.contains(QStringLiteral("OpenConnect.Username"))) {
+            if (rv.contains(QStringLiteral("OpenConnect.Cookie"))) {
+                rv[QStringLiteral("OpenConnect.AuthType")] = QStringLiteral("cookie_with_userpass");
+            } else {
+                rv[QStringLiteral("OpenConnect.AuthType")] = QStringLiteral("userpass");
+            }
+        } else if (rv.contains(QStringLiteral("OpenConnect.Cookie"))) {
+            rv[QStringLiteral("OpenConnect.AuthType")] = QStringLiteral("cookie");
+        }
+
+	if (!rv.isEmpty()) {
+            // The config file does not have server name, guess file name instead
+            QString fileName = provisioningFile.fileName();
+            int slashPos = fileName.lastIndexOf('/');
+            int dotPos = fileName.lastIndexOf('.');
+            rv[QStringLiteral("Host")] = fileName.mid(slashPos + 1, dotPos - slashPos - 1);
+	}
+    }
+
+    return rv;
+#undef NS
 }
 
 QVariantMap SettingsVpnModel::processOpenfortivpnProvisioningFile(QFile &provisioningFile)

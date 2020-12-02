@@ -98,6 +98,7 @@ private:
     virtual void orderConnections(QVector<VpnConnection*> &connections) override;
     bool compareConnections(const VpnConnection *i, const VpnConnection *j);
     QVariantMap processOpenVpnProvisioningFile(QFile &provisioningFile);
+    QVariantMap processOpenconnectProvisioningFile(QFile &provisioningFile);
     QVariantMap processOpenfortivpnProvisioningFile(QFile &provisioningFile);
     void updateBestState(VpnConnection::ConnectionState maxState);
 
