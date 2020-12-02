@@ -36,6 +36,8 @@
 #include <QCryptographicHash>
 #include <QQmlEngine>
 #include <QDir>
+#include <QXmlQuery>
+#include <QXmlResultItems>
 #include "logging_p.h"
 #include "vpnmanager.h"
 
@@ -607,6 +609,8 @@ QVariantMap SettingsVpnModel::processProvisioningFile(const QString &path, const
     if (provisioningFile.open(QIODevice::ReadOnly)) {
         if (type == QString("openvpn")) {
             rv = processOpenVpnProvisioningFile(provisioningFile);
+        } else if (type == QStringLiteral("openfortivpn")) {
+            rv = processOpenfortivpnProvisioningFile(provisioningFile);
         } else {
             qWarning() << "Provisioning not currently supported for VPN type:" << type;
         }
@@ -848,6 +852,126 @@ QVariantMap SettingsVpnModel::processOpenVpnProvisioningFile(QFile &provisioning
                 }
 
                 rv.insert(QStringLiteral("OpenVPN.ConfigFile"), outputFile.fileName());
+            }
+        }
+    }
+
+    return rv;
+}
+
+QVariantMap SettingsVpnModel::processOpenfortivpnProvisioningFile(QFile &provisioningFile)
+{
+    char first;
+    QVariantMap rv;
+    QStringList option;
+
+    if (provisioningFile.peek(&first, 1) != 1) {
+        return QVariantMap();
+    }
+
+    if (first == '<') {
+        QXmlQuery query;
+        QXmlResultItems entries;
+
+        if (!query.setFocus(&provisioningFile)) {
+            qWarning() << "Unable to read provisioning configuration file";
+            return QVariantMap();
+        }
+
+        query.setQuery(QStringLiteral("/forticlient_configuration/vpn/sslvpn/connections/connection"));
+        query.evaluateTo(&entries);
+        if (!query.isValid()) {
+            qWarning() << "Unable to query provisioning configuration file";
+            return QVariantMap();
+        }
+
+        for (QXmlItem entry = entries.next(); !entry.isNull(); entry = entries.next()) {
+            QXmlQuery subQuery(query.namePool());
+            QStringList name;
+            QStringList address;
+            QStringList userGroup;
+            subQuery.setFocus(entry);
+
+            // Other fields that might be of interest
+            // username
+            // password
+            // warn_invalid_server_certificate
+            subQuery.setQuery(QStringLiteral("normalize-space(name[1]/text())"));
+            subQuery.evaluateTo(&name);
+            subQuery.setQuery(QStringLiteral("normalize-space(server[1]/text())"));
+            subQuery.evaluateTo(&address);
+
+            if (!name[0].isEmpty()) {
+                rv.insert(QStringLiteral("Name"), name[0]);
+            }
+
+            if (!address[0].isEmpty()) {
+                int pos = address[0].indexOf(':');
+                if (pos == -1) {
+                    rv.insert(QStringLiteral("Host"), address[0]);
+                } else {
+                    rv.insert(QStringLiteral("Host"), address[0].left(pos));
+                    rv.insert(QStringLiteral("openfortivpn.Port"), address[0].midRef(pos + 1).toInt());
+                }
+
+                // We have a connection address, ignore the rest.
+                break;
+            }
+        }
+
+        // There's also other boolean (1/0) options under sslvpn/options:
+        // preferred_dtls_tunnel
+        // no_dhcp_server_route
+        // keep_connection_alive
+        query.setQuery(QStringLiteral("normalize-space(/forticlient_configuration/vpn/sslvpn/options/disallow_invalid_server_certificate/text())"));
+        query.evaluateTo(&option);
+        if (option[0] == QLatin1String("0")) {
+            rv.insert(QStringLiteral("openfortivpn.AllowSelfSignedCert"), QStringLiteral("true"));
+        }
+
+    } else {
+        QTextStream is(&provisioningFile);
+
+        const QRegularExpression commentLine(QStringLiteral("^\\#"));
+        const QRegularExpression record(QStringLiteral("^\\s*([^=]+)\\s*=\\s*(.*?)\\s*$"));
+#define ENTRY(x, y) { QStringLiteral(x), QStringLiteral(y) }
+        const QHash<QString, QString> fields {
+            ENTRY("host", "Host"),
+            ENTRY("port", "openfortivpn.Port"),
+            ENTRY("trusted-cert", "openfortivpn.TrustedCert"),
+            // possibly useful fields for the future, not supported by connman plugin
+            // ENTRY("username", "?"),
+            // ENTRY("password", "?"),
+            // ENTRY("no-ftm-push", "?"),
+            // ENTRY("realm", "?"),
+            // ENTRY("ca-file", "?"),
+            // ENTRY("user-cert", "?"),
+            // ENTRY("user-key", "?"),
+            // ENTRY("insercure-ssl", "?"),
+            // ENTRY("cipher-list", "?"),
+            // ENTRY("user-agent", "?"),
+            // ENTRY("hostcheck", "?"),
+        };
+#undef ENTRY
+
+        while (!is.atEnd()) {
+            QString line(is.readLine());
+
+            if (line.contains(commentLine)) {
+                continue;
+            }
+
+            QRegularExpressionMatch match = record.match(line);
+
+            if (!match.hasMatch()) {
+                continue;
+            }
+
+            QString field = match.captured(1);
+            auto i = fields.find(field);
+
+            if (i != fields.end()) {
+                rv[i.value()] = match.captured(2);
             }
         }
     }
