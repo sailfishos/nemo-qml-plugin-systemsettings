@@ -981,13 +981,13 @@ QVariantMap SettingsVpnModel::processOpenconnectProvisioningFile(QFile &provisio
             rv[QStringLiteral("OpenConnect.AuthType")] = QStringLiteral("cookie");
         }
 
-	if (!rv.isEmpty()) {
+        if (!rv.isEmpty()) {
             // The config file does not have server name, guess file name instead
             QString fileName = provisioningFile.fileName();
             int slashPos = fileName.lastIndexOf('/');
             int dotPos = fileName.lastIndexOf('.');
             rv[QStringLiteral("Host")] = fileName.mid(slashPos + 1, dotPos - slashPos - 1);
-	}
+        }
     }
 
     return rv;
