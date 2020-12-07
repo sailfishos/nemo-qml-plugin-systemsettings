@@ -100,6 +100,7 @@ private:
     QVariantMap processOpenVpnProvisioningFile(QFile &provisioningFile);
     QVariantMap processOpenconnectProvisioningFile(QFile &provisioningFile);
     QVariantMap processOpenfortivpnProvisioningFile(QFile &provisioningFile);
+    QVariantMap processVpncProvisioningFile(QFile &provisioningFile);
     void updateBestState(VpnConnection::ConnectionState maxState);
 
 private Q_SLOTS:
