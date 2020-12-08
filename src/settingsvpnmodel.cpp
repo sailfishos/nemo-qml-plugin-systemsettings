@@ -613,6 +613,8 @@ QVariantMap SettingsVpnModel::processProvisioningFile(const QString &path, const
             rv = processOpenconnectProvisioningFile(provisioningFile);
         } else if (type == QStringLiteral("openfortivpn")) {
             rv = processOpenfortivpnProvisioningFile(provisioningFile);
+        } else if (type == QStringLiteral("vpnc")) {
+            rv = processVpncProvisioningFile(provisioningFile);
         } else {
             qWarning() << "Provisioning not currently supported for VPN type:" << type;
         }
@@ -861,6 +863,88 @@ QVariantMap SettingsVpnModel::processOpenVpnProvisioningFile(QFile &provisioning
     return rv;
 }
 
+QVariantMap SettingsVpnModel::processVpncProvisioningFile(QFile &provisioningFile)
+{
+    QVariantMap rv;
+
+    QTextStream is(&provisioningFile);
+#define ENTRY(x, y, z) { QStringLiteral(x), QStringLiteral(y), z }
+    static const struct {
+        QString key;
+        QString targetProperty;
+        bool hasValue;
+    } options[] = {
+        ENTRY("IPSec gateway", "Host", true),
+        ENTRY("IPSec ID", "VPNC.IPSec.ID", true),
+        ENTRY("Domain", "VPNC.Domain", true),
+        ENTRY("Vendor", "VPNC.Vendor", true),
+        ENTRY("IKE DH Group", "VPNC.IKE.DHGroup", true),
+        ENTRY("Perfect Forward Secrecy", "VPNC.PFS", true),
+        ENTRY("NAT Traversal Mode", "VPNC.NATTMode", true),
+        ENTRY("Enable Single DES", "VPNC.SingleDES", false),
+        ENTRY("Enable no encryption", "VPNC.NoEncryption", false),
+        ENTRY("Application version", "VPNC.AppVersion", true),
+        ENTRY("Local Port", "VPNC.LocalPort", true),
+        ENTRY("Cisco UDP Encapsulation Port", "VPNC.CiscoPort", true),
+        ENTRY("DPD idle timeout (our side)", "VPNC.DPDTimeout", true),
+        ENTRY("IKE Authmode", "VPNC.IKE.AuthMode", true),
+        /* Unhandled config options
+        ENTRY("IPSec secret", "VPNC.IPSec.Secret", true),
+        ENTRY("IPSec obfuscated secret", "?", true),
+        ENTRY("Xauth username", "VPNC.XAuth.Username", true),
+        ENTRY("Xauth password", "VPNC.XAuth.Password", true),
+        ENTRY("Xauth obfuscated password", "?", true),
+        ENTRY("Xauth interactive", "?", false),
+        ENTRY("Script", "?", true),
+        ENTRY("Interface name", "?", true),
+        ENTRY("Interface mode", "?", true),
+        ENTRY("Interface MTU", "?", true),
+        ENTRY("Debug", "?", true),
+        ENTRY("No Detach", "?", false),
+        ENTRY("Pidfile", "?", true),
+        ENTRY("Local Addr", "?", true),
+        ENTRY("Noninteractive", "?", false),
+        ENTRY("CA-File", "?", true),
+        ENTRY("CA-Dir", "?", true),
+        ENTRY("IPSEC target network", "?", true),
+        ENTRY("Password helper", "?", true),
+        */
+    };
+#undef ENTRY
+    while (!is.atEnd()) {
+        QString line(is.readLine());
+
+        for (size_t i = 0; i < sizeof(options) / sizeof(*options); i++) {
+            if (!line.startsWith(options[i].key, Qt::CaseInsensitive)) {
+                continue;
+            }
+            if (!options[i].hasValue) {
+                rv[options[i].targetProperty] = true;
+            } else {
+                int pos = options[i].key.length();
+                if (line.length() == pos
+                    || (line[pos] != ' '
+                        && line[pos] != '\t')) {
+                    continue;
+                }
+                rv[options[i].targetProperty] = line.mid(pos + 1);
+            }
+        }
+    }
+
+    if (rv.contains("VPNC.IPSec.ID")) {
+        if (rv.contains("Host")) {
+            rv["Name"] = QStringLiteral("%1 %2").arg(rv["Host"].value<QString>()).arg(rv["VPNC.IPSec.ID"].value<QString>());
+        } else {
+            rv["Name"] = rv["VPNC.IPSec.ID"];
+        }
+    } else {
+        rv["Name"] = QFileInfo(provisioningFile).baseName();
+    }
+
+    return rv;
+}
+
 QVariantMap SettingsVpnModel::processOpenconnectProvisioningFile(QFile &provisioningFile)
 {
     char first;
@@ -981,13 +1065,13 @@ QVariantMap SettingsVpnModel::processOpenconnectProvisioningFile(QFile &provisio
             rv[QStringLiteral("OpenConnect.AuthType")] = QStringLiteral("cookie");
         }
 
-	if (!rv.isEmpty()) {
+        if (!rv.isEmpty()) {
             // The config file does not have server name, guess file name instead
             QString fileName = provisioningFile.fileName();
             int slashPos = fileName.lastIndexOf('/');
             int dotPos = fileName.lastIndexOf('.');
             rv[QStringLiteral("Host")] = fileName.mid(slashPos + 1, dotPos - slashPos - 1);
-	}
+        }
     }
 
     return rv;
