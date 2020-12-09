@@ -13,7 +13,7 @@ Requires:       libsailfishkeyprovider >= 0.0.14
 Requires:       connman-qt5 >= 1.2.21
 Requires:       user-managerd >= 0.4.0
 Requires:       udisks2 >= 2.8.1+git6
-Requires:       mlite-qt5 >= 0.3.0
+Requires:       mlite-qt5 >= 0.3.3
 Requires(post): coreutils
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5SystemInfo)
@@ -22,7 +22,7 @@ BuildRequires:  pkgconfig(Qt5XmlPatterns)
 BuildRequires:  pkgconfig(timed-qt5)
 BuildRequires:  pkgconfig(profile)
 BuildRequires:  pkgconfig(mce) >= 1.21.0
-BuildRequires:  pkgconfig(mlite5) >= 0.3.0
+BuildRequires:  pkgconfig(mlite5) >= 0.3.3
 BuildRequires:  pkgconfig(usb-moded-qt5)
 BuildRequires:  pkgconfig(blkid)
 BuildRequires:  pkgconfig(libcrypto)

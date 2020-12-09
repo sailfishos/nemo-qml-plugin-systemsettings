@@ -62,6 +62,7 @@ QHash<int, QByteArray> PermissionsModel::roleNames() const
     static const QHash<int, QByteArray> roles = {
         { Qt::DisplayRole, "display" },
         { DescriptionRole, "description" },
+        { LongDescriptionRole, "longDescription" },
         { NameRole, "name" },
     };
     return roles;
@@ -82,6 +83,8 @@ QVariant PermissionsModel::data(const QModelIndex &index, int role) const
     case Qt::DisplayRole:
     case DescriptionRole:
         return m_permissions.at(index.row()).description();
+    case LongDescriptionRole:
+        return m_permissions.at(index.row()).longDescription();
     case NameRole:
         return m_permissions.at(index.row()).name();
     default:
