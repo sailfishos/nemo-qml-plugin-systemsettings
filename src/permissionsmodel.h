@@ -49,6 +49,7 @@ public:
 
     enum Roles {
         DescriptionRole = Qt::UserRole,
+        LongDescriptionRole,
         NameRole,
     };
 
