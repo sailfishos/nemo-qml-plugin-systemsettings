@@ -158,7 +158,7 @@ struct X509Certificate
         rv.append(qMakePair(QStringLiteral("Algorithm"), objectToString(sig_alg->algorithm, shortForm)));
 
         BIO *b = BIO_new(BIO_s_mem());
-        ASN1_STRING_print_ex(b, sig, 0);
+        X509_signature_dump(b, sig, 0);
         QString d(bioToString(b).replace(QChar('\n'), QString()));
         rv.append(qMakePair(QStringLiteral("Data"), d.trimmed()));
         BIO_free(b);
