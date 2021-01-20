@@ -6,7 +6,7 @@ CONFIG += qt plugin c++11 hide_symbols link_pkgconfig
 QT += qml dbus network
 QT -= gui
 
-PKGCONFIG += profile usb-moded-qt5 nemomodels-qt5 libsailfishkeyprovider connman-qt5 packagekitqt5
+PKGCONFIG += profile usb-moded-qt5 libsailfishkeyprovider connman-qt5 packagekitqt5
 
 target.path = $$[QT_INSTALL_QML]/$$PLUGIN_IMPORT_PATH
 INSTALLS += target

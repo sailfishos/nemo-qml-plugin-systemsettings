@@ -6,7 +6,7 @@ QT += qml dbus systeminfo xmlpatterns
 QT -= gui
 
 CONFIG += c++11 hide_symbols link_pkgconfig
-PKGCONFIG += profile mlite5 mce timed-qt5 blkid libcrypto nemomodels-qt5 libsailfishkeyprovider connman-qt5 glib-2.0
+PKGCONFIG += profile mlite5 mce timed-qt5 blkid libcrypto libsailfishkeyprovider connman-qt5 glib-2.0
 PKGCONFIG += ssu-sysinfo nemodbus packagekitqt5 libsystemd sailfishusermanager sailfishaccesscontrol
 
 system($$[QT_INSTALL_BINS]/qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
@@ -104,6 +104,6 @@ QMAKE_PKGCONFIG_DESCRIPTION = System settings application development files
 QMAKE_PKGCONFIG_LIBDIR = $$target.path
 QMAKE_PKGCONFIG_INCDIR = $$develheaders.path
 QMAKE_PKGCONFIG_DESTDIR = pkgconfig
-QMAKE_PKGCONFIG_REQUIRES = Qt5Core Qt5DBus profile nemomodels-qt5 libsailfishkeyprovider connman-qt5
+QMAKE_PKGCONFIG_REQUIRES = Qt5Core Qt5DBus profile libsailfishkeyprovider connman-qt5
 
 INSTALLS += target develheaders pkgconfig locationconfig
