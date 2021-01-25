@@ -38,6 +38,7 @@
 #include <QDir>
 #include <QXmlQuery>
 #include <QXmlResultItems>
+#include <QSettings>
 #include "logging_p.h"
 #include "vpnmanager.h"
 
@@ -607,7 +608,7 @@ QVariantMap SettingsVpnModel::processProvisioningFile(const QString &path, const
 
     QFile provisioningFile(path);
     if (provisioningFile.open(QIODevice::ReadOnly)) {
-        if (type == QString("openvpn")) {
+        if (type == QStringLiteral("openvpn")) {
             rv = processOpenVpnProvisioningFile(provisioningFile);
         } else if (type == QStringLiteral("openconnect")) {
             rv = processOpenconnectProvisioningFile(provisioningFile);
@@ -615,6 +616,14 @@ QVariantMap SettingsVpnModel::processProvisioningFile(const QString &path, const
             rv = processOpenfortivpnProvisioningFile(provisioningFile);
         } else if (type == QStringLiteral("vpnc")) {
             rv = processVpncProvisioningFile(provisioningFile);
+        } else if (type == QStringLiteral("l2tp")) {
+            if (path.endsWith(QStringLiteral(".pbk"))) {
+                rv = processPbkProvisioningFile(provisioningFile, type);
+            } else {
+                rv = processL2tpProvisioningFile(provisioningFile);
+            }
+        } else if (type == QStringLiteral("pptp")) {
+            rv = processPbkProvisioningFile(provisioningFile, type);
         } else {
             qWarning() << "Provisioning not currently supported for VPN type:" << type;
         }
@@ -1193,6 +1202,185 @@ QVariantMap SettingsVpnModel::processOpenfortivpnProvisioningFile(QFile &provisi
                 rv[i.value()] = match.captured(2);
             }
         }
+    }
+
+    return rv;
+}
+
+bool SettingsVpnModel::processPppdProvisioningFile(QFile &provisioningFile, QVariantMap &result)
+{
+#define ENTRY(x, y) { QStringLiteral(x), QStringLiteral(y) }
+    const QHash<QString, QString> stringOpts {
+        ENTRY("lcp-echo-failure", "PPPD.EchoFailure"),
+        ENTRY("lcp-echo-interval", "PPPD.EchoInterval"),
+    };
+
+    const QHash<QString, QString> boolOpts {
+        ENTRY("debug", "PPPD.Debug"),
+        ENTRY("refuse-eap", "PPPD.RefuseEAP"),
+        ENTRY("refuse-pap", "PPPD.RefusePAP"),
+        ENTRY("refuse-chap", "PPPD.RefuseCHAP"),
+        ENTRY("refuse-mschap", "PPPD.RefuseMSCHAP"),
+        ENTRY("refuse-mschapv2", "PPPD.RefuseMSCHAP2"),
+        ENTRY("nobsdcomp", "PPPD.NoBSDComp"),
+        ENTRY("nopcomp", "PPPD.NoPcomp"),
+        ENTRY("noaccomp", "PPPD.UseAccomp"),
+        ENTRY("nodeflate", "PPPD.NoDeflate"),
+        ENTRY("require-mppe", "PPPD.ReqMPPE"),
+        ENTRY("require-mppe-40", "PPPD.ReqMPPE40"),
+        ENTRY("require-mppe-128", "PPPD.ReqMPPE128"),
+        ENTRY("mppe-stateful", "PPPD.ReqMPPEStateful"),
+        ENTRY("novj", "PPPD.NoVJ"),
+    };
+#undef ENTRY
+
+    QTextStream is(&provisioningFile);
+    const QRegularExpression nonCommentRe(R"!((?:[^#]|[^\]|"[^"*]"|'[^']*')*)!");
+    const QRegularExpression keyValueRe(R"!(^([^\s]*)\s+(?:"([^"]*)"|'([^']*)'|([^\s"']*))$)!");
+
+    while (!is.atEnd()) {
+        QString line(is.readLine());
+        QString trimmed = nonCommentRe.match(line).captured(0).trimmed();
+
+        if (trimmed.isEmpty()) {
+            continue;
+        }
+
+        if (boolOpts.contains(trimmed)) {
+            result[boolOpts[trimmed]] = true;
+        } else {
+            QRegularExpressionMatch match = keyValueRe.match(trimmed);
+
+            if (match.isValid()) {
+                QString key = match.captured(1);
+
+                if (stringOpts.contains(key)) {
+                    result[stringOpts[key]] = match.captured(2) + match.captured(3) + match.captured(4);
+                }
+            }
+        }
+    }
+
+    return true;
+}
+
+QVariantMap SettingsVpnModel::processL2tpProvisioningFile(QFile &provisioningFile)
+{
+    QString provisioningFileName = provisioningFile.fileName();
+    QSettings settings(provisioningFileName, QSettings::IniFormat);
+    QStringList groups = settings.childGroups();
+    QVariantMap rv;
+
+#define ENTRY(x, y) { QStringLiteral(x), QStringLiteral(y) }
+    const QHash<QString, QString> globalOptions {
+        ENTRY("access control", "L2TP.AccessControl"),
+        ENTRY("auth file", "L2TP.AuthFile"),
+        ENTRY("force userspace", "L2TP.ForceUserSpace"),
+        ENTRY("listen-addr", "L2TP.ListenAddr"),
+        ENTRY("rand source", "L2TP.Rand Source"),
+        ENTRY("ipsec saref", "L2TP.IPsecSaref"),
+        ENTRY("port", "L2TP.Port"),
+    };
+
+    const QHash<QString, QString> lacOptions {
+        ENTRY("lns", "Host"),
+        ENTRY("bps", "L2TP.BPS"),
+        ENTRY("tx bps", "L2TP.TXBPS"),
+        ENTRY("rx bps", "L2TP.RXBPS"),
+        ENTRY("length bit", "L2TP.LengthBit"),
+        ENTRY("challenge", "L2TP.Challenge"),
+        ENTRY("defaultroute", "L2TP.DefaultRoute"),
+        ENTRY("flow bit", "L2TP.FlowBit"),
+        ENTRY("tunnel rws", "L2TP.TunnelRWS"),
+        ENTRY("autodial", "L2TP.Autodial"),
+        ENTRY("redial", "L2TP.Redial"),
+        ENTRY("redial timeout", "L2TP.RedialTimeout"),
+        ENTRY("max redials", "L2TP.MaxRedials"),
+        ENTRY("require pap", "L2TP.RequirePAP"),
+        ENTRY("require chap", "L2TP.RequireCHAP"),
+        ENTRY("require authentication", "L2TP.ReqAuth"),
+        ENTRY("pppoptfile", "__PPP_FILE"),
+    };
+#undef ENTRY
+
+    settings.beginGroup(QStringLiteral("global"));
+    for (const auto &key : settings.allKeys()) {
+        if (globalOptions.contains(key)) {
+            rv[globalOptions[key]] = settings.value(key);
+        }
+    }
+    settings.endGroup();
+
+    if (groups.contains(QStringLiteral("lac default"))) {
+        settings.beginGroup(QStringLiteral("lac default"));
+        for (const auto &key : settings.allKeys()) {
+            if (lacOptions.contains(key)) {
+                rv[lacOptions[key]] = settings.value(key);
+            }
+        }
+        settings.endGroup();
+    }
+
+    for (const auto &group : groups) {
+        if (group.startsWith(QLatin1String("lac ")) && group != QLatin1String("lac default")) {
+            rv[QStringLiteral("Name")] = group.mid(4);
+            settings.beginGroup(group);
+            for (const auto &key : settings.allKeys()) {
+                if (lacOptions.contains(key)) {
+                    rv[lacOptions[key]] = settings.value(key);
+                }
+            }
+            settings.endGroup();
+
+            break;
+        }
+    }
+
+    if (rv.contains(QStringLiteral("__PPP_FILE"))) {
+        QFileInfo pppFileInfo(rv[QStringLiteral("__PPP_FILE")].toString());
+        QString pppFileName = QFileInfo(provisioningFileName).dir().filePath(pppFileInfo.fileName());
+        QFile pppFile(pppFileName);
+        if (pppFile.open(QIODevice::ReadOnly)) {
+            processPppdProvisioningFile(pppFile, rv);
+
+            pppFile.close();
+        }
+        rv.remove(QStringLiteral("__PPP_FILE"));
+    }
+
+    return rv;
+}
+
+QVariantMap SettingsVpnModel::processPbkProvisioningFile(QFile &provisioningFile, const QString type)
+{
+    QString provisioningFileName = provisioningFile.fileName();
+    QSettings settings(provisioningFileName, QSettings::IniFormat);
+    QStringList groups = settings.childGroups();
+    QVariantMap rv;
+
+    QString expectedVpnStrategy;
+
+    if (type == QLatin1String("l2tp")) {
+        expectedVpnStrategy = QStringLiteral("3"); // L2TP only
+    } else if (type == QLatin1String("pptp")) {
+        expectedVpnStrategy = QStringLiteral("1"); // PPTP only
+    } // 2 would be "try PPTP, then L2TP"
+
+    const QString expectedType = QStringLiteral("2");  // VPN
+    const QString expectedDEVICE = QStringLiteral("vpn");
+
+    for (const auto &group : groups) {
+        settings.beginGroup(group);
+
+        if (settings.value(QStringLiteral("Type")).toString() == expectedType
+            && settings.value(QStringLiteral("DEVICE")).toString() == expectedDEVICE
+            && settings.value(QStringLiteral("VpnStrategy")).toString() == expectedVpnStrategy) {
+            rv["Host"] = settings.value(QStringLiteral("PhoneNumber"));
+            rv["Name"] = group;
+            break;
+        }
+
+        settings.endGroup();
     }
 
     return rv;
