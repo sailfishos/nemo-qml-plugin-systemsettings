@@ -232,6 +232,8 @@ QString AboutSettings::serial() const
         // node or something for it. The means how the serialnumber ends to 
         // this file are device specific.
         << "/run/config/serial"
+        // usb-moded sets up the serial number here.
+        << "/sys/class/android_usb/android0/iSerial"
         // Some devices have serialno in this path.
         << "/sys/firmware/devicetree/base/firmware/android/serialno";
 
