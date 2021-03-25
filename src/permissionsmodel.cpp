@@ -33,6 +33,15 @@
 #include <MPermission>
 #include "permissionsmodel.h"
 
+namespace {
+
+bool permissionLessThan(const MPermission &p1, const MPermission &p2)
+{
+    return (p1.description().localeAwareCompare(p2.description()) < 0);
+}
+
+}
+
 PermissionsModel::PermissionsModel(QObject *parent)
     : QAbstractListModel(parent)
 {
@@ -106,6 +115,7 @@ void PermissionsModel::loadPermissions()
         if (!permissions.isEmpty()) {
             beginInsertRows(QModelIndex(), 0, permissions.length() - 1);
             m_permissions.swap(permissions);
+            std::sort(m_permissions.begin(), m_permissions.end(), permissionLessThan);
             endInsertRows();
         }
     }
