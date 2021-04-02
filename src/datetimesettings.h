@@ -34,6 +34,7 @@
 
 #include <QObject>
 #include <QTime>
+#include <QDateTime>
 
 #include <timed-qt5/interface>
 #include <timed-qt5/wallclock>
@@ -49,6 +50,9 @@ class SYSTEMSETTINGS_EXPORT DateTimeSettings: public QObject
     Q_PROPERTY(bool automaticTimeUpdate READ automaticTimeUpdate WRITE setAutomaticTimeUpdate NOTIFY automaticTimeUpdateChanged)
     Q_PROPERTY(bool automaticTimezoneUpdate READ automaticTimezoneUpdate WRITE setAutomaticTimezoneUpdate NOTIFY automaticTimezoneUpdateChanged)
     Q_PROPERTY(QString timezone READ timezone WRITE setTimezone NOTIFY timezoneChanged)
+    Q_PROPERTY(QDateTime referenceDateTime READ referenceDateTime WRITE setReferenceDateTime NOTIFY referenceDateTimeChanged)
+    Q_PROPERTY(QDateTime nextDaylightSavingTime READ nextDaylightSavingTime NOTIFY transitionChanged)
+    Q_PROPERTY(int daylightSavingOffset READ daylightSavingOffset NOTIFY transitionChanged)
 
 public:
     enum HourMode {
@@ -73,6 +77,13 @@ public:
     QString timezone() const;
     void setTimezone(const QString &);
 
+    QDateTime referenceDateTime() const;
+    void setReferenceDateTime(const QDateTime &reference);
+
+    QDateTime nextDaylightSavingTime() const;
+
+    int daylightSavingOffset() const;
+
     Q_INVOKABLE void setHourMode(HourMode mode);
 
 signals:
@@ -81,6 +92,8 @@ signals:
     void automaticTimeUpdateChanged();
     void automaticTimezoneUpdateChanged();
     void timezoneChanged();
+    void referenceDateTimeChanged();
+    void transitionChanged();
 
 private slots:
     void onTimedSignal(const Maemo::Timed::WallClock::Info &info, bool time_changed);
@@ -91,10 +104,14 @@ private:
     bool setTime(time_t time);
     bool setSettings(Maemo::Timed::WallClock::Settings &s);
     void updateTimedInfo();
+    void updateTransition();
 
 private:
     Maemo::Timed::Interface m_timed;
     QString m_timezone;
+    QDateTime m_referenceDateTime;
+    QDateTime m_nextDaylightSavingTime;
+    int m_daylightSavingOffset;
     bool m_autoSystemTime;
     bool m_autoTimezone;
     bool m_timedInfoValid;

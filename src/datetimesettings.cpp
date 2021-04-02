@@ -34,12 +34,14 @@
 #include <timed-qt5/interface>
 #include <timed-qt5/wallclock>
 #include <QDebug>
+#include <QTimeZone>
 
 
 DateTimeSettings::DateTimeSettings(QObject *parent)
     : QObject(parent)
     , m_timed()
     , m_timezone()
+    , m_daylightSavingOffset(0)
     , m_autoSystemTime(false)
     , m_autoTimezone(false)
     , m_timedInfoValid(false)
@@ -156,6 +158,52 @@ void DateTimeSettings::setTimezone(const QString &tz)
     setSettings(s);
 }
 
+QDateTime DateTimeSettings::referenceDateTime() const
+{
+    return m_referenceDateTime;
+}
+
+void DateTimeSettings::setReferenceDateTime(const QDateTime &reference)
+{
+    if (m_referenceDateTime == reference) {
+        return;
+    }
+
+    m_referenceDateTime = reference;
+    emit referenceDateTimeChanged();
+
+    if (!m_timezone.isEmpty()) {
+        updateTransition();
+    }
+}
+
+void DateTimeSettings::updateTransition()
+{
+    QTimeZone tz(m_timezone.toUtf8());
+
+    if (tz.isValid() && m_referenceDateTime.isValid()) {
+        QTimeZone::OffsetData offset = tz.nextTransition(m_referenceDateTime);
+        m_nextDaylightSavingTime = offset.atUtc;
+        m_daylightSavingOffset = offset.offsetFromUtc - m_referenceDateTime.toTimeZone(tz).offsetFromUtc();
+    } else {
+        m_nextDaylightSavingTime = QDateTime();
+        m_daylightSavingOffset = 0;
+    }
+    emit transitionChanged();
+}
+
+QDateTime DateTimeSettings::nextDaylightSavingTime() const
+{
+    return m_nextDaylightSavingTime;
+}
+
+int DateTimeSettings::daylightSavingOffset() const
+{
+    // The offset applied at next daylight saving transition
+    // is stored is second, like in the offsetFromUtc() in QDateTime.
+    return m_daylightSavingOffset;
+}
+
 void DateTimeSettings::setHourMode(DateTimeSettings::HourMode mode)
 {
     Maemo::Timed::WallClock::Settings s;
@@ -225,6 +273,9 @@ void DateTimeSettings::onTimedSignal(const Maemo::Timed::WallClock::Info &info, 
     if (newTimezone != m_timezone) {
         m_timezone = newTimezone;
         emit timezoneChanged();
+        if (m_referenceDateTime.isValid()) {
+            updateTransition();
+        }
     }
 
     if (prevReady != ready()) {
