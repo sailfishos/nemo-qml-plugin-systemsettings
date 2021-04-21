@@ -44,6 +44,9 @@
 #include <mntent.h>
 #include <sys/statvfs.h>
 #include <sys/quota.h>
+#if !defined(__GLIBC__)
+#include <linux/quota.h>
+#endif
 #include <unistd.h>
 
 static const auto userName = QString(qgetenv("USER"));
