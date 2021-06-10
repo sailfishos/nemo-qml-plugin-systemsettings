@@ -1231,6 +1231,7 @@ bool SettingsVpnModel::processPppdProvisioningFile(QFile &provisioningFile, QVar
         ENTRY("require-mppe-128", "PPPD.ReqMPPE128"),
         ENTRY("mppe-stateful", "PPPD.ReqMPPEStateful"),
         ENTRY("novj", "PPPD.NoVJ"),
+        ENTRY("noipv6", "PPPD.NoIPv6"),
     };
 #undef ENTRY
 
