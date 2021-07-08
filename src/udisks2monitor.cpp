@@ -203,6 +203,26 @@ void UDisks2::Monitor::unmount(const QString &devicePath)
     startMountOperation(devicePath, UDISKS2_FILESYSTEM_UNMOUNT, m_blockDevices->objectPath(devicePath), arguments);
 }
 
+void UDisks2::Monitor::setLabel(const QString &devicePath, const QString &label)
+{
+    if (devicePath.isEmpty()) {
+        qCCritical(lcMemoryCardLog) << "Cannot set label without device name";
+        return;
+    }
+
+    if (m_blockDevices->find(devicePath)) {
+        QVariantList arguments;
+        arguments << label;
+        QVariantMap options;
+        arguments << options;
+
+        doSetLabel(devicePath, m_blockDevices->objectPath(devicePath), arguments);
+    }
+    else {
+        qCWarning(lcMemoryCardLog) << "Block device" << devicePath << "not found";
+    }
+}
+
 void UDisks2::Monitor::format(const QString &devicePath, const QString &filesystemType, const QVariantMap &arguments)
 {
     if (devicePath.isEmpty()) {
@@ -649,6 +669,45 @@ void UDisks2::Monitor::doFormat(const QString &devicePath, const QString &dbusOb
         }
         watcher->deleteLater();
     });
+}
+
+void UDisks2::Monitor::doSetLabel(const QString &devicePath, const QString &dbusObjectPath, const QVariantList &arguments)
+{
+    const QString dbusMethod = UDISKS2_BLOCK_SETLABEL;
+    if (devicePath.isEmpty()) {
+        qCCritical(lcMemoryCardLog) << "Cannot" << dbusMethod.toLower() << "without device name";
+        return;
+    }
+
+    QDBusMessage method = QDBusMessage::createMethodCall(
+                UDISKS2_SERVICE,
+                dbusObjectPath,
+                UDISKS2_FILESYSTEM_INTERFACE,
+                dbusMethod);
+    method.setArguments(arguments);
+    QDBusPendingCall pendingCall = QDBusConnection::systemBus().asyncCall(method);
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pendingCall, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished,
+            this, [this, devicePath, dbusMethod](QDBusPendingCallWatcher *watcher) {
+        if (watcher->isError()) {
+            QDBusError error = watcher->error();
+            QByteArray errorData = error.name().toLocal8Bit();
+            const char *errorCStr = errorData.constData();
+            qCWarning(lcMemoryCardLog) << dbusMethod << "error:" << errorCStr;
+
+            for (uint i = 0; i < sizeof(dbus_error_entries) / sizeof(ErrorEntry); i++) {
+                if (strcmp(dbus_error_entries[i].dbusErrorName, errorCStr) == 0) {
+                    emit setLabelError(dbus_error_entries[i].errorCode);
+                    break;
+                }
+            }
+        }
+
+        emit status(devicePath, Partition::Unmounted);
+        watcher->deleteLater();
+    });
+
+    emit status(devicePath, Partition::Renaming);
 }
 
 void UDisks2::Monitor::getBlockDevices()

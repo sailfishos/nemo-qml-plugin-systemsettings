@@ -132,6 +132,8 @@ UDisks2::Job::Operation UDisks2::Job::operation() const
         return Lock;
     } else if (operation == UDISKS2_JOB_OP_ENC_UNLOCK) {
         return Unlock;
+    } else if (operation == UDISKS2_JOB_OP_FS_SETLABEL) {
+        return SetLabel;
     } else {
         return Unknown;
     }

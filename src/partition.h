@@ -73,7 +73,8 @@ public:
         Unlocking,
         Unlocked,
         Locking,
-        Locked
+        Locked,
+        Renaming
     };
 
     Q_DECLARE_FLAGS(StorageTypes, StorageType)

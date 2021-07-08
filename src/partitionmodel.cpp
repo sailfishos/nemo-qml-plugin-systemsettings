@@ -69,6 +69,9 @@ PartitionModel::PartitionModel(QObject *parent)
     connect(m_manager.data(), &PartitionManagerPrivate::formatError, this, [this](Partition::Error error) {
         emit formatError(static_cast<PartitionModel::Error>(error));
     });
+    connect(m_manager.data(), &PartitionManagerPrivate::setLabelError, this, [this](Partition::Error error) {
+        emit setLabelError(static_cast<PartitionModel::Error>(error));
+    });
 }
 
 PartitionModel::~PartitionModel()
@@ -159,6 +162,16 @@ void PartitionModel::unmount(const QString &devicePath)
         m_manager->unmount(*partition);
     } else {
         qCWarning(lcMemoryCardLog) << "Unable to unmount unknown device:" << devicePath;
+    }
+}
+
+void PartitionModel::setLabel(const QString &devicePath, const QString &label)
+{
+    qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << devicePath << m_partitions.count();
+    if (const Partition *partition = getPartition(devicePath)) {
+        m_manager->setLabel(*partition, label);
+    } else {
+        qCWarning(lcMemoryCardLog) << "Unable to rename unknown device:" << devicePath;
     }
 }
 

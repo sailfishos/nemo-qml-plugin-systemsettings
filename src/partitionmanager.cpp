@@ -66,6 +66,7 @@ PartitionManagerPrivate::PartitionManagerPrivate()
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::mountError, this, &PartitionManagerPrivate::mountError);
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::unmountError, this, &PartitionManagerPrivate::unmountError);
     connect(m_udisksMonitor.data(), &UDisks2::Monitor::formatError, this, &PartitionManagerPrivate::formatError);
+    connect(m_udisksMonitor.data(), &UDisks2::Monitor::setLabelError, this, &PartitionManagerPrivate::setLabelError);
     connect(UDisks2::BlockDevices::instance(), &UDisks2::BlockDevices::externalStoragesPopulated,
             this, &PartitionManagerPrivate::externalStoragesPopulatedChanged);
 
@@ -341,6 +342,16 @@ void PartitionManagerPrivate::unmount(const Partition &partition)
         m_udisksMonitor->unmount(partition.devicePath());
     } else {
         qCWarning(lcMemoryCardLog) << "Unmount allowed only for external memory cards," << partition.devicePath() << "is not allowed";
+    }
+}
+
+void PartitionManagerPrivate::setLabel(const Partition &partition, const QString &label)
+{
+    qCInfo(lcMemoryCardLog) << "Can setLabel:" << externalMedia.match(partition.deviceName()).hasMatch() << partition.devicePath();
+    if (externalMedia.match(partition.deviceName()).hasMatch()) {
+        m_udisksMonitor->setLabel(partition.devicePath(), label);
+    } else {
+        qCWarning(lcMemoryCardLog) << "SetLabel allowed only for external memory cards," << partition.devicePath() << "is not allowed";
     }
 }
 
