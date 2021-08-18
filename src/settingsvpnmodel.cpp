@@ -838,6 +838,10 @@ QVariantMap SettingsVpnModel::processOpenVpnProvisioningFile(QFile &provisioning
                      if (!arguments.isEmpty()) {
                          rv.insert(QStringLiteral("OpenVPN.BlockIPv6"), arguments.join(QChar(' ')));
                      }
+                } else if (directive == QStringLiteral("up") || directive == QStringLiteral("down")) {
+                    // Ignore both up and down scripts as they would interfere with ConnMan and
+                    // we do not ship any OpenVPN scripts with the package.
+                    qInfo() << "Ignoring " << directive << " script";
                 } else {
                     // A directive that ConnMan does not care about - pass through to the config file
                     extraOptions.append(line);
