@@ -261,7 +261,7 @@ bool UDisks2::Block::isReadOnly() const
 bool UDisks2::Block::isExternal() const
 {
     const QString prefDevice = preferredDevice();
-    return prefDevice != QStringLiteral("/dev/sailfish/home") && prefDevice != QStringLiteral("/dev/sailfish/root")
+    return !prefDevice.startsWith(QStringLiteral("/dev/sailfish/"))
             && mountPath() != QStringLiteral("/home") && mountPath() != QStringLiteral("/");
 }
 
