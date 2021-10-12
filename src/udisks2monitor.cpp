@@ -424,7 +424,7 @@ void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool succe
                 }
             } else {
                 partition->activeState = QStringLiteral("failed");
-                partition->status = operation == UDisks2::Job::Mount ? Partition::Mounted : Partition::Unmounted;
+                partition->status = operation == UDisks2::Job::Mount ? Partition::Unmounted : Partition::Mounted;
             }
 
             partition->valid = true;
