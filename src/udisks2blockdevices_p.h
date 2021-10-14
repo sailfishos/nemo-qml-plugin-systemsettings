@@ -75,7 +75,7 @@ public:
 
     void dumpBlocks() const;
 
-    static bool isExternal(const QString &dbusObjectPath);
+    bool isExternal(const QString &dbusObjectPath);
 
 signals:
     void newBlock(Block *block);

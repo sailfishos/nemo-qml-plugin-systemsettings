@@ -260,9 +260,7 @@ bool UDisks2::Block::isReadOnly() const
 
 bool UDisks2::Block::isExternal() const
 {
-    const QString prefDevice = preferredDevice();
-    return prefDevice != QStringLiteral("/dev/sailfish/home") && prefDevice != QStringLiteral("/dev/sailfish/root")
-            && mountPath() != QStringLiteral("/home") && mountPath() != QStringLiteral("/");
+    m_drive.value(QStringLiteral("Removeable")).toBool();
 }
 
 bool UDisks2::Block::isValid() const

@@ -244,11 +244,12 @@ void UDisks2::Monitor::format(const QString &devicePath, const QString &filesyst
 void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const UDisks2::InterfacePropertyMap &interfaces)
 {
     QString path = objectPath.path();
-    qCDebug(lcMemoryCardLog) << "UDisks interface added:" << path << BlockDevices::isExternal(path);
+    qCDebug(lcMemoryCardLog) << "UDisks interface added:" << path << m_blockDevices->isExternal(path);
     qCInfo(lcMemoryCardLog) << "UDisks dump interface:" << interfaces;
     // External device must have file system or partition so that it can added to the model.
     // Devices without partition table have filesystem interface.
-    if (path.startsWith(QStringLiteral("/org/freedesktop/UDisks2/block_devices/")) && BlockDevices::isExternal(path)) {
+    if (path.startsWith(QStringLiteral("/org/freedesktop/UDisks2/block_devices/")) &&
+        m_blockDevices->isExternal(path)) {
         m_blockDevices->createBlockDevice(path, interfaces);
     } else if (path.startsWith(QStringLiteral("/org/freedesktop/UDisks2/jobs"))) {
         QVariantMap dict = interfaces.value(UDISKS2_JOB_INTERFACE);
@@ -302,7 +303,7 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
         job->deleteLater();
     } else if (m_blockDevices->contains(path) && interfaces.contains(UDISKS2_BLOCK_INTERFACE)) {
         // Cleanup partitions first.
-        if (BlockDevices::isExternal(path)) {
+        if (m_blockDevices->isExternal(path)) {
             PartitionManagerPrivate::Partitions removedPartitions;
             QStringList blockDevPaths = { path };
             lookupPartitions(removedPartitions, blockDevPaths);

@@ -231,8 +231,8 @@ bool BlockDevices::populated() const
 
 bool BlockDevices::isExternal(const QString &dbusObjectPath)
 {
-    static const QRegularExpression externalBlockDevice(QStringLiteral("^/org/freedesktop/UDisks2/block_devices/%1$").arg(externalDevice));
-    return externalBlockDevice.match(dbusObjectPath).hasMatch();
+    Block *maybeRemoveable = device(dbusObjectPath);
+    return maybeRemoveable->isExternal();
 }
 
 void BlockDevices::blockCompleted()
