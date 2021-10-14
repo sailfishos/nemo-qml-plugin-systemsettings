@@ -258,9 +258,9 @@ bool UDisks2::Block::isReadOnly() const
     return value(QStringLiteral("ReadOnly")).toBool();
 }
 
-bool UDisks2::Block::isExternal() const
+bool UDisks2::Block::isExternal()
 {
-    m_drive.value(QStringLiteral("Removeable")).toBool();
+    return m_drive.contains(QLatin1String("Removable")) && m_drive.value(QStringLiteral("Removable")).toBool();
 }
 
 bool UDisks2::Block::isValid() const

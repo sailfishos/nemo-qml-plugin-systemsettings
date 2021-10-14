@@ -147,10 +147,6 @@ QStringList BlockDevices::devicePaths(const QStringList &dbusObjectPaths) const
 
 bool BlockDevices::createBlockDevice(const QString &dbusObjectPath, const InterfacePropertyMap &interfacePropertyMap)
 {
-    if (!BlockDevices::isExternal(dbusObjectPath)) {
-        updatePopulatedCheck();
-        return false;
-    }
 
     return doCreateBlockDevice(dbusObjectPath, interfacePropertyMap);
 }
@@ -231,7 +227,7 @@ bool BlockDevices::populated() const
 
 bool BlockDevices::isExternal(const QString &dbusObjectPath)
 {
-    Block *maybeRemoveable = device(dbusObjectPath);
+    Block *maybeRemoveable = find(dbusObjectPath);
     return maybeRemoveable->isExternal();
 }
 

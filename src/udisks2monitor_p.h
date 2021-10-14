@@ -114,6 +114,7 @@ private:
     void createPartition(const Block *block);
     void getBlockDevices();
     void connectSignals(UDisks2::Block *block);
+    bool isActionAllowed(const QString &devicePath, const QString &action);
 
 private:
     static Monitor *sharedInstance;

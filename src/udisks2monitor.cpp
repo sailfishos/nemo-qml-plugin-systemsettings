@@ -137,6 +137,16 @@ UDisks2::Monitor::~Monitor()
     m_blockDevices = nullptr;
 }
 
+bool UDisks2::Monitor::isActionAllowed(const QString &devicePath, const QString &action)
+{
+    qCInfo(lcMemoryCardLog) << "Is removeable:" << m_blockDevices->isExternal(devicePath);
+    if (!m_blockDevices->isExternal(devicePath)) {
+        qCWarning(lcMemoryCardLog) << action << " allowed only for external memory cards," << devicePath << "is not allowed";
+        return false;
+    }
+    return true;
+}
+
 // TODO : Move lock, unlock, mount, unmount, format inside udisks2block.cpp
 // unlock, mount, format should be considered completed only after file system interface re-appears for the block.
 void UDisks2::Monitor::lock(const QString &devicePath)
@@ -144,6 +154,9 @@ void UDisks2::Monitor::lock(const QString &devicePath)
     QVariantList arguments;
     QVariantMap options;
     arguments << options;
+
+    if(!isActionAllowed(devicePath, QStringLiteral("lock")))
+       return;
 
     if (Block *block = m_blockDevices->find(devicePath)) {
         block->dumpInfo();
@@ -163,6 +176,9 @@ void UDisks2::Monitor::lock(const QString &devicePath)
 
 void UDisks2::Monitor::unlock(const QString &devicePath, const QString &passphrase)
 {
+    if(!isActionAllowed(devicePath, QStringLiteral("lock")))
+        return;
+
     QVariantList arguments;
     arguments << passphrase;
     QVariantMap options;
@@ -174,6 +190,9 @@ void UDisks2::Monitor::mount(const QString &devicePath)
 {
     QVariantList arguments;
     QVariantMap options;
+
+    if(!isActionAllowed(devicePath, QStringLiteral("mount")))
+       return;
 
     if (Block *block = m_blockDevices->find(devicePath)) {
         QString objectPath;
@@ -197,6 +216,9 @@ void UDisks2::Monitor::mount(const QString &devicePath)
 
 void UDisks2::Monitor::unmount(const QString &devicePath)
 {
+    if(!isActionAllowed(devicePath, QStringLiteral("unmount")))
+        return;
+
     QVariantList arguments;
     QVariantMap options;
     arguments << options;
@@ -205,6 +227,9 @@ void UDisks2::Monitor::unmount(const QString &devicePath)
 
 void UDisks2::Monitor::format(const QString &devicePath, const QString &filesystemType, const QVariantMap &arguments)
 {
+    if(!isActionAllowed(devicePath, QStringLiteral("unmount")))
+        return;
+
     if (devicePath.isEmpty()) {
         qCCritical(lcMemoryCardLog) << "Cannot format without device name";
         return;
@@ -244,7 +269,7 @@ void UDisks2::Monitor::format(const QString &devicePath, const QString &filesyst
 void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const UDisks2::InterfacePropertyMap &interfaces)
 {
     QString path = objectPath.path();
-    qCDebug(lcMemoryCardLog) << "UDisks interface added:" << path << m_blockDevices->isExternal(path);
+    qCDebug(lcMemoryCardLog) << "UDisks interface added:" << path;
     qCInfo(lcMemoryCardLog) << "UDisks dump interface:" << interfaces;
     // External device must have file system or partition so that it can added to the model.
     // Devices without partition table have filesystem interface.
