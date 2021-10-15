@@ -38,5 +38,6 @@
 
 QString localeConfigPath();
 QString systemLocaleConfigPath();
+QString preferredLocaleConfigPath();
 
 #endif
