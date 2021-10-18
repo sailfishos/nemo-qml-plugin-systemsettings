@@ -49,3 +49,9 @@ QString systemLocaleConfigPath()
     // System-wide locale config
     return QString("/etc/locale.conf");
 }
+
+QString preferredLocaleConfigPath()
+{
+    // Preferred locale config
+    return QString("/etc/locale.preferred.conf");
+}

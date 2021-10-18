@@ -100,9 +100,17 @@ QHash<int, QByteArray> LanguageModel::roleNames() const
 
 void LanguageModel::readCurrentLocale()
 {
-    QFile localeConfig(localeConfigPath());
+    QFile localeConfig;
+    QList<QString> configsPaths{localeConfigPath(), preferredLocaleConfigPath()};
 
-    if (!localeConfig.exists() || !localeConfig.open(QIODevice::ReadOnly)) {
+    foreach (const QString &configPath, configsPaths) {
+        localeConfig.setFileName(configPath);
+        if (localeConfig.exists() && localeConfig.open(QIODevice::ReadOnly)) {
+            break;
+        }
+    }
+
+    if (!localeConfig.isOpen()) {
         return;
     }
 
