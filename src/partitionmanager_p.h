@@ -43,7 +43,6 @@ namespace UDisks2 {
 class Monitor;
 }
 
-static const auto externalDevice = QStringLiteral("mmcblk(?!0)\\d+(?:p\\d+$)?|(sd[a-z]\\d*)|(dm[_-]\\d+(?:d\\d+)?)");
 
 class PartitionManagerPrivate : public QObject, public QSharedData
 {
@@ -92,6 +91,7 @@ signals:
     void formatError(Partition::Error error);
 
 private:
+    bool isActionAllowed(const QString &devicePath, const QString &action);
     // TODO: This is leaking (Disks2::Monitor is never free'ed).
     static PartitionManagerPrivate *sharedInstance;
 
