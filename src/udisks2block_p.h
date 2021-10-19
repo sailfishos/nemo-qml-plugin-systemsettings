@@ -92,7 +92,7 @@ public:
     void setLocking();
 
     bool isReadOnly() const;
-    bool isExternal() const;
+    bool hintAuto() const;
 
     bool isValid() const;
 

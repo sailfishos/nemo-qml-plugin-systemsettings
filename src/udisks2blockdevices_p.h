@@ -71,11 +71,14 @@ public:
     void clearPartitionWait(const QString &dbusObjectPath, bool destroyBlock);
 
     void removeInterfaces(const QString &dbusObjectPath, const QStringList &interfaces);
+
+    bool hintAuto(const QString &dbusObjectPath);
+    bool hintAuto(const Block *maybeHintAuto);
+
     bool populated() const;
 
     void dumpBlocks() const;
 
-    static bool isExternal(const QString &dbusObjectPath);
 
 signals:
     void newBlock(Block *block);

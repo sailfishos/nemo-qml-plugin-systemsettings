@@ -147,11 +147,6 @@ QStringList BlockDevices::devicePaths(const QStringList &dbusObjectPaths) const
 
 bool BlockDevices::createBlockDevice(const QString &dbusObjectPath, const InterfacePropertyMap &interfacePropertyMap)
 {
-    if (!BlockDevices::isExternal(dbusObjectPath)) {
-        updatePopulatedCheck();
-        return false;
-    }
-
     return doCreateBlockDevice(dbusObjectPath, interfacePropertyMap);
 }
 
@@ -229,10 +224,25 @@ bool BlockDevices::populated() const
     return m_populated;
 }
 
-bool BlockDevices::isExternal(const QString &dbusObjectPath)
+bool BlockDevices::hintAuto(const Block *maybeHintAuto)
 {
-    static const QRegularExpression externalBlockDevice(QStringLiteral("^/org/freedesktop/UDisks2/block_devices/%1$").arg(externalDevice));
-    return externalBlockDevice.match(dbusObjectPath).hasMatch();
+    if (!maybeHintAuto->hintAuto()) {
+        if (!maybeHintAuto->hasCryptoBackingDevice())
+            return false;
+        return hintAuto(maybeHintAuto->cryptoBackingDeviceObjectPath());
+    }
+    return true;
+}
+
+bool BlockDevices::hintAuto(const QString &devicePath)
+{
+    Block *maybeHintAuto = find([devicePath](const Block *block) {
+        return block->device() == devicePath || block->path() == devicePath;
+    });
+    if (!maybeHintAuto)
+        return false;
+
+    return hintAuto(maybeHintAuto);
 }
 
 void BlockDevices::blockCompleted()
@@ -305,7 +315,7 @@ void BlockDevices::dumpBlocks() const
 
 void BlockDevices::complete(Block *block, bool forceAccept)
 {
-    if (!block->isExternal()) {
+    if (!hintAuto(block)) {
         block->deleteLater();
         return;
     }

@@ -270,11 +270,9 @@ bool UDisks2::Block::isReadOnly() const
     return value(QStringLiteral("ReadOnly")).toBool();
 }
 
-bool UDisks2::Block::isExternal() const
+bool UDisks2::Block::hintAuto() const
 {
-    const QString prefDevice = preferredDevice();
-    return prefDevice != QStringLiteral("/dev/sailfish/home") && prefDevice != QStringLiteral("/dev/sailfish/root")
-            && mountPath() != QStringLiteral("/home") && mountPath() != QStringLiteral("/");
+    return value(QStringLiteral("HintAuto")).toBool();
 }
 
 bool UDisks2::Block::isValid() const
@@ -360,6 +358,7 @@ void UDisks2::Block::dumpInfo() const
                             << "crypto backing object path:" << cryptoBackingDeviceObjectPath();
     qCInfo(lcMemoryCardLog) << "- isformatting:" << isFormatting();
     qCInfo(lcMemoryCardLog) << "- ispartiontable:" << isPartitionTable() << "ispartition:" << isPartition();
+    qCInfo(lcMemoryCardLog) << "- hintAuto:" << hintAuto();
 }
 
 QString UDisks2::Block::cryptoBackingDevicePath(const QString &objectPath)
