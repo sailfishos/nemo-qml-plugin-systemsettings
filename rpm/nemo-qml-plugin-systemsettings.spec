@@ -3,7 +3,7 @@ Summary:    System settings plugin for Nemo Mobile
 Version:    0.5.75
 Release:    1
 License:    BSD
-URL:        https://git.sailfishos.org/mer-core/nemo-qml-plugin-systemsettings
+URL:        https://github.com/sailfishos/nemo-qml-plugin-systemsettings/
 Source0:    %{name}-%{version}.tar.bz2
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
@@ -100,6 +100,8 @@ fi
 %attr(4710,-,privileged) %{_libexecdir}/setlocale
 %dir %attr(0775, root, privileged) /etc/location
 %config %attr(0664, root, privileged) /etc/location/location.conf
+%dir %attr(0775, root, privileged) /var/lib/location
+%config %attr(0664, root, privileged) /var/lib/location/location.conf
 %{_datadir}/translations/*.qm
 
 %files devel
