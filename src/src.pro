@@ -96,7 +96,10 @@ pkgconfig.files = $$PWD/pkgconfig/systemsettings.pc
 pkgconfig.path = $$target.path/pkgconfig
 
 locationconfig.files = $$PWD/location.conf
-locationconfig.path = /etc/location
+locationconfig.path = /var/lib/location
+
+compat_locationconfig.files = $$PWD/location.conf
+compat_locationconfig.path = /etc/location
 
 QMAKE_PKGCONFIG_NAME = lib$$TARGET
 QMAKE_PKGCONFIG_VERSION = $$VERSION
@@ -106,4 +109,4 @@ QMAKE_PKGCONFIG_INCDIR = $$develheaders.path
 QMAKE_PKGCONFIG_DESTDIR = pkgconfig
 QMAKE_PKGCONFIG_REQUIRES = Qt5Core Qt5DBus profile libsailfishkeyprovider connman-qt5
 
-INSTALLS += target develheaders pkgconfig locationconfig
+INSTALLS += target develheaders pkgconfig locationconfig compat_locationconfig

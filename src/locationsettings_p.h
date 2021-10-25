@@ -89,7 +89,7 @@ private slots:
 class IniFile
 {
 public:
-    IniFile(const QString &fileName);
+    IniFile(const QString &fileName, const QString &compatibilityFileName = QString());
     ~IniFile();
 
     bool isValid() const;
@@ -100,6 +100,7 @@ public:
 private:
     mutable QScopedPointer<Sailfish::KeyProvider::ProcessMutex> m_processMutex;
     QString m_fileName;
+    QString m_compatibilityFileName;
     GKeyFile *m_keyFile;
     GError *m_error;
     bool m_modified;
