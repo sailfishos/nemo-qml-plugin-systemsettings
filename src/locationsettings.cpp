@@ -52,8 +52,9 @@ namespace {
     const QString LocationSettingsDeprecatedHereAgreementAcceptedKey = QStringLiteral("agreement_accepted");
 
     const QString PoweredPropertyName = QStringLiteral("Powered");
-    const QString LocationSettingsDir = QStringLiteral("/etc/location/");
-    const QString LocationSettingsFile = QStringLiteral("/etc/location/location.conf");
+    const QString LocationSettingsDir = QStringLiteral("/var/lib/location/");
+    const QString LocationSettingsFile = QStringLiteral("/var/lib/location/location.conf");
+    const QString CompatibilitySettingsFile = QStringLiteral("/etc/location/location.conf");
     const QString LocationSettingsSection = QStringLiteral("location");
     const QString LocationSettingsEnabledKey = QStringLiteral("enabled");
     const QString LocationSettingsCustomModeKey = QStringLiteral("custom_mode");
@@ -82,8 +83,9 @@ namespace {
     const QString MlsName = QStringLiteral("mls");
 }
 
-IniFile::IniFile(const QString &fileName)
+IniFile::IniFile(const QString &fileName, const QString &compatibilityFileName)
     : m_fileName(fileName)
+    , m_compatibilityFileName(compatibilityFileName)
     , m_keyFile(Q_NULLPTR)
     , m_error(Q_NULLPTR)
     , m_modified(false)
@@ -121,6 +123,18 @@ IniFile::~IniFile()
                        << m_error->code << QString::fromUtf8(m_error->message);
             g_error_free(m_error);
             m_error = Q_NULLPTR;
+        }
+
+        if (!m_compatibilityFileName.isEmpty()) {
+            g_key_file_save_to_file(m_keyFile,
+                                    qPrintable(m_compatibilityFileName),
+                                    &m_error);
+            if (m_error) {
+                qWarning() << "Unable to save changes to compatibility key file:" << m_compatibilityFileName << ":"
+                       << m_error->code << QString::fromUtf8(m_error->message);
+                g_error_free(m_error);
+                m_error = Q_NULLPTR;
+            }
         }
     }
     if (m_keyFile) {
@@ -771,7 +785,7 @@ void LocationSettingsPrivate::writeSettings()
 
     // write the values to the conf file
     {
-        IniFile ini(LocationSettingsFile);
+        IniFile ini(LocationSettingsFile, CompatibilitySettingsFile);
 
         ini.writeBool(LocationSettingsSection, LocationSettingsEnabledKey, m_locationEnabled);
         ini.writeBool(LocationSettingsSection, LocationSettingsCustomModeKey, m_locationMode == LocationSettings::CustomMode);
