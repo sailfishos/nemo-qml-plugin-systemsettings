@@ -73,20 +73,11 @@ rm -rf %{buildroot}
 
 %post
 /sbin/ldconfig
-# Migrate old installations to system/user locale, see JB#47651
-if [ -e /var/lib/environment/nemo/locale.conf ]
+# Note: can be removed after a stop release
+if [ ! -e /var/lib/location/configuration-migrated ]
 then
-    # Copy system locale to user location
-    if [ ! -e /home/.system/var/lib/environment/100000/locale.conf ]
-    then
-        mkdir -p /home/.system/var/lib/environment/100000 || :
-        # Fix an issue with dir perms, from connman
-        chmod +rx /home/.system /home/.system/var /home/.system/var/lib || :
-        cp /var/lib/environment/nemo/locale.conf /home/.system/var/lib/environment/100000/ || :
-    fi
-
-    # Migrate to new system locale location
-    mv /var/lib/environment/nemo/locale.conf /etc/locale.conf || :
+    cp /etc/location/location.conf /var/lib/location/location.conf || :
+    touch /var/lib/location/configuration-migrated || :
 fi
 
 %postun -p /sbin/ldconfig
