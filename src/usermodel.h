@@ -41,8 +41,8 @@
 #include "systemsettingsglobal.h"
 #include "userinfo.h"
 
-class QDBusInterface;
-class QDBusPendingCallWatcher;
+#include <nemo-dbus/interface.h>
+
 class QDBusServiceWatcher;
 struct SailfishUserManagerEntry;
 
@@ -161,7 +161,7 @@ private:
     QVector<UserInfo> m_users;
     QHash<uint, int> m_uidsToRows;
     QSet<uint> m_transitioning;
-    QDBusInterface *m_dBusInterface;
+    NemoDBus::Interface *m_dBusInterface;
     QDBusServiceWatcher *m_dBusWatcher;
     bool m_guestEnabled;
 };

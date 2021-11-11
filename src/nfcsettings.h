@@ -4,9 +4,9 @@
 #include <systemsettingsglobal.h>
 
 #include <QObject>
-#include <QDBusInterface>
-#include <QDBusPendingCallWatcher>
 #include <QTimer>
+
+#include <nemo-dbus/interface.h>
 
 class SYSTEMSETTINGS_EXPORT NfcSettings : public QObject
 {
@@ -33,11 +33,10 @@ private:
     bool m_valid;
     bool m_enabled;
     bool m_available;
-    QDBusInterface *m_interface;
+    NemoDBus::Interface *m_interface;
     QTimer *m_timer;
 
 private slots:
-    void getEnableStateFinished(QDBusPendingCallWatcher* call);
     void updateEnabledState(bool enabled);
 };
 

@@ -35,6 +35,9 @@
 
 #include "batterystatus.h"
 
+#include <nemo-dbus/connection.h>
+#include <nemo-dbus/interface.h>
+
 class QDBusPendingCallWatcher;
 
 class BatteryStatusPrivate : public QObject
@@ -63,9 +66,9 @@ public slots:
     void statusChanged(const QString &s);
     void chargePercentageChanged(int percentage);
 
-    void initialChargerState(QDBusPendingCallWatcher *watcher);
-    void initialBatteryStatus(QDBusPendingCallWatcher *watcher);
-    void initialChargePercentage(QDBusPendingCallWatcher *watcher);
+private:
+    NemoDBus::Connection m_connection;
+    NemoDBus::Interface m_mceInterface;
 };
 
 #endif // BATTERYSTATUS_P_H

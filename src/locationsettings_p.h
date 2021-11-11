@@ -35,11 +35,12 @@
 
 #include <QFileSystemWatcher>
 #include <QScopedPointer>
-#include <QDBusInterface>
 #include <QVariant>
 #include <QString>
 #include <QStringList>
 #include <QHash>
+
+#include <nemo-dbus/interface.h>
 
 #include <sailfishkeyprovider_processmutex.h>
 
@@ -77,7 +78,7 @@ public:
     LocationSettings::DataSources m_allowedDataSources;
     NetworkManager *m_connMan;
     NetworkTechnology *m_gpsTech;
-    QDBusInterface *m_gpsTechInterface;
+    NemoDBus::Interface *m_gpsTechInterface;
 
 private slots:
     void readSettings();

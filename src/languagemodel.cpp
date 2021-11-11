@@ -36,8 +36,10 @@
 #include <QDebug>
 #include <QSettings>
 #include <QHash>
-#include <QDBusInterface>
 #include <QProcess>
+
+#include <nemo-dbus/connection.h>
+#include <nemo-dbus/interface.h>
 
 namespace {
 const char * const LanguageSupportDirectory = "/usr/share/jolla-supported-languages";
@@ -192,9 +194,10 @@ void LanguageModel::setSystemLocale(const QString &localeCode, LocaleUpdateMode 
     }
 
     if (updateMode == UpdateAndReboot) {
-        QDBusInterface dsmeInterface("com.nokia.dsme", "/com/nokia/dsme/request", "com.nokia.dsme.request",
-                                     QDBusConnection::systemBus());
-        dsmeInterface.call("req_reboot");
+        NemoDBus::Interface dsmeInterface(
+                this, QDBusConnection::systemBus(),
+                "com.nokia.dsme", "/com/nokia/dsme/request", "com.nokia.dsme.request");
+        dsmeInterface.blockingCall("req_reboot");
     }
 }
 

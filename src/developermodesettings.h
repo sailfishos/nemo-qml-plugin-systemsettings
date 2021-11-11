@@ -35,11 +35,12 @@
 #define DEVELOPERMODESETTINGS_H
 
 #include <QObject>
-#include <QDBusInterface>
 
 #include <systemsettingsglobal.h>
 #include <daemon.h>
 
+#include <nemo-dbus/connection.h>
+#include <nemo-dbus/interface.h>
 
 QT_BEGIN_NAMESPACE
 class QDBusPendingCallWatcher;
@@ -125,7 +126,8 @@ private:
     QString usbModedGetConfig(const QString &key, const QString &fallback);
     void usbModedSetConfig(const QString &key, const QString &value);
 
-    QDBusInterface m_usbModeDaemon;
+    NemoDBus::Connection m_connection;
+    NemoDBus::Interface m_usbModeDaemon;
     QString m_wlanIpAddress;
     QString m_usbInterface;
     QString m_usbIpAddress;

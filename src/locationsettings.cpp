@@ -201,10 +201,11 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
     , m_gpsTech(Q_NULLPTR)
     , m_gpsTechInterface(mode == LocationSettings::AsynchronousMode
                          ? Q_NULLPTR
-                         : new QDBusInterface("net.connman",
-                                              "/net/connman/technology/gps",
-                                              "net.connman.Technology",
-                                              QDBusConnection::systemBus()))
+                         : new NemoDBus::Interface(
+                                this, QDBusConnection::systemBus(),
+                                "net.connman",
+                                "/net/connman/technology/gps",
+                                "net.connman.Technology"))
 {
     loadProviders();
 
@@ -492,7 +493,7 @@ bool LocationSettings::gpsFlightMode() const
 {
     Q_D(const LocationSettings);
     if (d->m_gpsTechInterface) {
-        QDBusReply<QVariantMap> reply = d->m_gpsTechInterface->call("GetProperties");
+        QDBusReply<QVariantMap> reply = d->m_gpsTechInterface->blockingCall("GetProperties");
         if (reply.error().isValid()) {
             qWarning() << reply.error().message();
         } else {
@@ -512,7 +513,7 @@ void LocationSettings::setGpsFlightMode(bool flightMode)
 {
     Q_D(LocationSettings);
     if (d->m_gpsTechInterface) {
-        QDBusReply<void> reply = d->m_gpsTechInterface->call("SetProperty",
+        QDBusReply<void> reply = d->m_gpsTechInterface->blockingCall("SetProperty",
                                                              PoweredPropertyName,
                                                              QVariant::fromValue<QDBusVariant>(QDBusVariant(QVariant::fromValue<bool>(!flightMode))));
         if (reply.error().isValid()) {

@@ -32,8 +32,10 @@
 
 #include "nfcsettings.h"
 
-#include <QDBusConnection>
+#include <nemo-dbus/response.h>
+
 #include <QDBusConnectionInterface>
+#include <QDBusConnection>
 #include <QDebug>
 
 NfcSettings::NfcSettings(QObject *parent)
@@ -41,27 +43,32 @@ NfcSettings::NfcSettings(QObject *parent)
     , m_valid(false)
     , m_enabled(false)
     , m_available(false)
+    , m_interface(new NemoDBus::Interface(
+            this, QDBusConnection::systemBus(),
+            "org.sailfishos.nfc.settings",
+            "/",
+            "org.sailfishos.nfc.Settings"))
 {
-    m_interface = new QDBusInterface("org.sailfishos.nfc.settings",
-                                     "/",
-                                     "org.sailfishos.nfc.Settings",
-                                     QDBusConnection::systemBus(),
-                                     this);
     if (QDBusConnection::systemBus().interface()->isServiceRegistered("org.sailfishos.nfc.settings")) {
         m_available = true;
         emit availableChanged();
 
-        QDBusPendingCall pcall = m_interface->asyncCall(QLatin1String("GetEnabled"));
-        QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(pcall, this);
+        NemoDBus::Response *response = m_interface->call(QLatin1String("GetEnabled"));
+        response->onError([this](const QDBusError &error) {
+            qWarning() << "Get dbus error:" << error;
+        });
+        response->onFinished<bool>([this](bool value) {
+            updateEnabledState(value);
+            m_valid = true;
+            emit validChanged();
+        });
 
-        connect(watcher, &QDBusPendingCallWatcher::finished, this, &NfcSettings::getEnableStateFinished);
         QDBusConnection::systemBus().connect("org.sailfishos.nfc.settings", "/", "org.sailfishos.nfc.Settings", "EnabledChanged", this, SLOT(updateEnabledState(bool)));
 
     } else {
         qWarning() << "NFC interface not available";
-        qWarning() << m_interface->lastError();
+        qWarning() << QDBusConnection::systemBus().interface()->lastError();
     }
-
 }
 
 NfcSettings::~NfcSettings()
@@ -85,20 +92,10 @@ bool NfcSettings::enabled() const
 
 void NfcSettings::setEnabled(bool enabled)
 {
-    m_interface->asyncCall("SetEnabled", enabled);
-}
-
-void NfcSettings::getEnableStateFinished(QDBusPendingCallWatcher *call)
-{
-    QDBusPendingReply<bool> reply = *call;
-    if (reply.isError()) {
-        qWarning() << "Get dbus error:" << reply.error();
-    } else {
-        updateEnabledState(reply.value());
-        m_valid = true;
-        emit validChanged();
-    }
-    call->deleteLater();
+    NemoDBus::Response *response = m_interface->call("SetEnabled", enabled);
+    response->onError([this](const QDBusError &error) {
+        qWarning() << "Set dbus error:" << error;
+    });
 }
 
 void NfcSettings::updateEnabledState(bool enabled)
