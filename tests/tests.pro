@@ -5,14 +5,12 @@ PACKAGENAME = nemo-qml-plugin-systemsettings
 QT += testlib qml dbus systeminfo
 QT -= gui
 
-system(sed -e s/@PACKAGENAME@/$${PACKAGENAME}/g tests.xml.template > tests.xml)
-
 TEMPLATE = app
 TARGET = ut_diskusage
 
-target.path = $$[QT_INSTALL_LIBS]/$${PACKAGENAME}-tests
+target.path = /opt/tests/$${PACKAGENAME}-tests
 
-xml.path = /usr/share/$${PACKAGENAME}-tests
+xml.path = /opt/tests/$${PACKAGENAME}-tests
 xml.files = tests.xml
 
 contains(cov, true) {

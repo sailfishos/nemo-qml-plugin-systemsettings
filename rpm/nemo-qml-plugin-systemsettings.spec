@@ -103,8 +103,8 @@ fi
 
 %files tests
 %defattr(-,root,root,-)
-%{_libdir}/%{name}-tests/ut_diskusage
-%{_datadir}/%{name}-tests/tests.xml
+/opt/tests/%{name}-tests/ut_diskusage
+/opt/tests/%{name}-tests/tests.xml
 
 %files ts-devel
 %{_datadir}/translations/source/*.ts
