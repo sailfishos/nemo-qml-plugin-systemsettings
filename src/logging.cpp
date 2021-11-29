@@ -34,4 +34,5 @@
 Q_LOGGING_CATEGORY(lcVpnLog, "org.sailfishos.settings.vpn", QtWarningMsg)
 Q_LOGGING_CATEGORY(lcDeveloperModeLog, "org.sailfishos.settings.developermode", QtWarningMsg)
 Q_LOGGING_CATEGORY(lcMemoryCardLog, "org.sailfishos.settings.memorycard", QtWarningMsg)
+Q_LOGGING_CATEGORY(lcMemoryCardSuppressedLog, "org.sailfishos.settings.memorycard.suppressed", QtCriticalMsg)
 Q_LOGGING_CATEGORY(lcUsersLog, "org.sailfishos.settings.users", QtWarningMsg)

@@ -67,7 +67,7 @@ const QHash<const QString, int> errorTypeMap = {
     { QStringLiteral(SailfishUserManagerErrorRemoveFromGroupFailed), UserModel::RemoveFromGroupFailed },
 };
 
-int getErrorType(QDBusError &error)
+int getErrorType(const QDBusError &error)
 {
     if (error.type() != QDBusError::Other)
         return error.type();
@@ -226,10 +226,14 @@ bool UserModel::setData(const QModelIndex &index, const QVariant &value, int rol
         user.setName(name);
         if (user.isValid()) {
             createInterface();
-            auto call = m_dBusInterface->asyncCall(QStringLiteral("modifyUser"), (uint)user.uid(), name);
-            auto *watcher = new QDBusPendingCallWatcher(call, this);
-            connect(watcher, &QDBusPendingCallWatcher::finished,
-                    this, std::bind(&UserModel::userModifyFinished, this, std::placeholders::_1, user.uid()));
+            const int uid = user.uid();
+            auto response = m_dBusInterface->call(QStringLiteral("modifyUser"), (uint)uid, name);
+            response->onError([this, uid](const QDBusError &error) {
+                int row = m_uidsToRows.value(uid);
+                emit userModifyFailed(row, getErrorType(error));
+                qCWarning(lcUsersLog) << "Modifying user with usermanager failed:" << error;
+                reset(row);
+            });
         }
         emit dataChanged(index, index, QVector<int>() << role);
         return true;
@@ -272,11 +276,20 @@ void UserModel::createUser()
     m_transitioning.insert(user.uid());
     auto idx = index(m_users.count()-1, 0);
     emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
+
     createInterface();
-    auto call = m_dBusInterface->asyncCall(QStringLiteral("addUser"), user.name());
-    auto *watcher = new QDBusPendingCallWatcher(call, this);
-    connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, &UserModel::userAddFinished);
+    auto response = m_dBusInterface->call(QStringLiteral("addUser"), user.name());
+    response->onError([this](const QDBusError &error) {
+        emit userAddFailed(getErrorType(error));
+        qCWarning(lcUsersLog) << "Adding user with usermanager failed:" << error;
+    });
+    response->onFinished<uint>([this](uint uid) {
+        // Check that this was not just added to the list by onUserAdded
+        if (!m_uidsToRows.contains(uid)) {
+            UserInfo user(uid);
+            add(user);
+        }
+    });
 }
 
 void UserModel::removeUser(int row)
@@ -291,11 +304,18 @@ void UserModel::removeUser(int row)
     m_transitioning.insert(user.uid());
     auto idx = index(row, 0);
     emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
+
     createInterface();
-    auto call = m_dBusInterface->asyncCall(QStringLiteral("removeUser"), (uint)user.uid());
-    auto *watcher = new QDBusPendingCallWatcher(call, this);
-    connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::userRemoveFinished, this, std::placeholders::_1, user.uid()));
+    const int uid = user.uid();
+    auto response = m_dBusInterface->call(QStringLiteral("removeUser"), (uint)uid);
+    response->onError([this, uid](const QDBusError &error) {
+        int row = m_uidsToRows.value(uid);
+        emit userRemoveFailed(row, getErrorType(error));
+        qCWarning(lcUsersLog) << "Removing user with usermanager failed:" << error;
+        m_transitioning.remove(uid);
+        auto idx = index(row, 0);
+        emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
+    });
 }
 
 void UserModel::setCurrentUser(int row)
@@ -308,10 +328,12 @@ void UserModel::setCurrentUser(int row)
         return;
 
     createInterface();
-    auto call = m_dBusInterface->asyncCall(QStringLiteral("setCurrentUser"), (uint)user.uid());
-    auto *watcher = new QDBusPendingCallWatcher(call, this);
-    connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::setCurrentUserFinished, this, std::placeholders::_1, user.uid()));
+    const int uid = user.uid();
+    auto response = m_dBusInterface->call(QStringLiteral("setCurrentUser"), (uint)uid);
+    response->onError([this, uid](const QDBusError &error) {
+        emit setCurrentUserFailed(m_uidsToRows.value(uid), getErrorType(error));
+        qCWarning(lcUsersLog) << "Switching user with usermanager failed:" << error;
+    });
 }
 
 void UserModel::reset(int row)
@@ -351,10 +373,15 @@ void UserModel::addGroups(int row, const QStringList &groups)
         return;
 
     createInterface();
-    auto call = m_dBusInterface->asyncCall(QStringLiteral("addToGroups"), (uint)user.uid(), groups);
-    auto *watcher = new QDBusPendingCallWatcher(call, this);
-    connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::addToGroupsFinished, this, std::placeholders::_1, user.uid()));
+    const int uid = user.uid();
+    auto response = m_dBusInterface->call(QStringLiteral("addToGroups"), (uint)uid, groups);
+    response->onError([this, uid](const QDBusError &error) {
+        emit addGroupsFailed(m_uidsToRows.value(uid), getErrorType(error));
+        qCWarning(lcUsersLog) << "Adding user to groups failed:" << error;
+    });
+    response->onFinished([this, uid]() {
+        emit userGroupsChanged(m_uidsToRows.value(uid));
+    });
 }
 
 void UserModel::removeGroups(int row, const QStringList &groups)
@@ -367,10 +394,15 @@ void UserModel::removeGroups(int row, const QStringList &groups)
         return;
 
     createInterface();
-    auto call = m_dBusInterface->asyncCall(QStringLiteral("removeFromGroups"), (uint)user.uid(), groups);
-    auto *watcher = new QDBusPendingCallWatcher(call, this);
-    connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::removeFromGroupsFinished, this, std::placeholders::_1, user.uid()));
+    const int uid = user.uid();
+    auto response = m_dBusInterface->call(QStringLiteral("removeFromGroups"), (uint)uid, groups);
+    response->onError([this, uid](const QDBusError &error) {
+        emit removeGroupsFailed(m_uidsToRows.value(uid), getErrorType(error));
+        qCWarning(lcUsersLog) << "Removing user from groups failed:" << error;
+    });
+    response->onFinished([this, uid]() {
+        emit userGroupsChanged(m_uidsToRows.value(uid));
+    });
 }
 
 void UserModel::onUserAdded(const SailfishUserManagerEntry &entry)
@@ -463,138 +495,76 @@ void UserModel::setGuestEnabled(bool enabled)
         auto idx = index(m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID), 0);
         emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
     }
+
     createInterface();
-    auto call = m_dBusInterface->asyncCall(QStringLiteral("enableGuestUser"), enabled);
-    auto *watcher = new QDBusPendingCallWatcher(call, this);
-    connect(watcher, &QDBusPendingCallWatcher::finished,
-            this, std::bind(&UserModel::enableGuestUserFinished, this, std::placeholders::_1, enabled));
-}
-
-void UserModel::userAddFinished(QDBusPendingCallWatcher *call)
-{
-    QDBusPendingReply<uint> reply = *call;
-    if (reply.isError()) {
-        auto error = reply.error();
-        emit userAddFailed(getErrorType(error));
-        qCWarning(lcUsersLog) << "Adding user with usermanager failed:" << error;
-    } else {
-        uint uid = reply.value();
-        // Check that this was not just added to the list by onUserAdded
-        if (!m_uidsToRows.contains(uid)) {
-            UserInfo user(uid);
-            add(user);
-        }
-    }
-    call->deleteLater();
-}
-
-void UserModel::userModifyFinished(QDBusPendingCallWatcher *call, uint uid)
-{
-    QDBusPendingReply<void> reply = *call;
-    if (reply.isError()) {
-        int row = m_uidsToRows.value(uid);
-        auto error = reply.error();
-        emit userModifyFailed(row, getErrorType(error));
-        qCWarning(lcUsersLog) << "Modifying user with usermanager failed:" << error;
-        reset(row);
-    } // else awesome! (data was changed already)
-    call->deleteLater();
-}
-
-void UserModel::userRemoveFinished(QDBusPendingCallWatcher *call, uint uid)
-{
-    QDBusPendingReply<void> reply = *call;
-    if (reply.isError()) {
-        int row = m_uidsToRows.value(uid);
-        auto error = reply.error();
-        emit userRemoveFailed(row, getErrorType(error));
-        qCWarning(lcUsersLog) << "Removing user with usermanager failed:" << error;
-        m_transitioning.remove(uid);
-        auto idx = index(row, 0);
-        emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
-    } // else awesome! (waiting for signal to alter data)
-    call->deleteLater();
-}
-
-void UserModel::setCurrentUserFinished(QDBusPendingCallWatcher *call, uint uid)
-{
-    QDBusPendingReply<void> reply = *call;
-    if (reply.isError()) {
-        auto error = reply.error();
-        emit setCurrentUserFailed(m_uidsToRows.value(uid), getErrorType(error));
-        qCWarning(lcUsersLog) << "Switching user with usermanager failed:" << error;
-    } // else user switching was initiated successfully
-    call->deleteLater();
-}
-
-void UserModel::addToGroupsFinished(QDBusPendingCallWatcher *call, uint uid)
-{
-    QDBusPendingReply<void> reply = *call;
-    if (reply.isError()) {
-        auto error = reply.error();
-        emit addGroupsFailed(m_uidsToRows.value(uid), getErrorType(error));
-        qCWarning(lcUsersLog) << "Adding user to groups failed:" << error;
-    } else {
-        emit userGroupsChanged(m_uidsToRows.value(uid));
-    }
-    call->deleteLater();
-}
-
-void UserModel::removeFromGroupsFinished(QDBusPendingCallWatcher *call, uint uid)
-{
-    QDBusPendingReply<void> reply = *call;
-    if (reply.isError()) {
-        auto error = reply.error();
-        emit removeGroupsFailed(m_uidsToRows.value(uid), getErrorType(error));
-        qCWarning(lcUsersLog) << "Adding user to groups failed:" << error;
-    } else {
-        emit userGroupsChanged(m_uidsToRows.value(uid));
-    }
-    call->deleteLater();
-}
-
-void UserModel::enableGuestUserFinished(QDBusPendingCallWatcher *call, bool enabling)
-{
-    QDBusPendingReply<void> reply = *call;
-    if (reply.isError()) {
-        auto error = reply.error();
-        emit setGuestEnabledFailed(enabling, getErrorType(error));
-        qCWarning(lcUsersLog) << ((enabling) ? "Enabling" : "Disabling") << "guest user failed:" << error;
-        if (!enabling) {
+    auto response = m_dBusInterface->call(QStringLiteral("enableGuestUser"), enabled);
+    response->onError([this, enabled](const QDBusError &error) {
+        emit setGuestEnabledFailed(enabled, getErrorType(error));
+        qCWarning(lcUsersLog) << ((enabled) ? "Enabling" : "Disabling") << "guest user failed:" << error;
+        if (!enabled) {
             m_transitioning.remove(SAILFISH_USERMANAGER_GUEST_UID);
             auto idx = index(m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID), 0);
             emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
         }
-    } // else wait for signals
-    call->deleteLater();
+    });
 }
 
 void UserModel::createInterface()
 {
     if (!m_dBusInterface) {
         qCDebug(lcUsersLog) << "Creating interface to user-managerd";
-        m_dBusInterface = new QDBusInterface(UserManagerService, UserManagerPath, UserManagerInterface,
-                                             QDBusConnection::systemBus(), this);
-        connect(m_dBusInterface, SIGNAL(userAdded(const SailfishUserManagerEntry &)),
-                this, SLOT(onUserAdded(const SailfishUserManagerEntry &)), Qt::QueuedConnection);
-        connect(m_dBusInterface, SIGNAL(userModified(uint, const QString &)),
-                this, SLOT(onUserModified(uint, const QString &)));
-        connect(m_dBusInterface, SIGNAL(userRemoved(uint)),
-                this, SLOT(onUserRemoved(uint)));
-        connect(m_dBusInterface, SIGNAL(currentUserChanged(uint)),
-                this, SLOT(onCurrentUserChanged(uint)));
-        connect(m_dBusInterface, SIGNAL(currentUserChangeFailed(uint)),
-                this, SLOT(onCurrentUserChangeFailed(uint)));
-        connect(m_dBusInterface, SIGNAL(guestUserEnabled(bool)),
-                this, SLOT(onGuestUserEnabled(bool)));
+        m_dBusInterface = new NemoDBus::Interface(
+                this, QDBusConnection::systemBus(),
+                UserManagerService, UserManagerPath, UserManagerInterface);
+        m_dBusInterface->connectToSignal(
+                QStringLiteral("userAdded"),
+                SLOT(onUserAdded(const SailfishUserManagerEntry &)));
+        m_dBusInterface->connectToSignal(
+                QStringLiteral("userModified"),
+                SLOT(onUserModified(uint, const QString &)));
+        m_dBusInterface->connectToSignal(
+                QStringLiteral("userRemoved"),
+                SLOT(onUserRemoved(uint)));
+        m_dBusInterface->connectToSignal(
+                QStringLiteral("currentUserChanged"),
+                SLOT(onCurrentUserChanged(uint)));
+        m_dBusInterface->connectToSignal(
+                QStringLiteral("currentUserChangeFailed"),
+                SLOT(onCurrentUserChangeFailed(uint)));
+        m_dBusInterface->connectToSignal(
+                QStringLiteral("guestUserEnabled"),
+                SLOT(onGuestUserEnabled(bool)));
     }
 }
 
 void UserModel::destroyInterface() {
     if (m_dBusInterface) {
         qCDebug(lcUsersLog) << "Destroying interface to user-managerd";
-        disconnect(m_dBusInterface, 0, this, 0);
-        m_dBusInterface->deleteLater();
+        m_dBusInterface->connection().disconnect(
+                UserManagerService, UserManagerPath, UserManagerInterface,
+                QStringLiteral("userAdded"),
+                this, SLOT(onUserAdded(const SailfishUserManagerEntry &)));
+        m_dBusInterface->connection().disconnect(
+                UserManagerService, UserManagerPath, UserManagerInterface,
+                QStringLiteral("userModified"),
+                this, SLOT(onUserModified(uint, const QString &)));
+        m_dBusInterface->connection().disconnect(
+                UserManagerService, UserManagerPath, UserManagerInterface,
+                QStringLiteral("userRemoved"),
+                this, SLOT(onUserRemoved(uint)));
+        m_dBusInterface->connection().disconnect(
+                UserManagerService, UserManagerPath, UserManagerInterface,
+                QStringLiteral("currentUserChanged"),
+                this, SLOT(onCurrentUserChanged(uint)));
+        m_dBusInterface->connection().disconnect(
+                UserManagerService, UserManagerPath, UserManagerInterface,
+                QStringLiteral("currentUserChangeFailed"),
+                this, SLOT(onCurrentUserChangeFailed(uint)));
+        m_dBusInterface->connection().disconnect(
+                UserManagerService, UserManagerPath, UserManagerInterface,
+                QStringLiteral("guestUserEnabled"),
+                this, SLOT(onGuestUserEnabled(bool)));
+        delete m_dBusInterface;
         m_dBusInterface = nullptr;
     }
 }

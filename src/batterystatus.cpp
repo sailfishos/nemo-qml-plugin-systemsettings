@@ -33,24 +33,11 @@
 #include "batterystatus.h"
 #include "batterystatus_p.h"
 
-#include <QDBusInterface>
 #include <QDBusServiceWatcher>
 #include <QDBusConnection>
-#include <QDBusPendingCallWatcher>
-#include <QDBusPendingReply>
 
 #include <mce/dbus-names.h>
 #include <mce/mode-names.h>
-
-QDBusPendingCallWatcher *getMceRequestCallWatcher(const QString &method)
-{
-    QDBusInterface mceInterface(MCE_SERVICE,
-                                MCE_REQUEST_PATH,
-                                MCE_REQUEST_IF,
-                                QDBusConnection::systemBus());
-    QDBusPendingCall pendingModemsRequest = mceInterface.asyncCall(method);
-    return new QDBusPendingCallWatcher(pendingModemsRequest);
-}
 
 BatteryStatusPrivate::BatteryStatusPrivate(BatteryStatus *batteryInfo)
     : QObject(batteryInfo)
@@ -58,6 +45,8 @@ BatteryStatusPrivate::BatteryStatusPrivate(BatteryStatus *batteryInfo)
     , status(BatteryStatus::BatteryStatusUnknown)
     , chargerStatus(BatteryStatus::ChargerStatusUnknown)
     , chargePercentage(-1)
+    , m_connection(QDBusConnection::systemBus())
+    , m_mceInterface(this, m_connection, MCE_SERVICE, MCE_REQUEST_PATH, MCE_REQUEST_IF)
 {
     QDBusServiceWatcher *mceWatcher = new QDBusServiceWatcher(MCE_SERVICE, QDBusConnection::systemBus(),
                                                               QDBusServiceWatcher::WatchForOwnerChange, this);
@@ -69,17 +58,39 @@ BatteryStatusPrivate::BatteryStatusPrivate(BatteryStatus *batteryInfo)
 
     registerSignals();
 
-    QDBusPendingCallWatcher *chargerState = getMceRequestCallWatcher(MCE_CHARGER_STATE_GET);
-    QObject::connect(chargerState, &QDBusPendingCallWatcher::finished,
-                     this, &BatteryStatusPrivate::initialChargerState);
+    // read initial values
+    NemoDBus::Response *chargerState = m_mceInterface.call(MCE_CHARGER_STATE_GET);
+    chargerState->onFinished<QString>([this](const QString &value) {
+        chargerStatusChanged(value);
+    });
+    chargerState->onError([this](const QDBusError &error) {
+        if (error.type() == QDBusError::ServiceUnknown) {
+            // Service unknown => mce not registered. Signal initial state.
+            emit q->chargerStatusChanged(BatteryStatus::ChargerStatusUnknown);
+        }
+    });
 
-    QDBusPendingCallWatcher *batteryStatus = getMceRequestCallWatcher(MCE_BATTERY_STATUS_GET);
-    QObject::connect(batteryStatus, &QDBusPendingCallWatcher::finished,
-                     this, &BatteryStatusPrivate::initialBatteryStatus);
+    NemoDBus::Response *batteryState = m_mceInterface.call(MCE_BATTERY_STATUS_GET);
+    batteryState->onFinished<QString>([this](const QString &value) {
+        statusChanged(value);
+    });
+    batteryState->onError([this](const QDBusError &error) {
+        if (error.type() == QDBusError::ServiceUnknown) {
+            // Service unknown => mce not registered. Signal initial state.
+            emit q->statusChanged(BatteryStatus::BatteryStatusUnknown);
+        }
+    });
 
-    QDBusPendingCallWatcher *batteryLevel = getMceRequestCallWatcher(MCE_BATTERY_LEVEL_GET);
-    QObject::connect(batteryLevel, &QDBusPendingCallWatcher::finished,
-                     this, &BatteryStatusPrivate::initialChargePercentage);
+    NemoDBus::Response *batteryLevel = m_mceInterface.call(MCE_BATTERY_LEVEL_GET);
+    batteryLevel->onFinished<int>([this](int value) {
+        chargePercentageChanged(value);
+    });
+    batteryLevel->onError([this](const QDBusError &error) {
+        if (error.type() == QDBusError::ServiceUnknown) {
+            // Service unknown => mce not registered. Signal initial state.
+            emit q->chargePercentageChanged(-1);
+        }
+    });
 }
 
 BatteryStatusPrivate::~BatteryStatusPrivate()
@@ -88,16 +99,18 @@ BatteryStatusPrivate::~BatteryStatusPrivate()
 
 void BatteryStatusPrivate::registerSignals()
 {
-    QDBusConnection systemBus = QDBusConnection::systemBus();
-    systemBus.connect(MCE_SERVICE, MCE_SIGNAL_PATH,
-                      MCE_SIGNAL_IF, MCE_CHARGER_STATE_SIG,
-                      this, SLOT(chargerStatusChanged(QString)));
-    systemBus.connect(MCE_SERVICE, MCE_SIGNAL_PATH,
-                      MCE_SIGNAL_IF, MCE_BATTERY_STATUS_SIG,
-                      this, SLOT(statusChanged(QString)));
-    systemBus.connect(MCE_SERVICE, MCE_SIGNAL_PATH,
-                      MCE_SIGNAL_IF, MCE_BATTERY_LEVEL_SIG,
-                      this, SLOT(chargePercentageChanged(int)));
+    m_connection.connectToSignal(
+            MCE_SERVICE, MCE_SIGNAL_PATH,
+            MCE_SIGNAL_IF, MCE_CHARGER_STATE_SIG,
+            this, SLOT(chargerStatusChanged(QString)));
+    m_connection.connectToSignal(
+            MCE_SERVICE, MCE_SIGNAL_PATH,
+            MCE_SIGNAL_IF, MCE_BATTERY_STATUS_SIG,
+            this, SLOT(statusChanged(QString)));
+    m_connection.connectToSignal(
+            MCE_SERVICE, MCE_SIGNAL_PATH,
+            MCE_SIGNAL_IF, MCE_BATTERY_LEVEL_SIG,
+            this, SLOT(chargePercentageChanged(int)));
 }
 
 BatteryStatus::ChargerStatus BatteryStatusPrivate::parseChargerStatus(const QString &state)
@@ -162,45 +175,6 @@ void BatteryStatusPrivate::chargePercentageChanged(int percentage)
         chargePercentage = percentage;
         emit q->chargePercentageChanged(chargePercentage);
     }
-}
-
-void BatteryStatusPrivate::initialChargerState(QDBusPendingCallWatcher *watcher)
-{
-    if (watcher->isError() && (watcher->error().type() == QDBusError::ServiceUnknown)) {
-        // Service unknow => mce not registered. Signal initial state.
-        emit q->chargerStatusChanged(BatteryStatus::ChargerStatusUnknown);
-    } else if (watcher->isValid() && watcher->isFinished()) {
-        QDBusPendingReply<QString> reply = *watcher;
-        chargerStatusChanged(reply.value());
-    }
-
-    watcher->deleteLater();
-}
-
-void BatteryStatusPrivate::initialBatteryStatus(QDBusPendingCallWatcher *watcher)
-{
-    if (watcher->isError() && (watcher->error().type() == QDBusError::ServiceUnknown)) {
-        // Service unknown => mce not registered. Signal initial state.
-        emit q->statusChanged(BatteryStatus::BatteryStatusUnknown);
-    } else if (watcher->isValid() && watcher->isFinished()) {
-        QDBusPendingReply<QString> reply = *watcher;
-        statusChanged(reply.value());
-    }
-
-    watcher->deleteLater();
-}
-
-void BatteryStatusPrivate::initialChargePercentage(QDBusPendingCallWatcher *watcher)
-{
-    if (watcher->isError() && (watcher->error().type() == QDBusError::ServiceUnknown)) {
-        // Service unknown => mce not registered. Signal initial state.
-        emit q->chargePercentageChanged(-1);
-    } else if (watcher->isValid() && watcher->isFinished()) {
-        QDBusPendingReply<int> reply = *watcher;
-        chargePercentageChanged(reply.value());
-    }
-
-    watcher->deleteLater();
 }
 
 BatteryStatus::BatteryStatus(QObject *parent)

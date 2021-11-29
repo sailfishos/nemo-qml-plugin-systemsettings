@@ -112,7 +112,8 @@ namespace {
 
 DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
     : QObject(parent)
-    , m_usbModeDaemon(USB_MODED_SERVICE, USB_MODED_PATH, USB_MODED_INTERFACE, QDBusConnection::systemBus())
+    , m_connection(QDBusConnection::systemBus())
+    , m_usbModeDaemon(this, m_connection, USB_MODED_SERVICE, USB_MODED_PATH, USB_MODED_INTERFACE)
     , m_wlanIpAddress("-")
     , m_usbInterface(USB_NETWORK_FALLBACK_INTERFACE)
     , m_usbIpAddress(USB_NETWORK_FALLBACK_IP)
@@ -598,7 +599,7 @@ QString DeveloperModeSettings::usbModedGetConfig(const QString &key, const QStri
 {
     QString value = fallback;
 
-    QDBusMessage msg = m_usbModeDaemon.call(USB_MODED_GET_NET_CONFIG, key);
+    QDBusMessage msg = m_usbModeDaemon.blockingCall(USB_MODED_GET_NET_CONFIG, key);
     QList<QVariant> result = msg.arguments();
     if (result[0].toString() == key && result.size() == 2) {
         value = result[1].toString();
