@@ -33,7 +33,7 @@ private:
     bool m_valid;
     bool m_enabled;
     bool m_available;
-    NemoDBus::Interface *m_interface;
+    NemoDBus::Interface m_interface;
     QTimer *m_timer;
 
 private slots:

@@ -109,6 +109,7 @@ UserModel::UserModel(QObject *parent)
 
 UserModel::~UserModel()
 {
+    delete m_dBusInterface;
 }
 
 bool UserModel::placeholder() const
@@ -537,7 +538,8 @@ void UserModel::createInterface()
     }
 }
 
-void UserModel::destroyInterface() {
+void UserModel::destroyInterface()
+{
     if (m_dBusInterface) {
         qCDebug(lcUsersLog) << "Destroying interface to user-managerd";
         m_dBusInterface->connection().disconnect(

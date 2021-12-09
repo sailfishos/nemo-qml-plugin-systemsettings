@@ -43,17 +43,17 @@ NfcSettings::NfcSettings(QObject *parent)
     , m_valid(false)
     , m_enabled(false)
     , m_available(false)
-    , m_interface(new NemoDBus::Interface(
+    , m_interface(
             this, QDBusConnection::systemBus(),
             "org.sailfishos.nfc.settings",
             "/",
-            "org.sailfishos.nfc.Settings"))
+            "org.sailfishos.nfc.Settings")
 {
     if (QDBusConnection::systemBus().interface()->isServiceRegistered("org.sailfishos.nfc.settings")) {
         m_available = true;
         emit availableChanged();
 
-        NemoDBus::Response *response = m_interface->call(QLatin1String("GetEnabled"));
+        NemoDBus::Response *response = m_interface.call(QLatin1String("GetEnabled"));
         response->onError([this](const QDBusError &error) {
             qWarning() << "Get dbus error:" << error;
         });
@@ -92,7 +92,7 @@ bool NfcSettings::enabled() const
 
 void NfcSettings::setEnabled(bool enabled)
 {
-    NemoDBus::Response *response = m_interface->call("SetEnabled", enabled);
+    NemoDBus::Response *response = m_interface.call("SetEnabled", enabled);
     response->onError([this](const QDBusError &error) {
         qWarning() << "Set dbus error:" << error;
     });
