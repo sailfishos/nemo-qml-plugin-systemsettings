@@ -87,10 +87,6 @@ UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &
                 [this](const QVariantMap &driveProperties) {
                     qCInfo(lcMemoryCardLog) << "Drive properties:" << driveProperties;
                     m_drive = driveProperties;
-                    complete();
-                },
-                [this]() {
-                    complete();
                 });
 
         complete();
@@ -540,15 +536,11 @@ void UDisks2::Block::rescan(const QString &dbusObjectPath)
     QVariantMap options;
     arguments << options;
 
-    NemoDBus::Interface *blockDeviceInterface = new NemoDBus::Interface(
-            this, m_connection, UDISKS2_SERVICE, dbusObjectPath, UDISKS2_BLOCK_INTERFACE);
-    NemoDBus::Response *response = blockDeviceInterface->call(UDISKS2_BLOCK_RESCAN, arguments);
-    response->onError([this, dbusObjectPath, blockDeviceInterface](const QDBusError &error) {
+    NemoDBus::Interface blockDeviceInterface(this, m_connection, UDISKS2_SERVICE, dbusObjectPath, UDISKS2_BLOCK_INTERFACE);
+    NemoDBus::Response *response = blockDeviceInterface.call(UDISKS2_BLOCK_RESCAN, arguments);
+    response->onError([this, dbusObjectPath](const QDBusError &error) {
         qCDebug(lcMemoryCardLog) << "UDisks failed to rescan object path" << dbusObjectPath
-                                 << ", error type:" << error.type() << ",name:" << error.name() << ", message:" << error.message();
-    });
-    connect(response, &QObject::destroyed, [blockDeviceInterface] {
-        delete blockDeviceInterface;
+                                 << ", error type:" << error.type() << ", name:" << error.name() << ", message:" << error.message();
     });
 }
 
@@ -563,9 +555,9 @@ void UDisks2::Block::getProperties(const QString &path, const QString &interface
     }
 
     *pending = true;
-    NemoDBus::Interface *dbusPropertyInterface = new NemoDBus::Interface(
-            this, m_connection, UDISKS2_SERVICE, path, DBUS_OBJECT_PROPERTIES_INTERFACE);
-    NemoDBus::Response *response = dbusPropertyInterface->call(DBUS_GET_ALL, interface);
+
+    NemoDBus::Interface dbusPropertyInterface(this, m_connection, UDISKS2_SERVICE, path, DBUS_OBJECT_PROPERTIES_INTERFACE);
+    NemoDBus::Response *response = dbusPropertyInterface.call(DBUS_GET_ALL, interface);
     response->onFinished<QVariantMap>([this, success](const QVariantMap &values) {
         success(NemoDBus::demarshallArgument<QVariantMap>(values));
     });
@@ -574,8 +566,8 @@ void UDisks2::Block::getProperties(const QString &path, const QString &interface
         qCDebug(lcMemoryCardLog) << "Error reading" << interface << "properties:" << error.name() << error.message();
         failed();
     });
-    connect(response, &QObject::destroyed, [dbusPropertyInterface, pending] {
+    connect(response, &QObject::destroyed, this, [this, pending] {
         *pending = false;
-        delete dbusPropertyInterface;
+        complete();
     });
 }
