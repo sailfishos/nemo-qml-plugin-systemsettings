@@ -90,7 +90,8 @@ UDisks2::Monitor::Monitor(PartitionManagerPrivate *manager, QObject *parent)
     qDBusRegisterMetaType<UDisks2::InterfacePropertyMap>();
     QDBusConnection systemBus = QDBusConnection::systemBus();
 
-    connect(systemBus.interface(), &QDBusConnectionInterface::callWithCallbackFailed, this, [this](const QDBusError &error, const QDBusMessage &call) {
+    connect(systemBus.interface(), &QDBusConnectionInterface::callWithCallbackFailed,
+            this, [this](const QDBusError &error, const QDBusMessage &call) {
         qCInfo(lcMemoryCardLog) << "====================================================";
         qCInfo(lcMemoryCardLog) << "DBus call with callback failed:" << error.message();
         qCInfo(lcMemoryCardLog) << "Name:" << error.name();
