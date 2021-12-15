@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Open Mobile Platform LLC.
+ * Copyright (c) 2020 - 2021 Open Mobile Platform LLC.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -31,9 +31,20 @@
 
 #include <MDesktopEntry>
 #include <MPermission>
+#include <QDBusConnection>
+#include <QDBusPendingReply>
+#include <QFileInfo>
+#include <QDebug>
 #include "permissionsmodel.h"
 
 namespace {
+const auto PermissionTemplate = QStringLiteral("/etc/sailjail/permissions/%1.permission");
+
+const auto SailjailService = QStringLiteral("org.sailfishos.sailjaild1");
+const auto SailjailPath = QStringLiteral("/org/sailfishos/sailjaild1");
+const auto SailjailInterface = QStringLiteral("org.sailfishos.sailjaild1");
+const auto SailjailGetAppInfo = QStringLiteral("GetAppInfo");
+const auto SailjailInfoKeyPermissions = QStringLiteral("Permissions");
 
 bool permissionLessThan(const MPermission &p1, const MPermission &p2)
 {
@@ -62,7 +73,6 @@ void PermissionsModel::setDesktopFile(QString file)
         m_desktopFile = file;
         loadPermissions();
         emit desktopFileChanged();
-        emit countChanged();
     }
 }
 
@@ -101,22 +111,45 @@ QVariant PermissionsModel::data(const QModelIndex &index, int role) const
     }
 }
 
-void PermissionsModel::loadPermissions()
+void PermissionsModel::clearPermissions()
 {
     if (!m_permissions.isEmpty()) {
         beginRemoveRows(QModelIndex(), 0, m_permissions.length() - 1);
         m_permissions.clear();
         endRemoveRows();
+        emit countChanged();
     }
+}
 
-    MDesktopEntry entry(m_desktopFile);
-    if (entry.isValid()) {
-        auto permissions = MPermission::fromDesktopEntry(entry);
+
+void PermissionsModel::loadPermissions()
+{
+    clearPermissions();
+    const QString appName(QFileInfo(m_desktopFile).baseName());
+    QDBusConnection systemBus(QDBusConnection::systemBus());
+    QDBusMessage request(QDBusMessage::createMethodCall(SailjailService, SailjailPath, SailjailInterface, SailjailGetAppInfo));
+    request << appName;
+    QDBusPendingReply<QVariantMap> call(systemBus.asyncCall(request));
+    QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
+    connect(watcher, &QDBusPendingCallWatcher::finished, this, [this](QDBusPendingCallWatcher *watcher) {
+        QList<MPermission> permissions;
+        QDBusPendingReply<QVariantMap> reply = *watcher;
+        if (reply.isError()) {
+            qWarning() << SailjailGetAppInfo << "failed:" << reply.error().name() << "-" << reply.error().message();
+        } else {
+            QVariantMap appInfoMap(reply.value());
+            QStringList permissionList(appInfoMap[SailjailInfoKeyPermissions].toStringList());
+            for (const QString &permissionName : permissionList)
+                permissions.append(PermissionTemplate.arg(permissionName));
+        }
+        clearPermissions();
         if (!permissions.isEmpty()) {
             beginInsertRows(QModelIndex(), 0, permissions.length() - 1);
             m_permissions.swap(permissions);
             std::sort(m_permissions.begin(), m_permissions.end(), permissionLessThan);
             endInsertRows();
+            emit countChanged();
         }
-    }
+        watcher->deleteLater();
+    });
 }
