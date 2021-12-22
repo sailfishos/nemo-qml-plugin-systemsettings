@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2020 Open Mobile Platform LLC.
+ * Copyright (c) 2020 - 2021 Open Mobile Platform LLC.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -65,6 +65,7 @@ signals:
     void countChanged();
 
 private:
+    void clearPermissions();
     void loadPermissions();
 
     QString m_desktopFile;
