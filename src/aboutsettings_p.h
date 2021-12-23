@@ -37,8 +37,6 @@
 #include <QDeviceInfo>
 #include <QVariantList>
 
-#include "partitionmanager.h"
-
 class AboutSettingsPrivate : public QObject
 {
     Q_OBJECT
@@ -49,10 +47,6 @@ public:
 
     QNetworkInfo networkInfo;
     QDeviceInfo deviceInfo;
-
-    QVariantList internalStorage;
-
-    PartitionManager partitionManager;
 
     mutable QMap<QString, QString> osRelease;
     mutable QMap<QString, QString> osReleaseLocalization;
