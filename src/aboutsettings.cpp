@@ -175,35 +175,10 @@ AboutSettings::AboutSettings(QObject *parent)
     QSettings settings(QStringLiteral("/mnt/vendor_data/vendor-data.ini"), QSettings::IniFormat);
     d->vendorName = settings.value(QStringLiteral("Name")).toString();
     d->vendorVersion = settings.value(QStringLiteral("Version")).toString();
-
-    refreshStorageModels();
-
-    connect(&d->partitionManager, &PartitionManager::partitionAdded,
-            this, &AboutSettings::partitionCountChanged);
-    connect(&d->partitionManager, &PartitionManager::partitionRemoved,
-            this, &AboutSettings::partitionCountChanged);
 }
 
 AboutSettings::~AboutSettings()
 {
-}
-
-qlonglong AboutSettings::totalDiskSpace() const
-{
-    Q_D(const AboutSettings);
-    return d->partitionManager.root().bytesTotal();
-}
-
-qlonglong AboutSettings::availableDiskSpace() const
-{
-    Q_D(const AboutSettings);
-    return d->partitionManager.root().bytesAvailable();
-}
-
-QVariant AboutSettings::diskUsageModel() const
-{
-    Q_D(const AboutSettings);
-    return d->internalStorage;
 }
 
 QString AboutSettings::wlanMacAddress() const
@@ -313,55 +288,4 @@ QString AboutSettings::vendorVersion() const
 {
     Q_D(const AboutSettings);
     return d->vendorVersion;
-}
-
-void AboutSettings::refreshStorageModels()
-{
-    Q_D(AboutSettings);
-    d->partitionManager.refresh();
-
-    partitionCountChanged();
-}
-
-void AboutSettings::partitionCountChanged()
-{
-    // Queue the method invocation in case several list changes are made consecutively, so that
-    // the list is only reloaded once.
-    QTimer::singleShot(0, this, &AboutSettings::reloadStorageLists);
-}
-
-void AboutSettings::reloadStorageLists()
-{
-    Q_D(AboutSettings);
-    d->internalStorage.clear();
-
-    for (auto partition : d->partitionManager.partitions()) {
-        QVariantMap row;
-        row[QStringLiteral("mounted")] = partition.status() == Partition::Mounted;
-        row[QStringLiteral("path")] = partition.mountPath();
-        row[QStringLiteral("available")] = partition.bytesAvailable();
-        row[QStringLiteral("total")] = partition.bytesTotal();
-        row[QStringLiteral("filesystem")] = partition.filesystemType();
-        row[QStringLiteral("devicePath")] = partition.devicePath();
-        row[QStringLiteral("storageType")] = [&partition]() {
-            switch (partition.storageType()) {
-            case Partition::System:
-                return QStringLiteral("system");
-            case Partition::User:
-                return QStringLiteral("user");
-            case Partition::Mass:
-                return QStringLiteral("mass");
-            case Partition::External:
-                return QStringLiteral("card");
-            default:
-                return QString();
-            }
-        }();
-
-        if (partition.storageType() != Partition::External) {
-            d->internalStorage << QVariant(row);
-        }
-    }
-
-    emit storageChanged();
 }

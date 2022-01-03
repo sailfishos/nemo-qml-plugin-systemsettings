@@ -25,11 +25,6 @@ Module {
         Property { name: "adaptationVersion"; type: "string"; isReadonly: true }
         Property { name: "vendorName"; type: "string"; isReadonly: true }
         Property { name: "vendorVersion"; type: "string"; isReadonly: true }
-        Signal { name: "storageChanged" }
-        Method { name: "totalDiskSpace"; type: "qlonglong" }
-        Method { name: "availableDiskSpace"; type: "qlonglong" }
-        Method { name: "diskUsageModel"; type: "QVariant" }
-        Method { name: "refreshStorageModels" }
     }
     Component {
         name: "AlarmToneModel"
