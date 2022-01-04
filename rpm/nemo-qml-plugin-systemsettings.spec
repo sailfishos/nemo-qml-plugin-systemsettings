@@ -69,7 +69,6 @@ Summary: Translation source for %{name}
 make %{?_smp_mflags}
 
 %install
-rm -rf %{buildroot}
 %qmake5_install
 
 %post
@@ -85,6 +84,7 @@ fi
 
 %files
 %defattr(-,root,root,-)
+%license LICENSE.BSD
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/libnemosystemsettings.so
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/plugins.qmltypes
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/qmldir
