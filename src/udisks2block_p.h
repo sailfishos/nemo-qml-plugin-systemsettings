@@ -159,6 +159,8 @@ private:
     bool m_formatting;
     bool m_locking;
 
+    bool m_overrideHintAuto = false;
+
     bool m_pendingFileSystem = false;
     bool m_pendingBlock = false;
     bool m_pendingEncrypted = false;

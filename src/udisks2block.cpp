@@ -272,7 +272,7 @@ bool UDisks2::Block::isReadOnly() const
 
 bool UDisks2::Block::hintAuto() const
 {
-    return value(QStringLiteral("HintAuto")).toBool();
+    return value(QStringLiteral("HintAuto")).toBool() || m_overrideHintAuto;
 }
 
 bool UDisks2::Block::isValid() const
@@ -442,12 +442,15 @@ void UDisks2::Block::morph(const UDisks2::Block &other)
     other.dumpInfo();
 
     m_interfacePropertyMap = other.m_interfacePropertyMap;
+    // Keep the state of hintAuto
+    bool wasHintAuto = hintAuto();
     m_data = other.m_data;
     m_drive = other.m_drive;
     m_mountPath = other.m_mountPath;
     m_mountable = other.m_mountable;
     m_encrypted = other.m_encrypted;
     bool wasFormatting = m_formatting;
+    m_overrideHintAuto = wasHintAuto;
     m_formatting = other.m_formatting;
     m_locking = other.m_locking;
 
