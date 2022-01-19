@@ -86,6 +86,7 @@ public:
     void unmount(const QString &devicePath);
 
     void format(const QString &devicePath, const QString &filesystemType, const QVariantMap &arguments);
+    void setLabel(const QString &devicePath, const QString &label);
 
 signals:
     void status(const QString &devicePath, Partition::Status);
@@ -95,12 +96,14 @@ signals:
     void mountError(Partition::Error error);
     void unmountError(Partition::Error error);
     void formatError(Partition::Error error);
+    void setLabelError(Partition::Error error);
 
 private slots:
     void interfacesAdded(const QDBusObjectPath &objectPath, const UDisks2::InterfacePropertyMap &interfaces);
     void interfacesRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces);
     void doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &filesystemType, const QVariantMap &arguments);
     void handleNewBlock(UDisks2::Block *block);
+    void doSetLabel(const QString &devicePath, const QString &dbusObjectPath, const QVariantList &arguments);
 
 private:
     void setPartitionProperties(QExplicitlySharedDataPointer<PartitionPrivate> &partition, const Block *blockDevice);

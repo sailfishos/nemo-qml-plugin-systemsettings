@@ -58,6 +58,7 @@ public:
         Mount,
         Unmount,
         Format,
+        SetLabel,
         Unknown
     };
     Q_ENUM(Operation)

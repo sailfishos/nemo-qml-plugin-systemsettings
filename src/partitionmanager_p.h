@@ -71,6 +71,7 @@ public:
     void mount(const Partition &partition);
     void unmount(const Partition &partition);
     void format(const QString &devicePath, const QString &filesystemType, const QVariantMap &arguments);
+    void setLabel(const Partition &partition, const QString &label);
 
     QString objectPath(const QString &devicePath) const;
 
@@ -90,6 +91,7 @@ signals:
     void mountError(Partition::Error error);
     void unmountError(Partition::Error error);
     void formatError(Partition::Error error);
+    void setLabelError(Partition::Error error);
 
 private:
     // TODO: This is leaking (Disks2::Monitor is never free'ed).

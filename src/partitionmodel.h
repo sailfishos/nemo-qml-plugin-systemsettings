@@ -143,6 +143,7 @@ public:
     Q_INVOKABLE void mount(const QString &devicePath);
     Q_INVOKABLE void unmount(const QString &devicePath);
     Q_INVOKABLE void format(const QString &devicePath, const QVariantMap &arguments);
+    Q_INVOKABLE void setLabel(const QString &devicePath, const QString &label);
 
     Q_INVOKABLE QString objectPath(const QString &devicePath) const;
 
@@ -162,6 +163,7 @@ signals:
     void mountError(Error error);
     void unmountError(Error error);
     void formatError(Error error);
+    void setLabelError(Error error);
 
 private:
     void update();

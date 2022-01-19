@@ -64,18 +64,19 @@ Q_DECLARE_METATYPE(UDisks2::InterfacePropertyMap)
 #define UDISKS2_JOB_INTERFACE              QLatin1String("org.freedesktop.UDisks2.Job")
 
 // Jobs
-#define UDISKS2_JOB_OP_ENC_LOCK   QLatin1String("encrypted-lock")
-#define UDISKS2_JOB_OP_ENC_UNLOCK QLatin1String("encrypted-unlock")
-#define UDISKS2_JOB_OP_FS_UNMOUNT QLatin1String("filesystem-unmount")
-#define UDISKS2_JOB_OP_FS_MOUNT   QLatin1String("filesystem-mount")
-#define UDISKS2_JOB_OP_CLEANUP    QLatin1String("cleanup")
-#define UDISKS2_JOB_OF_FS_FORMAT  QLatin1String("format-mkfs")
+#define UDISKS2_JOB_OP_ENC_LOCK    QLatin1String("encrypted-lock")
+#define UDISKS2_JOB_OP_ENC_UNLOCK  QLatin1String("encrypted-unlock")
+#define UDISKS2_JOB_OP_FS_UNMOUNT  QLatin1String("filesystem-unmount")
+#define UDISKS2_JOB_OP_FS_MOUNT    QLatin1String("filesystem-mount")
+#define UDISKS2_JOB_OP_FS_SETLABEL QLatin1String("filesystem-setlabel")
+#define UDISKS2_JOB_OP_CLEANUP     QLatin1String("cleanup")
+#define UDISKS2_JOB_OF_FS_FORMAT   QLatin1String("format-mkfs")
 
 // Job keys
 #define UDISKS2_JOB_KEY_OPERATION QLatin1String("Operation")
 #define UDISKS2_JOB_KEY_OBJECTS   QLatin1String("Objects")
 
-// Lock, Unlock, Mount, Unmount, Format
+// Lock, Unlock, Mount, Unmount, Format, SetLabel
 #define UDISKS2_BLOCK_DEVICE_PATH  QString(QLatin1String("/org/freedesktop/UDisks2/block_devices/%1"))
 #define UDISKS2_BLOCK_FORMAT       QLatin1String("Format")
 #define UDISKS2_ENCRYPTED_LOCK     QLatin1String("Lock")
@@ -83,6 +84,7 @@ Q_DECLARE_METATYPE(UDisks2::InterfacePropertyMap)
 #define UDISKS2_FILESYSTEM_MOUNT   QLatin1String("Mount")
 #define UDISKS2_FILESYSTEM_UNMOUNT QLatin1String("Unmount")
 #define UDISKS2_BLOCK_RESCAN       QLatin1String("Rescan")
+#define UDISKS2_BLOCK_SETLABEL     QLatin1String("SetLabel")
 
 // Errors
 #define UDISKS2_ERROR_DEVICE_BUSY        QLatin1String("org.freedesktop.UDisks2.Error.DeviceBusy")
