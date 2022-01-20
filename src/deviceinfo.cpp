@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Jolla Ltd. <simo.piiroinen@jollamobile.com>
+ * Copyright (c) 2017 - 2022 Jolla Ltd.
  *
  * You may use this file under the terms of the BSD license as follows:
  *
@@ -48,6 +48,9 @@ public:
     QString m_designation;
     QString m_manufacturer;
     QString m_prettyName;
+    QString m_osName;
+    QString m_osVersion;
+    QString m_adaptationVersion;
 };
 
 DeviceInfoPrivate::DeviceInfoPrivate()
@@ -76,6 +79,9 @@ DeviceInfoPrivate::DeviceInfoPrivate()
     m_designation = ssusysinfo_device_designation(si);
     m_manufacturer = ssusysinfo_device_manufacturer(si);
     m_prettyName = ssusysinfo_device_pretty_name(si);
+    m_osName = ssusysinfo_os_name(si);
+    m_osVersion = ssusysinfo_os_version(si);
+    m_adaptationVersion = ssusysinfo_hw_version(si);
 
     ssusysinfo_delete(si);
 }
@@ -136,4 +142,22 @@ QString DeviceInfo::prettyName() const
 {
     Q_D(const DeviceInfo);
     return d->m_prettyName;
+}
+
+QString DeviceInfo::osName() const
+{
+    Q_D(const DeviceInfo);
+    return d->m_osName;
+}
+
+QString DeviceInfo::osVersion() const
+{
+    Q_D(const DeviceInfo);
+    return d->m_osVersion;
+}
+
+QString DeviceInfo::adaptationVersion() const
+{
+    Q_D(const DeviceInfo);
+    return d->m_adaptationVersion;
 }
