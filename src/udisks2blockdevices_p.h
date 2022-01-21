@@ -108,6 +108,8 @@ private:
 
     QMap<QString, Block *> m_activeBlockDevices;
     QMap<QString, Block *> m_blockDevices;
+    QMap<QString, Block *> m_pendingBlockDevices;
+
     QMap<QString, PartitionWaiter*> m_partitionWaits;
     int m_blockCount;
     bool m_populated;

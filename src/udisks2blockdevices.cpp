@@ -110,6 +110,13 @@ Block *BlockDevices::find(std::function<bool (const Block *)> condition)
         }
     }
 
+    for (QMap<QString, Block *>::const_iterator i = m_pendingBlockDevices.constBegin(); i != m_pendingBlockDevices.constEnd(); ++i) {
+        Block *block = i.value();
+        if (condition(block)) {
+            return block;
+        }
+    }
+
     return nullptr;
 }
 
@@ -342,6 +349,14 @@ void BlockDevices::dumpBlocks() const
 
 void BlockDevices::complete(Block *block, bool forceAccept)
 {
+    // Wait queried D-Bus properties getters to finalize for each created block device
+    // before exposing them outside.
+    // Mark a block as pending if block devices is not yet populated.
+    if (!populated()) {
+        m_pendingBlockDevices.insert(block->path(), block);
+        return;
+    }
+
     if (!hintAuto(block)) {
         block->deleteLater();
         return;
@@ -408,6 +423,11 @@ void BlockDevices::updatePopulatedCheck()
         --m_blockCount;
         if (m_blockCount <= 0) {
             m_populated = true;
+
+            for (Block *block : m_pendingBlockDevices) {
+                complete(block);
+            }
+            m_pendingBlockDevices.clear();
             emit externalStoragesPopulated();
             m_blockCount = 0;
         }
