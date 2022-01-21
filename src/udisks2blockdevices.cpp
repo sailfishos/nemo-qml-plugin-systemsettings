@@ -202,16 +202,18 @@ void BlockDevices::removeInterfaces(const QString &dbusObjectPath, const QString
 
     UDisks2::Block *block = device(dbusObjectPath);
     if (block) {
-        if (interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
-            block->removeInterface(UDISKS2_FILESYSTEM_INTERFACE);
-        }
-        if (interfaces.contains(UDISKS2_ENCRYPTED_INTERFACE)) {
-            block->removeInterface(UDISKS2_ENCRYPTED_INTERFACE);
-        }
 
         if (interfaces.contains(UDISKS2_BLOCK_INTERFACE)) {
             delete block;
             m_activeBlockDevices.remove(dbusObjectPath);
+            m_blockDevices.remove(dbusObjectPath);
+        } else {
+            if (interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
+                block->removeInterface(UDISKS2_FILESYSTEM_INTERFACE);
+            }
+            if (interfaces.contains(UDISKS2_ENCRYPTED_INTERFACE)) {
+                block->removeInterface(UDISKS2_ENCRYPTED_INTERFACE);
+            }
         }
     }
 }
