@@ -153,10 +153,7 @@ bool BlockDevices::createBlockDevice(const QString &dbusObjectPath, const Interf
 void BlockDevices::createBlockDevices(const QList<QDBusObjectPath> &devices)
 {
     m_blockCount = devices.count();
-    if (m_blockCount == 0) {
-        m_populated = true;
-        emit externalStoragesPopulated();
-    }
+    updatePopulatedCheck();
 
     for (const QDBusObjectPath &dbusObjectPath : devices) {
         createBlockDevice(dbusObjectPath.path(), UDisks2::InterfacePropertyMap());
@@ -377,9 +374,10 @@ void BlockDevices::updatePopulatedCheck()
 {
     if (!m_populated) {
         --m_blockCount;
-        if (m_blockCount == 0) {
+        if (m_blockCount <= 0) {
             m_populated = true;
             emit externalStoragesPopulated();
+            m_blockCount = 0;
         }
     }
 }
