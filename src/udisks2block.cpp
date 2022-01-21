@@ -347,7 +347,7 @@ bool UDisks2::Block::hasData() const
 
 void UDisks2::Block::dumpInfo() const
 {
-    qCInfo(lcMemoryCardLog) << "Block device:" << device() << "Preferred device:" << preferredDevice();
+    qCInfo(lcMemoryCardLog) << this << ":" << device() << "Preferred device:" << preferredDevice() << "D-Bus object path:" << path();
     qCInfo(lcMemoryCardLog) << "- drive:" << drive() << "device number:" << deviceNumber() << "connection bus:" << connectionBus();
     qCInfo(lcMemoryCardLog) << "- id:" << id() << "size:" << size();
     qCInfo(lcMemoryCardLog) << "- isreadonly:" << isReadOnly() << "idtype:" << idType();

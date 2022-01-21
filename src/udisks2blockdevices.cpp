@@ -305,7 +305,21 @@ void BlockDevices::updateFormattingState(Block *block)
 
 void BlockDevices::dumpBlocks() const
 {
+    if (!m_activeBlockDevices.isEmpty())
+        qCInfo(lcMemoryCardLog) << "======== Active block devices:" << m_activeBlockDevices.count();
+    else
+        qCInfo(lcMemoryCardLog) << "======== No active block devices";
+
     for (QMap<QString, Block *>::const_iterator i = m_activeBlockDevices.constBegin(); i != m_activeBlockDevices.constEnd(); ++i) {
+        i.value()->dumpInfo();
+    }
+
+    if (!m_blockDevices.isEmpty())
+        qCInfo(lcMemoryCardLog) << "======== Existing block devices:" << m_blockDevices.count();
+    else
+        qCInfo(lcMemoryCardLog) << "======== No existing block devices";
+
+    for (QMap<QString, Block *>::const_iterator i = m_blockDevices.constBegin(); i != m_blockDevices.constEnd(); ++i) {
         i.value()->dumpInfo();
     }
 }
