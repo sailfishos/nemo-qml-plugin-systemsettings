@@ -354,8 +354,7 @@ void BlockDevices::timerEvent(QTimerEvent *e)
 {
     for (QMap<QString, PartitionWaiter *>::iterator i = m_partitionWaits.begin(); i != m_partitionWaits.end(); ++i) {
         PartitionWaiter *waiter = i.value();
-        int timerId = waiter->timer;
-        if (e->timerId() == timerId) {
+        if (e->timerId() == waiter->timer) {
             QString path = i.key();
             qCDebug(lcMemoryCardLog) << "Waiting partitions:" << m_partitionWaits.keys() << path;
             dumpBlocks();
