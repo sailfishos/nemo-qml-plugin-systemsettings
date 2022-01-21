@@ -113,8 +113,6 @@ public:
 
     static QString cryptoBackingDevicePath(const QString &objectPath);
 
-    void morph(const Block& other);
-
 signals:
     void completed(QPrivateSignal);
     void updated();

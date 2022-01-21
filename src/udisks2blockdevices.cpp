@@ -76,23 +76,17 @@ void BlockDevices::remove(const QString &dbusObjectPath)
 
 Block *BlockDevices::device(const QString &dbusObjectPath) const
 {
-    return m_activeBlockDevices.value(dbusObjectPath, nullptr);
+    Block *block = m_activeBlockDevices.value(dbusObjectPath, nullptr);
+    if (block) {
+        return block;
+    }
+    return m_blockDevices.value(dbusObjectPath, nullptr);
 }
 
 Block *BlockDevices::replace(const QString &dbusObjectPath, Block *block)
 {
-    Block *deviceReplace = device(dbusObjectPath);
-
-    // Clear partition wait before morphing a block.
-    if (m_partitionWaits.contains(deviceReplace->partitionTable())) {
-        clearPartitionWait(deviceReplace->partitionTable(), false);
-    }
-
-    deviceReplace->morph(*block);
     m_activeBlockDevices.remove(dbusObjectPath);
-    insert(deviceReplace->path(), deviceReplace);
-    block->deleteLater();
-    return deviceReplace;
+    return block;
 }
 
 void BlockDevices::insert(const QString &dbusObjectPath, Block *block)

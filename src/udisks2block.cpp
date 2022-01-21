@@ -406,61 +406,6 @@ bool UDisks2::Block::hasInterface(const QString &interface) const
     return m_interfacePropertyMap.contains(interface);
 }
 
-void UDisks2::Block::morph(const UDisks2::Block &other)
-{
-    if (&other == this)
-        return;
-
-    if (!this->m_connection.connection().disconnect(
-                UDISKS2_SERVICE,
-                m_path,
-                DBUS_OBJECT_PROPERTIES_INTERFACE,
-                UDisks2::propertiesChangedSignal,
-                this,
-                SLOT(updateProperties(QDBusMessage)))) {
-        qCWarning(lcMemoryCardLog) << "Failed to disconnect to Block properties change interface" << m_path
-                                   << m_connection.connection().lastError().message();
-    }
-
-    this->m_path = other.m_path;
-
-    if (!this->m_connection.connectToSignal(
-                UDISKS2_SERVICE,
-                this->m_path,
-                DBUS_OBJECT_PROPERTIES_INTERFACE,
-                UDisks2::propertiesChangedSignal,
-                this,
-                SLOT(updateProperties(QDBusMessage)))) {
-        qCWarning(lcMemoryCardLog) << "Failed to connect to Block properties change interface" << m_path
-                                   << m_connection.connection().lastError().message();
-    }
-
-    qCInfo(lcMemoryCardLog) << "Morphing" << qPrintable(device()) << "that was" << (m_formatting ? "formatting" : "not formatting" )
-                            << "to" << qPrintable(other.device());
-    qCInfo(lcMemoryCardLog) << "Old block:";
-    dumpInfo();
-    qCInfo(lcMemoryCardLog) << "New block:";
-    other.dumpInfo();
-
-    m_interfacePropertyMap = other.m_interfacePropertyMap;
-    // Keep the state of hintAuto
-    bool wasHintAuto = hintAuto();
-    m_data = other.m_data;
-    m_drive = other.m_drive;
-    m_mountPath = other.m_mountPath;
-    m_mountable = other.m_mountable;
-    m_encrypted = other.m_encrypted;
-    bool wasFormatting = m_formatting;
-    m_overrideHintAuto = wasHintAuto;
-    m_formatting = other.m_formatting;
-    m_locking = other.m_locking;
-
-
-    if (wasFormatting && hasCryptoBackingDevice()) {
-        rescan(cryptoBackingDeviceObjectPath());
-    }
-}
-
 void UDisks2::Block::updateProperties(const QDBusMessage &message)
 {
     QList<QVariant> arguments = message.arguments();
