@@ -163,15 +163,10 @@ void BlockDevices::createBlockDevices(const QList<QDBusObjectPath> &devices)
 
 void BlockDevices::lock(const QString &dbusObjectPath)
 {
-    Block *deviceMapped = find([dbusObjectPath](const Block *block) {
-        return block->cryptoBackingDeviceObjectPath() == dbusObjectPath;
-    });
+    Block *newActive = m_blockDevices.value(dbusObjectPath, nullptr);
 
-    if (deviceMapped && (deviceMapped->isLocking() || deviceMapped->isFormatting())) {
-        Block *newBlock = doCreateBlockDevice(dbusObjectPath, InterfacePropertyMap());
-        if (newBlock && deviceMapped->isFormatting()) {
-            newBlock->setFormatting(true);
-        }
+    if (newActive) {
+        emit newBlock(newActive, true);
     }
 }
 
@@ -352,7 +347,7 @@ void BlockDevices::complete(Block *block, bool forceAccept)
         // Hope that somebody will handle this signal and call insert()
         // to add this block to m_activeBlockDevices.
         m_blockDevices.insert(block->path(), block);
-        emit newBlock(block);
+        emit newBlock(block, false);
     } else if (block->isPartition()) {
         // Silently keep partitions around so that we can filter out
         // partition tables in timerEvent().

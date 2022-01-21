@@ -100,7 +100,7 @@ private slots:
     void interfacesAdded(const QDBusObjectPath &objectPath, const UDisks2::InterfacePropertyMap &interfaces);
     void interfacesRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces);
     void doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &filesystemType, const QVariantMap &arguments);
-    void handleNewBlock(UDisks2::Block *block);
+    void handleNewBlock(UDisks2::Block *block, bool forceCreatePartition);
 
 private:
     void setPartitionProperties(QExplicitlySharedDataPointer<PartitionPrivate> &partition, const Block *blockDevice);

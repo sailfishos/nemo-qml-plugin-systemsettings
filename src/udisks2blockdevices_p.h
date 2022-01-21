@@ -81,7 +81,7 @@ public:
 
 
 signals:
-    void newBlock(Block *block);
+    void newBlock(Block *block, bool createPartition);
     void externalStoragesPopulated();
 
 private slots:

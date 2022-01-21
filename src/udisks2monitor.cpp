@@ -737,14 +737,14 @@ void UDisks2::Monitor::connectSignals(UDisks2::Block *block)
     });
 }
 
-void UDisks2::Monitor::handleNewBlock(UDisks2::Block *block)
+void UDisks2::Monitor::handleNewBlock(UDisks2::Block *block, bool forceCreatePartition)
 {
     const QString cryptoBackingDeviceObjectPath = block->cryptoBackingDeviceObjectPath();
     if (block->hasCryptoBackingDevice() && m_blockDevices->contains(cryptoBackingDeviceObjectPath)) {
         // Update crypto backing device to file system device.
         UDisks2::Block *fsBlock = m_blockDevices->replace(cryptoBackingDeviceObjectPath, block);
         updatePartitionProperties(fsBlock);
-    } else if (!m_blockDevices->contains(block->path())) {
+    } else if (!m_blockDevices->contains(block->path()) || forceCreatePartition) {
         m_blockDevices->insert(block->path(), block);
         createPartition(block);
 
