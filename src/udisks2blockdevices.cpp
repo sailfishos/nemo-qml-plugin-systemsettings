@@ -67,7 +67,8 @@ bool BlockDevices::contains(const QString &dbusObjectPath) const
 void BlockDevices::remove(const QString &dbusObjectPath)
 {
     if (contains(dbusObjectPath)) {
-        Block *block = m_activeBlockDevices.take(dbusObjectPath);
+        Block *block = m_blockDevices.take(dbusObjectPath);
+        m_activeBlockDevices.remove(dbusObjectPath);
         clearPartitionWait(dbusObjectPath, false);
         delete block;
     }
