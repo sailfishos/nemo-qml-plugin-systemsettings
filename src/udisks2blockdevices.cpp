@@ -102,6 +102,14 @@ Block *BlockDevices::find(std::function<bool (const Block *)> condition)
             return block;
         }
     }
+
+    for (QMap<QString, Block *>::const_iterator i = m_blockDevices.constBegin(); i != m_blockDevices.constEnd(); ++i) {
+        Block *block = i.value();
+        if (condition(block)) {
+            return block;
+        }
+    }
+
     return nullptr;
 }
 
@@ -123,6 +131,15 @@ QString BlockDevices::objectPath(const QString &devicePath) const
         }
     }
 
+    for (QMap<QString, Block *>::const_iterator i = m_blockDevices.constBegin(); i != m_blockDevices.constEnd(); ++i) {
+        Block *block = i.value();
+        if (block->device() == devicePath) {
+            return block->path();
+        } else if (block->cryptoBackingDevicePath() == devicePath) {
+            return block->cryptoBackingDeviceObjectPath();
+        }
+    }
+
     return QString();
 }
 
@@ -131,6 +148,13 @@ QStringList BlockDevices::devicePaths(const QStringList &dbusObjectPaths) const
     QStringList paths;
     for (const QString &objectPath : dbusObjectPaths) {
         for (QMap<QString, Block *>::const_iterator i = m_activeBlockDevices.constBegin(); i != m_activeBlockDevices.constEnd(); ++i) {
+            Block *block = i.value();
+            if (block->path() == objectPath || block->cryptoBackingDeviceObjectPath() == objectPath) {
+                paths << block->device();
+            }
+        }
+
+        for (QMap<QString, Block *>::const_iterator i = m_blockDevices.constBegin(); i != m_blockDevices.constEnd(); ++i) {
             Block *block = i.value();
             if (block->path() == objectPath || block->cryptoBackingDeviceObjectPath() == objectPath) {
                 paths << block->device();
