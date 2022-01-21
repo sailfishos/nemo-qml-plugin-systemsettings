@@ -334,10 +334,12 @@ void BlockDevices::complete(Block *block, bool forceAccept)
     if (willAccept) {
         // Hope that somebody will handle this signal and call insert()
         // to add this block to m_activeBlockDevices.
+        m_blockDevices.insert(block->path(), block);
         emit newBlock(block);
     } else if (block->isPartition()) {
         // Silently keep partitions around so that we can filter out
         // partition tables in timerEvent().
+        m_blockDevices.insert(block->path(), block);
         insert(block->path(), block);
     } else {
         // This is garbage block device that should not be exposed
