@@ -73,6 +73,10 @@ UDisks2::Job::~Job()
 
 void UDisks2::Job::complete(bool success)
 {
+    if (isCompleted()) {
+        return;
+    }
+
     m_completed = true;
     m_success = success;
     m_status = UDisks2::Job::Completed;

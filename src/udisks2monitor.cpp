@@ -262,17 +262,16 @@ void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const 
                 operation == UDISKS2_JOB_OF_FS_FORMAT) {
             UDisks2::Job *job = new UDisks2::Job(path, dict);
             updatePartitionStatus(job, true);
-            if (job->operation() == Job::Lock) {
-                for (const QString &dbusObjectPath : job->objects()) {
-                    m_blockDevices->lock(dbusObjectPath);
-                }
-            }
 
             connect(job, &UDisks2::Job::completed, this, [this](bool success) {
                 UDisks2::Job *job = qobject_cast<UDisks2::Job *>(sender());
                 job->dumpInfo();
                 if (job->operation() != Job::Lock) {
                     updatePartitionStatus(job, success);
+                } else {
+                    for (const QString &dbusObjectPath : job->objects()) {
+                        m_blockDevices->lock(dbusObjectPath);
+                    }
                 }
             });
 
@@ -300,7 +299,9 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
 
     if (m_jobsToWait.contains(path)) {
         UDisks2::Job *job = m_jobsToWait.take(path);
-        job->deleteLater();
+        // Make sure job is completed.
+        job->complete(true);
+        delete job;
     } else if (m_blockDevices->contains(path) && interfaces.contains(UDISKS2_BLOCK_INTERFACE)) {
         // Cleanup partitions first.
         PartitionManagerPrivate::Partitions removedPartitions;
