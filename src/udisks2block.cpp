@@ -104,6 +104,7 @@ UDisks2::Block &UDisks2::Block::operator=(const UDisks2::Block &)
 
 UDisks2::Block::~Block()
 {
+    emit blockRemoved(device());
 }
 
 QString UDisks2::Block::path() const

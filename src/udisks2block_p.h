@@ -120,6 +120,7 @@ signals:
     void updated();
     void formatted();
     void mountPathChanged();
+    void blockRemoved(const QString &devicePath);
 
 private slots:
     void updateProperties(const QDBusMessage &message);

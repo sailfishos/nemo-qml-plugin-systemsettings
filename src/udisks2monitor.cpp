@@ -725,6 +725,16 @@ void UDisks2::Monitor::connectSignals(UDisks2::Block *block)
             }
         }
     }, Qt::UniqueConnection);
+
+    connect(block, &UDisks2::Block::blockRemoved, this, [this](const QString &device) {
+        PartitionManagerPrivate::Partitions removedPartitions;
+        for (auto partition : m_manager->m_partitions) {
+            if (partition->devicePath == device) {
+                removedPartitions << partition;
+            }
+        }
+        m_manager->remove(removedPartitions);
+    });
 }
 
 void UDisks2::Monitor::handleNewBlock(UDisks2::Block *block)
