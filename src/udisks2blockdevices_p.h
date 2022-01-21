@@ -106,7 +106,7 @@ private:
     void timerEvent(QTimerEvent *e) override;
     void updatePopulatedCheck();
 
-    QMap<QString, Block *> m_blockDevices;
+    QMap<QString, Block *> m_activeBlockDevices;
     QMap<QString, PartitionWaiter*> m_partitionWaits;
     int m_blockCount;
     bool m_populated;

@@ -51,23 +51,23 @@ BlockDevices *BlockDevices::instance()
 
 BlockDevices::~BlockDevices()
 {
-    qDeleteAll(m_blockDevices);
+    qDeleteAll(m_activeBlockDevices);
     qDeleteAll(m_partitionWaits);
 
-    m_blockDevices.clear();
+    m_activeBlockDevices.clear();
     m_partitionWaits.clear();
     sharedInstance = nullptr;
 }
 
 bool BlockDevices::contains(const QString &dbusObjectPath) const
 {
-    return m_blockDevices.contains(dbusObjectPath);
+    return m_activeBlockDevices.contains(dbusObjectPath);
 }
 
 void BlockDevices::remove(const QString &dbusObjectPath)
 {
     if (contains(dbusObjectPath)) {
-        Block *block = m_blockDevices.take(dbusObjectPath);
+        Block *block = m_activeBlockDevices.take(dbusObjectPath);
         clearPartitionWait(dbusObjectPath, false);
         delete block;
     }
@@ -75,7 +75,7 @@ void BlockDevices::remove(const QString &dbusObjectPath)
 
 Block *BlockDevices::device(const QString &dbusObjectPath) const
 {
-    return m_blockDevices.value(dbusObjectPath, nullptr);
+    return m_activeBlockDevices.value(dbusObjectPath, nullptr);
 }
 
 Block *BlockDevices::replace(const QString &dbusObjectPath, Block *block)
@@ -88,7 +88,7 @@ Block *BlockDevices::replace(const QString &dbusObjectPath, Block *block)
     }
 
     deviceReplace->morph(*block);
-    m_blockDevices.remove(dbusObjectPath);
+    m_activeBlockDevices.remove(dbusObjectPath);
     insert(deviceReplace->path(), deviceReplace);
     block->deleteLater();
     return deviceReplace;
@@ -96,12 +96,12 @@ Block *BlockDevices::replace(const QString &dbusObjectPath, Block *block)
 
 void BlockDevices::insert(const QString &dbusObjectPath, Block *block)
 {
-    m_blockDevices.insert(dbusObjectPath, block);
+    m_activeBlockDevices.insert(dbusObjectPath, block);
 }
 
 Block *BlockDevices::find(std::function<bool (const Block *)> condition)
 {
-    for (QMap<QString, Block *>::const_iterator i = m_blockDevices.constBegin(); i != m_blockDevices.constEnd(); ++i) {
+    for (QMap<QString, Block *>::const_iterator i = m_activeBlockDevices.constBegin(); i != m_activeBlockDevices.constEnd(); ++i) {
         Block *block = i.value();
         if (condition(block)) {
             return block;
@@ -119,7 +119,7 @@ Block *BlockDevices::find(const QString &devicePath)
 
 QString BlockDevices::objectPath(const QString &devicePath) const
 {
-    for (QMap<QString, Block *>::const_iterator i = m_blockDevices.constBegin(); i != m_blockDevices.constEnd(); ++i) {
+    for (QMap<QString, Block *>::const_iterator i = m_activeBlockDevices.constBegin(); i != m_activeBlockDevices.constEnd(); ++i) {
         Block *block = i.value();
         if (block->device() == devicePath) {
             return block->path();
@@ -135,7 +135,7 @@ QStringList BlockDevices::devicePaths(const QStringList &dbusObjectPaths) const
 {
     QStringList paths;
     for (const QString &objectPath : dbusObjectPaths) {
-        for (QMap<QString, Block *>::const_iterator i = m_blockDevices.constBegin(); i != m_blockDevices.constEnd(); ++i) {
+        for (QMap<QString, Block *>::const_iterator i = m_activeBlockDevices.constBegin(); i != m_activeBlockDevices.constEnd(); ++i) {
             Block *block = i.value();
             if (block->path() == objectPath || block->cryptoBackingDeviceObjectPath() == objectPath) {
                 paths << block->device();
@@ -211,7 +211,7 @@ void BlockDevices::removeInterfaces(const QString &dbusObjectPath, const QString
 
         if (interfaces.contains(UDISKS2_BLOCK_INTERFACE)) {
             delete block;
-            m_blockDevices.remove(dbusObjectPath);
+            m_activeBlockDevices.remove(dbusObjectPath);
         }
     }
 }
@@ -296,7 +296,7 @@ void BlockDevices::updateFormattingState(Block *block)
     QString cryptoBackingDevicePath = block->cryptoBackingDeviceObjectPath();
 
     // If we have crypto backing device, copy over formatting state.
-    if (cryptoBackingDevicePath != QLatin1String("/") && (cryptoBackingDevice = m_blockDevices.value(cryptoBackingDevicePath, nullptr))) {
+    if (cryptoBackingDevicePath != QLatin1String("/") && (cryptoBackingDevice = m_activeBlockDevices.value(cryptoBackingDevicePath, nullptr))) {
         block->blockSignals(true);
         block->setFormatting(cryptoBackingDevice->isFormatting());
         block->blockSignals(false);
@@ -305,7 +305,7 @@ void BlockDevices::updateFormattingState(Block *block)
 
 void BlockDevices::dumpBlocks() const
 {
-    for (QMap<QString, Block *>::const_iterator i = m_blockDevices.constBegin(); i != m_blockDevices.constEnd(); ++i) {
+    for (QMap<QString, Block *>::const_iterator i = m_activeBlockDevices.constBegin(); i != m_activeBlockDevices.constEnd(); ++i) {
         i.value()->dumpInfo();
     }
 }
@@ -333,7 +333,7 @@ void BlockDevices::complete(Block *block, bool forceAccept)
 
     if (willAccept) {
         // Hope that somebody will handle this signal and call insert()
-        // to add this block to m_blockDevices.
+        // to add this block to m_activeBlockDevices.
         emit newBlock(block);
     } else if (block->isPartition()) {
         // Silently keep partitions around so that we can filter out
