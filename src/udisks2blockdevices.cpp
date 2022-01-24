@@ -295,8 +295,7 @@ BlockDevices::BlockDevices(QObject *parent)
 
 Block *BlockDevices::doCreateBlockDevice(const QString &dbusObjectPath, const InterfacePropertyMap &interfacePropertyMap)
 {
-    if (contains(dbusObjectPath)) {
-        Block *block = device(dbusObjectPath);
+    if (Block *block = device(dbusObjectPath)) {
         if (block && interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
             block->addInterface(UDISKS2_FILESYSTEM_INTERFACE, interfacePropertyMap.value(UDISKS2_FILESYSTEM_INTERFACE));
         }
@@ -319,7 +318,7 @@ void BlockDevices::updateFormattingState(Block *block)
     QString cryptoBackingDevicePath = block->cryptoBackingDeviceObjectPath();
 
     // If we have crypto backing device, copy over formatting state.
-    if (cryptoBackingDevicePath != QLatin1String("/") && (cryptoBackingDevice = m_activeBlockDevices.value(cryptoBackingDevicePath, nullptr))) {
+    if (cryptoBackingDevicePath != QLatin1String("/") && (cryptoBackingDevice = device(cryptoBackingDevicePath))) {
         block->blockSignals(true);
         block->setFormatting(cryptoBackingDevice->isFormatting());
         block->blockSignals(false);
