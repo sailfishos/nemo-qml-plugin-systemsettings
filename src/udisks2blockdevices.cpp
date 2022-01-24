@@ -297,6 +297,16 @@ Block *BlockDevices::doCreateBlockDevice(const QString &dbusObjectPath, const In
     if (Block *block = device(dbusObjectPath)) {
         if (block && interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
             block->addInterface(UDISKS2_FILESYSTEM_INTERFACE, interfacePropertyMap.value(UDISKS2_FILESYSTEM_INTERFACE));
+
+            // We just received FileSystem interface meaning that this must be mountable.
+            // Lower formatting flag from both crypto backing device this self.
+            if (block->hasCryptoBackingDevice()) {
+                Block *cryptoBackingDevice = device(block->cryptoBackingDeviceObjectPath());
+                if (cryptoBackingDevice) {
+                    cryptoBackingDevice->setFormatting(false);
+                }
+            }
+            block->setFormatting(false);
         }
         if (block && interfacePropertyMap.contains(UDISKS2_ENCRYPTED_INTERFACE)) {
             block->addInterface(UDISKS2_ENCRYPTED_INTERFACE, interfacePropertyMap.value(UDISKS2_ENCRYPTED_INTERFACE));
