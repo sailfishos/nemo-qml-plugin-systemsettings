@@ -54,7 +54,7 @@ public:
     void remove(const QString &dbusObjectPath);
 
     Block *device(const QString &dbusObjectPath) const;
-    Block *replace(const QString &dbusObjectPath, Block *block);
+    void deactivate(const QString &dbusObjectPath);
 
     void insert(const QString &dbusObjectPath, Block *block);
     Block *find(std::function<bool (const Block *block)> condition);

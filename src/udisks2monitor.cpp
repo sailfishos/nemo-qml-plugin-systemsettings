@@ -741,9 +741,9 @@ void UDisks2::Monitor::handleNewBlock(UDisks2::Block *block, bool forceCreatePar
 {
     const QString cryptoBackingDeviceObjectPath = block->cryptoBackingDeviceObjectPath();
     if (block->hasCryptoBackingDevice() && m_blockDevices->contains(cryptoBackingDeviceObjectPath)) {
-        // Update crypto backing device to file system device.
-        UDisks2::Block *fsBlock = m_blockDevices->replace(cryptoBackingDeviceObjectPath, block);
-        updatePartitionProperties(fsBlock);
+        // Deactivate crypto backing device.
+        m_blockDevices->deactivate(cryptoBackingDeviceObjectPath);
+        updatePartitionProperties(block);
     } else if (!m_blockDevices->contains(block->path()) || forceCreatePartition) {
         m_blockDevices->insert(block->path(), block);
         createPartition(block);

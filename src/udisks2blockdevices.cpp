@@ -83,10 +83,9 @@ Block *BlockDevices::device(const QString &dbusObjectPath) const
     return m_blockDevices.value(dbusObjectPath, nullptr);
 }
 
-Block *BlockDevices::replace(const QString &dbusObjectPath, Block *block)
+void BlockDevices::deactivate(const QString &dbusObjectPath)
 {
     m_activeBlockDevices.remove(dbusObjectPath);
-    return block;
 }
 
 void BlockDevices::insert(const QString &dbusObjectPath, Block *block)
