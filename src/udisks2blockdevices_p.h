@@ -54,7 +54,7 @@ public:
     void remove(const QString &dbusObjectPath);
 
     Block *device(const QString &dbusObjectPath) const;
-    Block *replace(const QString &dbusObjectPath, Block *block);
+    void deactivate(const QString &dbusObjectPath);
 
     void insert(const QString &dbusObjectPath, Block *block);
     Block *find(std::function<bool (const Block *block)> condition);
@@ -71,14 +71,17 @@ public:
     void clearPartitionWait(const QString &dbusObjectPath, bool destroyBlock);
 
     void removeInterfaces(const QString &dbusObjectPath, const QStringList &interfaces);
+
+    bool hintAuto(const QString &dbusObjectPath);
+    bool hintAuto(const Block *maybeHintAuto);
+
     bool populated() const;
 
     void dumpBlocks() const;
 
-    static bool isExternal(const QString &dbusObjectPath);
 
 signals:
-    void newBlock(Block *block);
+    void newBlock(Block *block, bool createPartition);
     void externalStoragesPopulated();
 
 private slots:
@@ -103,7 +106,10 @@ private:
     void timerEvent(QTimerEvent *e) override;
     void updatePopulatedCheck();
 
+    QMap<QString, Block *> m_activeBlockDevices;
     QMap<QString, Block *> m_blockDevices;
+    QMap<QString, Block *> m_pendingBlockDevices;
+
     QMap<QString, PartitionWaiter*> m_partitionWaits;
     int m_blockCount;
     bool m_populated;

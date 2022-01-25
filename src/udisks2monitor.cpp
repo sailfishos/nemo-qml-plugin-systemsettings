@@ -245,11 +245,11 @@ void UDisks2::Monitor::format(const QString &devicePath, const QString &filesyst
 void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const UDisks2::InterfacePropertyMap &interfaces)
 {
     QString path = objectPath.path();
-    qCDebug(lcMemoryCardLog) << "UDisks interface added:" << path << BlockDevices::isExternal(path);
+    qCDebug(lcMemoryCardLog) << "UDisks interface added:" << path;
     qCInfo(lcMemoryCardLog) << "UDisks dump interface:" << interfaces;
-    // External device must have file system or partition so that it can added to the model.
-    // Devices without partition table have filesystem interface.
-    if (path.startsWith(QStringLiteral("/org/freedesktop/UDisks2/block_devices/")) && BlockDevices::isExternal(path)) {
+    // A device must have file system or partition so that it can added to the model.
+    // Devices without partition table can have a filesystem interface.
+    if (path.startsWith(QStringLiteral("/org/freedesktop/UDisks2/block_devices/"))) {
         m_blockDevices->createBlockDevice(path, interfaces);
     } else if (path.startsWith(QStringLiteral("/org/freedesktop/UDisks2/jobs"))) {
         QVariantMap dict = interfaces.value(UDISKS2_JOB_INTERFACE);
@@ -262,17 +262,16 @@ void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const 
                 operation == UDISKS2_JOB_OF_FS_FORMAT) {
             UDisks2::Job *job = new UDisks2::Job(path, dict);
             updatePartitionStatus(job, true);
-            if (job->operation() == Job::Lock) {
-                for (const QString &dbusObjectPath : job->objects()) {
-                    m_blockDevices->lock(dbusObjectPath);
-                }
-            }
 
             connect(job, &UDisks2::Job::completed, this, [this](bool success) {
                 UDisks2::Job *job = qobject_cast<UDisks2::Job *>(sender());
                 job->dumpInfo();
                 if (job->operation() != Job::Lock) {
                     updatePartitionStatus(job, success);
+                } else {
+                    for (const QString &dbusObjectPath : job->objects()) {
+                        m_blockDevices->lock(dbusObjectPath);
+                    }
                 }
             });
 
@@ -300,15 +299,15 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
 
     if (m_jobsToWait.contains(path)) {
         UDisks2::Job *job = m_jobsToWait.take(path);
-        job->deleteLater();
+        // Make sure job is completed.
+        job->complete(true);
+        delete job;
     } else if (m_blockDevices->contains(path) && interfaces.contains(UDISKS2_BLOCK_INTERFACE)) {
         // Cleanup partitions first.
-        if (BlockDevices::isExternal(path)) {
-            PartitionManagerPrivate::Partitions removedPartitions;
-            QStringList blockDevPaths = { path };
-            lookupPartitions(removedPartitions, blockDevPaths);
-            m_manager->remove(removedPartitions);
-        }
+        PartitionManagerPrivate::Partitions removedPartitions;
+        QStringList blockDevPaths = { path };
+        lookupPartitions(removedPartitions, blockDevPaths);
+        m_manager->remove(removedPartitions);
 
         m_blockDevices->remove(path);
     } else {
@@ -726,16 +725,26 @@ void UDisks2::Monitor::connectSignals(UDisks2::Block *block)
             }
         }
     }, Qt::UniqueConnection);
+
+    connect(block, &UDisks2::Block::blockRemoved, this, [this](const QString &device) {
+        PartitionManagerPrivate::Partitions removedPartitions;
+        for (auto partition : m_manager->m_partitions) {
+            if (partition->devicePath == device) {
+                removedPartitions << partition;
+            }
+        }
+        m_manager->remove(removedPartitions);
+    });
 }
 
-void UDisks2::Monitor::handleNewBlock(UDisks2::Block *block)
+void UDisks2::Monitor::handleNewBlock(UDisks2::Block *block, bool forceCreatePartition)
 {
     const QString cryptoBackingDeviceObjectPath = block->cryptoBackingDeviceObjectPath();
     if (block->hasCryptoBackingDevice() && m_blockDevices->contains(cryptoBackingDeviceObjectPath)) {
-        // Update crypto backing device to file system device.
-        UDisks2::Block *fsBlock = m_blockDevices->replace(cryptoBackingDeviceObjectPath, block);
-        updatePartitionProperties(fsBlock);
-    } else if (!m_blockDevices->contains(block->path())) {
+        // Deactivate crypto backing device.
+        m_blockDevices->deactivate(cryptoBackingDeviceObjectPath);
+        updatePartitionProperties(block);
+    } else if (!m_blockDevices->contains(block->path()) || forceCreatePartition) {
         m_blockDevices->insert(block->path(), block);
         createPartition(block);
 

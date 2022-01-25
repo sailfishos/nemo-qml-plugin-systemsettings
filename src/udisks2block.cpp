@@ -104,6 +104,7 @@ UDisks2::Block &UDisks2::Block::operator=(const UDisks2::Block &)
 
 UDisks2::Block::~Block()
 {
+    emit blockRemoved(device());
 }
 
 QString UDisks2::Block::path() const
@@ -270,11 +271,9 @@ bool UDisks2::Block::isReadOnly() const
     return value(QStringLiteral("ReadOnly")).toBool();
 }
 
-bool UDisks2::Block::isExternal() const
+bool UDisks2::Block::hintAuto() const
 {
-    const QString prefDevice = preferredDevice();
-    return prefDevice != QStringLiteral("/dev/sailfish/home") && prefDevice != QStringLiteral("/dev/sailfish/root")
-            && mountPath() != QStringLiteral("/home") && mountPath() != QStringLiteral("/");
+    return value(QStringLiteral("HintAuto")).toBool() || m_overrideHintAuto;
 }
 
 bool UDisks2::Block::isValid() const
@@ -349,7 +348,7 @@ bool UDisks2::Block::hasData() const
 
 void UDisks2::Block::dumpInfo() const
 {
-    qCInfo(lcMemoryCardLog) << "Block device:" << device() << "Preferred device:" << preferredDevice();
+    qCInfo(lcMemoryCardLog) << this << ":" << device() << "Preferred device:" << preferredDevice() << "D-Bus object path:" << path();
     qCInfo(lcMemoryCardLog) << "- drive:" << drive() << "device number:" << deviceNumber() << "connection bus:" << connectionBus();
     qCInfo(lcMemoryCardLog) << "- id:" << id() << "size:" << size();
     qCInfo(lcMemoryCardLog) << "- isreadonly:" << isReadOnly() << "idtype:" << idType();
@@ -360,6 +359,7 @@ void UDisks2::Block::dumpInfo() const
                             << "crypto backing object path:" << cryptoBackingDeviceObjectPath();
     qCInfo(lcMemoryCardLog) << "- isformatting:" << isFormatting();
     qCInfo(lcMemoryCardLog) << "- ispartiontable:" << isPartitionTable() << "ispartition:" << isPartition();
+    qCInfo(lcMemoryCardLog) << "- hintAuto:" << hintAuto();
 }
 
 QString UDisks2::Block::cryptoBackingDevicePath(const QString &objectPath)
@@ -404,58 +404,6 @@ int UDisks2::Block::interfaceCount() const
 bool UDisks2::Block::hasInterface(const QString &interface) const
 {
     return m_interfacePropertyMap.contains(interface);
-}
-
-void UDisks2::Block::morph(const UDisks2::Block &other)
-{
-    if (&other == this)
-        return;
-
-    if (!this->m_connection.connection().disconnect(
-                UDISKS2_SERVICE,
-                m_path,
-                DBUS_OBJECT_PROPERTIES_INTERFACE,
-                UDisks2::propertiesChangedSignal,
-                this,
-                SLOT(updateProperties(QDBusMessage)))) {
-        qCWarning(lcMemoryCardLog) << "Failed to disconnect to Block properties change interface" << m_path
-                                   << m_connection.connection().lastError().message();
-    }
-
-    this->m_path = other.m_path;
-
-    if (!this->m_connection.connectToSignal(
-                UDISKS2_SERVICE,
-                this->m_path,
-                DBUS_OBJECT_PROPERTIES_INTERFACE,
-                UDisks2::propertiesChangedSignal,
-                this,
-                SLOT(updateProperties(QDBusMessage)))) {
-        qCWarning(lcMemoryCardLog) << "Failed to connect to Block properties change interface" << m_path
-                                   << m_connection.connection().lastError().message();
-    }
-
-    qCInfo(lcMemoryCardLog) << "Morphing" << qPrintable(device()) << "that was" << (m_formatting ? "formatting" : "not formatting" )
-                            << "to" << qPrintable(other.device());
-    qCInfo(lcMemoryCardLog) << "Old block:";
-    dumpInfo();
-    qCInfo(lcMemoryCardLog) << "New block:";
-    other.dumpInfo();
-
-    m_interfacePropertyMap = other.m_interfacePropertyMap;
-    m_data = other.m_data;
-    m_drive = other.m_drive;
-    m_mountPath = other.m_mountPath;
-    m_mountable = other.m_mountable;
-    m_encrypted = other.m_encrypted;
-    bool wasFormatting = m_formatting;
-    m_formatting = other.m_formatting;
-    m_locking = other.m_locking;
-
-
-    if (wasFormatting && hasCryptoBackingDevice()) {
-        rescan(cryptoBackingDeviceObjectPath());
-    }
 }
 
 void UDisks2::Block::updateProperties(const QDBusMessage &message)

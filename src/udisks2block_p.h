@@ -92,7 +92,7 @@ public:
     void setLocking();
 
     bool isReadOnly() const;
-    bool isExternal() const;
+    bool hintAuto() const;
 
     bool isValid() const;
 
@@ -113,13 +113,12 @@ public:
 
     static QString cryptoBackingDevicePath(const QString &objectPath);
 
-    void morph(const Block& other);
-
 signals:
     void completed(QPrivateSignal);
     void updated();
     void formatted();
     void mountPathChanged();
+    void blockRemoved(const QString &devicePath);
 
 private slots:
     void updateProperties(const QDBusMessage &message);
@@ -158,6 +157,8 @@ private:
     bool m_encrypted;
     bool m_formatting;
     bool m_locking;
+
+    bool m_overrideHintAuto = false;
 
     bool m_pendingFileSystem = false;
     bool m_pendingBlock = false;

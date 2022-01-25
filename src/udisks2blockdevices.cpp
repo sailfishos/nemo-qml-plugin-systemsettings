@@ -51,23 +51,24 @@ BlockDevices *BlockDevices::instance()
 
 BlockDevices::~BlockDevices()
 {
-    qDeleteAll(m_blockDevices);
+    qDeleteAll(m_activeBlockDevices);
     qDeleteAll(m_partitionWaits);
 
-    m_blockDevices.clear();
+    m_activeBlockDevices.clear();
     m_partitionWaits.clear();
     sharedInstance = nullptr;
 }
 
 bool BlockDevices::contains(const QString &dbusObjectPath) const
 {
-    return m_blockDevices.contains(dbusObjectPath);
+    return m_activeBlockDevices.contains(dbusObjectPath);
 }
 
 void BlockDevices::remove(const QString &dbusObjectPath)
 {
     if (contains(dbusObjectPath)) {
         Block *block = m_blockDevices.take(dbusObjectPath);
+        m_activeBlockDevices.remove(dbusObjectPath);
         clearPartitionWait(dbusObjectPath, false);
         delete block;
     }
@@ -75,38 +76,46 @@ void BlockDevices::remove(const QString &dbusObjectPath)
 
 Block *BlockDevices::device(const QString &dbusObjectPath) const
 {
+    Block *block = m_activeBlockDevices.value(dbusObjectPath, nullptr);
+    if (block) {
+        return block;
+    }
     return m_blockDevices.value(dbusObjectPath, nullptr);
 }
 
-Block *BlockDevices::replace(const QString &dbusObjectPath, Block *block)
+void BlockDevices::deactivate(const QString &dbusObjectPath)
 {
-    Block *deviceReplace = device(dbusObjectPath);
-
-    // Clear partition wait before morphing a block.
-    if (m_partitionWaits.contains(deviceReplace->partitionTable())) {
-        clearPartitionWait(deviceReplace->partitionTable(), false);
-    }
-
-    deviceReplace->morph(*block);
-    m_blockDevices.remove(dbusObjectPath);
-    insert(deviceReplace->path(), deviceReplace);
-    block->deleteLater();
-    return deviceReplace;
+    m_activeBlockDevices.remove(dbusObjectPath);
 }
 
 void BlockDevices::insert(const QString &dbusObjectPath, Block *block)
 {
-    m_blockDevices.insert(dbusObjectPath, block);
+    m_activeBlockDevices.insert(dbusObjectPath, block);
 }
 
 Block *BlockDevices::find(std::function<bool (const Block *)> condition)
 {
+    for (QMap<QString, Block *>::const_iterator i = m_activeBlockDevices.constBegin(); i != m_activeBlockDevices.constEnd(); ++i) {
+        Block *block = i.value();
+        if (condition(block)) {
+            return block;
+        }
+    }
+
     for (QMap<QString, Block *>::const_iterator i = m_blockDevices.constBegin(); i != m_blockDevices.constEnd(); ++i) {
         Block *block = i.value();
         if (condition(block)) {
             return block;
         }
     }
+
+    for (QMap<QString, Block *>::const_iterator i = m_pendingBlockDevices.constBegin(); i != m_pendingBlockDevices.constEnd(); ++i) {
+        Block *block = i.value();
+        if (condition(block)) {
+            return block;
+        }
+    }
+
     return nullptr;
 }
 
@@ -119,6 +128,15 @@ Block *BlockDevices::find(const QString &devicePath)
 
 QString BlockDevices::objectPath(const QString &devicePath) const
 {
+    for (QMap<QString, Block *>::const_iterator i = m_activeBlockDevices.constBegin(); i != m_activeBlockDevices.constEnd(); ++i) {
+        Block *block = i.value();
+        if (block->device() == devicePath) {
+            return block->path();
+        } else if (block->cryptoBackingDevicePath() == devicePath) {
+            return block->cryptoBackingDeviceObjectPath();
+        }
+    }
+
     for (QMap<QString, Block *>::const_iterator i = m_blockDevices.constBegin(); i != m_blockDevices.constEnd(); ++i) {
         Block *block = i.value();
         if (block->device() == devicePath) {
@@ -135,6 +153,13 @@ QStringList BlockDevices::devicePaths(const QStringList &dbusObjectPaths) const
 {
     QStringList paths;
     for (const QString &objectPath : dbusObjectPaths) {
+        for (QMap<QString, Block *>::const_iterator i = m_activeBlockDevices.constBegin(); i != m_activeBlockDevices.constEnd(); ++i) {
+            Block *block = i.value();
+            if (block->path() == objectPath || block->cryptoBackingDeviceObjectPath() == objectPath) {
+                paths << block->device();
+            }
+        }
+
         for (QMap<QString, Block *>::const_iterator i = m_blockDevices.constBegin(); i != m_blockDevices.constEnd(); ++i) {
             Block *block = i.value();
             if (block->path() == objectPath || block->cryptoBackingDeviceObjectPath() == objectPath) {
@@ -147,21 +172,13 @@ QStringList BlockDevices::devicePaths(const QStringList &dbusObjectPaths) const
 
 bool BlockDevices::createBlockDevice(const QString &dbusObjectPath, const InterfacePropertyMap &interfacePropertyMap)
 {
-    if (!BlockDevices::isExternal(dbusObjectPath)) {
-        updatePopulatedCheck();
-        return false;
-    }
-
     return doCreateBlockDevice(dbusObjectPath, interfacePropertyMap);
 }
 
 void BlockDevices::createBlockDevices(const QList<QDBusObjectPath> &devices)
 {
     m_blockCount = devices.count();
-    if (m_blockCount == 0) {
-        m_populated = true;
-        emit externalStoragesPopulated();
-    }
+    updatePopulatedCheck();
 
     for (const QDBusObjectPath &dbusObjectPath : devices) {
         createBlockDevice(dbusObjectPath.path(), UDisks2::InterfacePropertyMap());
@@ -170,15 +187,10 @@ void BlockDevices::createBlockDevices(const QList<QDBusObjectPath> &devices)
 
 void BlockDevices::lock(const QString &dbusObjectPath)
 {
-    Block *deviceMapped = find([dbusObjectPath](const Block *block) {
-        return block->cryptoBackingDeviceObjectPath() == dbusObjectPath;
-    });
+    Block *newActive = m_blockDevices.value(dbusObjectPath, nullptr);
 
-    if (deviceMapped && (deviceMapped->isLocking() || deviceMapped->isFormatting())) {
-        Block *newBlock = doCreateBlockDevice(dbusObjectPath, InterfacePropertyMap());
-        if (newBlock && deviceMapped->isFormatting()) {
-            newBlock->setFormatting(true);
-        }
+    if (newActive) {
+        emit newBlock(newActive, true);
     }
 }
 
@@ -210,16 +222,18 @@ void BlockDevices::removeInterfaces(const QString &dbusObjectPath, const QString
 
     UDisks2::Block *block = device(dbusObjectPath);
     if (block) {
-        if (interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
-            block->removeInterface(UDISKS2_FILESYSTEM_INTERFACE);
-        }
-        if (interfaces.contains(UDISKS2_ENCRYPTED_INTERFACE)) {
-            block->removeInterface(UDISKS2_ENCRYPTED_INTERFACE);
-        }
 
         if (interfaces.contains(UDISKS2_BLOCK_INTERFACE)) {
             delete block;
+            m_activeBlockDevices.remove(dbusObjectPath);
             m_blockDevices.remove(dbusObjectPath);
+        } else {
+            if (interfaces.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
+                block->removeInterface(UDISKS2_FILESYSTEM_INTERFACE);
+            }
+            if (interfaces.contains(UDISKS2_ENCRYPTED_INTERFACE)) {
+                block->removeInterface(UDISKS2_ENCRYPTED_INTERFACE);
+            }
         }
     }
 }
@@ -229,10 +243,25 @@ bool BlockDevices::populated() const
     return m_populated;
 }
 
-bool BlockDevices::isExternal(const QString &dbusObjectPath)
+bool BlockDevices::hintAuto(const Block *maybeHintAuto)
 {
-    static const QRegularExpression externalBlockDevice(QStringLiteral("^/org/freedesktop/UDisks2/block_devices/%1$").arg(externalDevice));
-    return externalBlockDevice.match(dbusObjectPath).hasMatch();
+    if (!maybeHintAuto->hintAuto()) {
+        if (!maybeHintAuto->hasCryptoBackingDevice())
+            return false;
+        return hintAuto(maybeHintAuto->cryptoBackingDeviceObjectPath());
+    }
+    return true;
+}
+
+bool BlockDevices::hintAuto(const QString &devicePath)
+{
+    Block *maybeHintAuto = find([devicePath](const Block *block) {
+        return block->device() == devicePath || block->path() == devicePath;
+    });
+    if (!maybeHintAuto)
+        return false;
+
+    return hintAuto(maybeHintAuto);
 }
 
 void BlockDevices::blockCompleted()
@@ -265,10 +294,19 @@ BlockDevices::BlockDevices(QObject *parent)
 
 Block *BlockDevices::doCreateBlockDevice(const QString &dbusObjectPath, const InterfacePropertyMap &interfacePropertyMap)
 {
-    if (contains(dbusObjectPath)) {
-        Block *block = device(dbusObjectPath);
+    if (Block *block = device(dbusObjectPath)) {
         if (block && interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE)) {
             block->addInterface(UDISKS2_FILESYSTEM_INTERFACE, interfacePropertyMap.value(UDISKS2_FILESYSTEM_INTERFACE));
+
+            // We just received FileSystem interface meaning that this must be mountable.
+            // Lower formatting flag from both crypto backing device this self.
+            if (block->hasCryptoBackingDevice()) {
+                Block *cryptoBackingDevice = device(block->cryptoBackingDeviceObjectPath());
+                if (cryptoBackingDevice) {
+                    cryptoBackingDevice->setFormatting(false);
+                }
+            }
+            block->setFormatting(false);
         }
         if (block && interfacePropertyMap.contains(UDISKS2_ENCRYPTED_INTERFACE)) {
             block->addInterface(UDISKS2_ENCRYPTED_INTERFACE, interfacePropertyMap.value(UDISKS2_ENCRYPTED_INTERFACE));
@@ -289,7 +327,7 @@ void BlockDevices::updateFormattingState(Block *block)
     QString cryptoBackingDevicePath = block->cryptoBackingDeviceObjectPath();
 
     // If we have crypto backing device, copy over formatting state.
-    if (cryptoBackingDevicePath != QLatin1String("/") && (cryptoBackingDevice = m_blockDevices.value(cryptoBackingDevicePath, nullptr))) {
+    if (cryptoBackingDevicePath != QLatin1String("/") && (cryptoBackingDevice = device(cryptoBackingDevicePath))) {
         block->blockSignals(true);
         block->setFormatting(cryptoBackingDevice->isFormatting());
         block->blockSignals(false);
@@ -298,6 +336,20 @@ void BlockDevices::updateFormattingState(Block *block)
 
 void BlockDevices::dumpBlocks() const
 {
+    if (!m_activeBlockDevices.isEmpty())
+        qCInfo(lcMemoryCardLog) << "======== Active block devices:" << m_activeBlockDevices.count();
+    else
+        qCInfo(lcMemoryCardLog) << "======== No active block devices";
+
+    for (QMap<QString, Block *>::const_iterator i = m_activeBlockDevices.constBegin(); i != m_activeBlockDevices.constEnd(); ++i) {
+        i.value()->dumpInfo();
+    }
+
+    if (!m_blockDevices.isEmpty())
+        qCInfo(lcMemoryCardLog) << "======== Existing block devices:" << m_blockDevices.count();
+    else
+        qCInfo(lcMemoryCardLog) << "======== No existing block devices";
+
     for (QMap<QString, Block *>::const_iterator i = m_blockDevices.constBegin(); i != m_blockDevices.constEnd(); ++i) {
         i.value()->dumpInfo();
     }
@@ -305,7 +357,15 @@ void BlockDevices::dumpBlocks() const
 
 void BlockDevices::complete(Block *block, bool forceAccept)
 {
-    if (!block->isExternal()) {
+    // Wait queried D-Bus properties getters to finalize for each created block device
+    // before exposing them outside.
+    // Mark a block as pending if block devices is not yet populated.
+    if (!populated()) {
+        m_pendingBlockDevices.insert(block->path(), block);
+        return;
+    }
+
+    if (!hintAuto(block)) {
         block->deleteLater();
         return;
     }
@@ -326,11 +386,13 @@ void BlockDevices::complete(Block *block, bool forceAccept)
 
     if (willAccept) {
         // Hope that somebody will handle this signal and call insert()
-        // to add this block to m_blockDevices.
-        emit newBlock(block);
+        // to add this block to m_activeBlockDevices.
+        m_blockDevices.insert(block->path(), block);
+        emit newBlock(block, false);
     } else if (block->isPartition()) {
         // Silently keep partitions around so that we can filter out
         // partition tables in timerEvent().
+        m_blockDevices.insert(block->path(), block);
         insert(block->path(), block);
     } else {
         // This is garbage block device that should not be exposed
@@ -344,8 +406,7 @@ void BlockDevices::timerEvent(QTimerEvent *e)
 {
     for (QMap<QString, PartitionWaiter *>::iterator i = m_partitionWaits.begin(); i != m_partitionWaits.end(); ++i) {
         PartitionWaiter *waiter = i.value();
-        int timerId = waiter->timer;
-        if (e->timerId() == timerId) {
+        if (e->timerId() == waiter->timer) {
             QString path = i.key();
             qCDebug(lcMemoryCardLog) << "Waiting partitions:" << m_partitionWaits.keys() << path;
             dumpBlocks();
@@ -368,9 +429,15 @@ void BlockDevices::updatePopulatedCheck()
 {
     if (!m_populated) {
         --m_blockCount;
-        if (m_blockCount == 0) {
+        if (m_blockCount <= 0) {
             m_populated = true;
+
+            for (Block *block : m_pendingBlockDevices) {
+                complete(block);
+            }
+            m_pendingBlockDevices.clear();
             emit externalStoragesPopulated();
+            m_blockCount = 0;
         }
     }
 }
