@@ -29,8 +29,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
-#ifndef DEVICEINFO_H
-#define DEVICEINFO_H
+#ifndef NEMO_SYSTEMSETTINGS_DEVICEINFO_H_
+#define NEMO_SYSTEMSETTINGS_DEVICEINFO_H_
 
 #include <QObject>
 
@@ -51,6 +51,7 @@ class SYSTEMSETTINGS_EXPORT DeviceInfo: public QObject
     Q_PROPERTY(QString osName READ osName CONSTANT)
     Q_PROPERTY(QString osVersion READ osVersion CONSTANT)
     Q_PROPERTY(QString adaptationVersion READ adaptationVersion CONSTANT)
+    Q_PROPERTY(QStringList imeiNumbers READ imeiNumbers NOTIFY imeiNumbersChanged)
 
 public:
     enum Feature {
@@ -103,7 +104,8 @@ public:
     };
     Q_ENUM(Feature)
 
-    DeviceInfo(QObject *parent = 0);
+    DeviceInfo(bool synchronousInit, QObject *parent = nullptr);
+    DeviceInfo(QObject *parent = nullptr);
     ~DeviceInfo();
     Q_INVOKABLE bool hasFeature(DeviceInfo::Feature feature) const;
     Q_INVOKABLE bool hasHardwareKey(Qt::Key key) const;
@@ -220,6 +222,37 @@ public:
      */
     QString adaptationVersion() const;
 
+    /*!
+     * List of IMEI number strings
+     *
+     * Note: Access is limited to users in
+     * \l {https://github.com/sailfishos/sailfish-setup} {sailfish-phone}
+     * group. Additionally sandboxed applications need
+     * \l {https://github.com/sailfishos/sailjail-permissions} {Phone}
+     * permission. If these requirements are not met, an empty list
+     * is returned.
+     *
+     * Obtained by enumerating modems exposed on D-Bus by OFono service.
+     *
+     * Normally enumeration is done asynchronously in background and
+     * empty list is returned until enumeration is finished.
+     *
+     * If DeviceInfo object is created using synchronousInit=true,
+     * constructor blocks while getting the initial values - which may
+     * be useful when dealing with procedural logic.
+     *
+     * If/when OFono is not running, an empty list is returned regardless
+     * of whether asynchronous or synchronous init is used.
+     *
+     * Should be functionally equivalent with obtaining data via:
+     *   QDeviceInfo::imei()
+     *   QDeviceInfo::imeiCount()
+     */
+    QStringList imeiNumbers();
+
+Q_SIGNALS:
+    void imeiNumbersChanged();
+
 private:
 
     DeviceInfoPrivate *d_ptr;
@@ -227,4 +260,4 @@ private:
     Q_DECLARE_PRIVATE(DeviceInfo)
 };
 
-#endif /* DEVICEINFO_H */
+#endif /* NEMO_SYSTEMSETTINGS_DEVICEINFO_H_ */
