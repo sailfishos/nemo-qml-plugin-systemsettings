@@ -33,9 +33,9 @@
 #define ABOUTSETTINGS_P_H
 
 #include <QObject>
-#include <QNetworkInfo>
-#include <QDeviceInfo>
 #include <QVariantList>
+
+#include "deviceinfo.h"
 
 class AboutSettingsPrivate : public QObject
 {
@@ -45,8 +45,7 @@ public:
     AboutSettingsPrivate(QObject *parent = nullptr);
     virtual ~AboutSettingsPrivate();
 
-    QNetworkInfo networkInfo;
-    QDeviceInfo deviceInfo;
+    DeviceInfo *deviceInfo;
 
     mutable QMap<QString, QString> osRelease;
     mutable QMap<QString, QString> osReleaseLocalization;

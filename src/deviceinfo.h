@@ -52,6 +52,7 @@ class SYSTEMSETTINGS_EXPORT DeviceInfo: public QObject
     Q_PROPERTY(QString osVersion READ osVersion CONSTANT)
     Q_PROPERTY(QString adaptationVersion READ adaptationVersion CONSTANT)
     Q_PROPERTY(QStringList imeiNumbers READ imeiNumbers NOTIFY imeiNumbersChanged)
+    Q_PROPERTY(QString wlanMacAddress READ wlanMacAddress CONSTANT)
 
 public:
     enum Feature {
@@ -249,6 +250,14 @@ public:
      *   QDeviceInfo::imeiCount()
      */
     QStringList imeiNumbers();
+
+    /*!
+     * Get wlan mac address
+     *
+     * Note: Interface availability is cached on the first call, but
+     *       mac address itself is re-read from sysfs on every call.
+     */
+    QString wlanMacAddress();
 
 Q_SIGNALS:
     void imeiNumbersChanged();

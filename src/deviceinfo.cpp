@@ -44,6 +44,7 @@ public:
     DeviceInfoPrivate(DeviceInfo *deviceInfo, bool synchronousInit);
     ~DeviceInfoPrivate();
     QStringList imeiNumbers();
+    QString wlanMacAddress();
 
     QSet<DeviceInfo::Feature> m_features;
     QSet<Qt::Key> m_keys;
@@ -60,10 +61,20 @@ private slots:
     void modemSerialChanged(const QString &serial);
     void updateModemProperties();
 private:
+    enum NetworkMode {
+        /* Subset of QNetworkInfo::NetworkMode enum */
+        WlanMode = 4,
+        EthernetMode = 5,
+    };
+
     void modemAdded(const QString &modem);
     void modemRemoved(const QString &modem);
     QSharedPointer<QOfonoManager> ofonoManager();
     void updateModemPropertiesLater();
+    int networkInterfaceCount(DeviceInfoPrivate::NetworkMode mode);
+    QString macAddress(DeviceInfoPrivate::NetworkMode mode, int interface);
+    const QStringList &networkModeDirectoryList(DeviceInfoPrivate::NetworkMode mode);
+    static QString readSimpleFile(const QString &path);
 
     DeviceInfo *q_ptr;
     bool m_synchronousInit;
@@ -72,6 +83,7 @@ private:
     QStringList m_modemList;
     QStringList m_imeiNumbers;
     QTimer *m_updateModemPropertiesTimer;
+    QHash<DeviceInfoPrivate::NetworkMode, QStringList> m_networkModeDirectoryListHash;
     Q_DISABLE_COPY(DeviceInfoPrivate);
     Q_DECLARE_PUBLIC(DeviceInfo);
 };
@@ -205,6 +217,52 @@ void DeviceInfoPrivate::modemSerialChanged(const QString &serial)
     updateModemPropertiesLater();
 }
 
+QString DeviceInfoPrivate::wlanMacAddress()
+{
+    return macAddress(DeviceInfoPrivate::WlanMode, 0);
+}
+
+int DeviceInfoPrivate::networkInterfaceCount(DeviceInfoPrivate::NetworkMode mode)
+{
+    /* Like QNetworkInfo::networkInterfaceCount() */
+    return networkModeDirectoryList(mode).size();
+}
+
+QString DeviceInfoPrivate::macAddress(DeviceInfoPrivate::NetworkMode mode, int interface)
+{
+    /* Like QNetworkInfo::macAddress() */
+    if (interface >= 0 && interface < networkInterfaceCount(mode))
+        return readSimpleFile(QDir(networkModeDirectoryList(mode).at(interface)).filePath("address"));
+    return QString();
+}
+
+const QStringList &DeviceInfoPrivate::networkModeDirectoryList(DeviceInfoPrivate::NetworkMode mode)
+{
+    if (!m_networkModeDirectoryListHash.contains(mode)) {
+        QStringList &modeDirectoryList(m_networkModeDirectoryListHash[mode]);
+        QDir baseDir(QStringLiteral("/sys/class/net"));
+        QStringList stemList;
+        if (mode == DeviceInfoPrivate::WlanMode)
+            stemList << QStringLiteral("wlan");
+        else if (mode == DeviceInfoPrivate::EthernetMode)
+            stemList << QStringLiteral("eth") << QStringLiteral("usb") << QStringLiteral("rndis");
+        for (auto stemIter = stemList.cbegin(); stemIter != stemList.cend(); ++stemIter) {
+            QFileInfoList modeDirList(baseDir.entryInfoList(QStringList() << QStringLiteral("%1*").arg(*stemIter), QDir::Dirs, QDir::Name));
+            for (auto modeDirIter = modeDirList.cbegin(); modeDirIter != modeDirList.cend(); ++modeDirIter)
+                modeDirectoryList.append((*modeDirIter).filePath());
+        }
+    }
+    return m_networkModeDirectoryListHash[mode];
+}
+
+QString DeviceInfoPrivate::readSimpleFile(const QString &path)
+{
+    QFile file(path);
+    if (file.open(QIODevice::ReadOnly))
+        return QString::fromLocal8Bit(file.readAll().simplified().data());
+    return QString();
+}
+
 DeviceInfo::DeviceInfo(bool synchronousInit, QObject *parent)
     : QObject(parent)
     , d_ptr(new DeviceInfoPrivate(this, synchronousInit))
@@ -289,6 +347,12 @@ QStringList DeviceInfo::imeiNumbers()
 {
     Q_D(DeviceInfo);
     return d->imeiNumbers();
+}
+
+QString DeviceInfo::wlanMacAddress()
+{
+    Q_D(DeviceInfo);
+    return d->wlanMacAddress();
 }
 
 #include "deviceinfo.moc"

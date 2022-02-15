@@ -35,9 +35,6 @@
 #include <QDebug>
 #include <QStringList>
 
-#include <QNetworkInfo>
-
-#include <QDeviceInfo>
 #include <QFile>
 #include <QByteArray>
 #include <QRegularExpression>
@@ -157,13 +154,14 @@ void parseLocalizationFile(const QString &filename, QMap<QString, QString> *resu
 
 AboutSettingsPrivate::AboutSettingsPrivate(QObject *parent)
     : QObject(parent)
+    , deviceInfo(new DeviceInfo())
 {
-
 }
 
 AboutSettingsPrivate::~AboutSettingsPrivate()
 {
-
+    delete deviceInfo;
+    deviceInfo = nullptr;
 }
 
 
@@ -184,19 +182,11 @@ AboutSettings::~AboutSettings()
 QString AboutSettings::wlanMacAddress() const
 {
     Q_D(const AboutSettings);
-    return d->networkInfo.macAddress(QNetworkInfo::WlanMode, 0);
-}
-
-QString AboutSettings::imei() const
-{
-    Q_D(const AboutSettings);
-    return d->deviceInfo.imei(0);
+    return d->deviceInfo->wlanMacAddress();
 }
 
 QString AboutSettings::serial() const
 {
-    // TODO: eventually we should use QDeviceInfo's uniqueDeviceID()
-
     QStringList serialFiles;
 
     serialFiles

@@ -14,7 +14,6 @@ Module {
         exports: ["org.nemomobile.systemsettings/AboutSettings 1.0"]
         exportMetaObjectRevisions: [0]
         Property { name: "wlanMacAddress"; type: "string"; isReadonly: true }
-        Property { name: "imei"; type: "string"; isReadonly: true }
         Property { name: "serial"; type: "string"; isReadonly: true }
         Property { name: "localizedOperatingSystemName"; type: "string"; isReadonly: true }
         Property { name: "baseOperatingSystemName"; type: "string"; isReadonly: true }
@@ -236,6 +235,11 @@ Module {
         Property { name: "designation"; type: "string"; isReadonly: true }
         Property { name: "manufacturer"; type: "string"; isReadonly: true }
         Property { name: "prettyName"; type: "string"; isReadonly: true }
+        Property { name: "osName"; type: "string"; isReadonly: true }
+        Property { name: "osVersion"; type: "string"; isReadonly: true }
+        Property { name: "adaptationVersion"; type: "string"; isReadonly: true }
+        Property { name: "imeiNumbers"; type: "QStringList"; isReadonly: true }
+        Property { name: "wlanMacAddress"; type: "string"; isReadonly: true }
         Method {
             name: "hasFeature"
             type: "bool"
