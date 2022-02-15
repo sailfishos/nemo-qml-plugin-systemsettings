@@ -44,6 +44,7 @@ public:
     DeviceInfoPrivate(DeviceInfo *deviceInfo, bool synchronousInit);
     ~DeviceInfoPrivate();
     QStringList imeiNumbers();
+    QString uniqueDeviceID();
 
     QSet<DeviceInfo::Feature> m_features;
     QSet<Qt::Key> m_keys;
@@ -60,10 +61,23 @@ private slots:
     void modemSerialChanged(const QString &serial);
     void updateModemProperties();
 private:
+    enum NetworkMode {
+        /* Subset of QNetworkInfo::NetworkMode enum */
+        WlanMode = 4,
+        EthernetMode = 5,
+    };
+
     void modemAdded(const QString &modem);
     void modemRemoved(const QString &modem);
     QSharedPointer<QOfonoManager> ofonoManager();
     void updateModemPropertiesLater();
+    int networkInterfaceCount(DeviceInfoPrivate::NetworkMode mode);
+    QString macAddress(DeviceInfoPrivate::NetworkMode mode, int interface);
+    const QStringList &networkModeDirectoryList(DeviceInfoPrivate::NetworkMode mode);
+    bool setUniqueDeviceIdFromMacAddress();
+    bool setUniqueDeviceIdFromFile(const QString &path, int expectedLength, bool hyphenate);
+    bool setUniqueDeviceId(QString data, int expectedLength, bool hyphenate);
+    static QString readSimpleFile(const QString &path);
 
     DeviceInfo *q_ptr;
     bool m_synchronousInit;
@@ -72,6 +86,9 @@ private:
     QStringList m_modemList;
     QStringList m_imeiNumbers;
     QTimer *m_updateModemPropertiesTimer;
+    QString m_uniqueDeviceId;
+    bool m_uniqueDeviceIdProbed;
+    QHash<DeviceInfoPrivate::NetworkMode, QStringList> m_networkModeDirectoryListHash;
     Q_DISABLE_COPY(DeviceInfoPrivate);
     Q_DECLARE_PUBLIC(DeviceInfo);
 };
@@ -80,6 +97,7 @@ DeviceInfoPrivate::DeviceInfoPrivate(DeviceInfo *deviceInfo, bool synchronousIni
     : q_ptr(deviceInfo)
     , m_synchronousInit(synchronousInit)
     , m_updateModemPropertiesTimer(nullptr)
+    , m_uniqueDeviceIdProbed(false)
 {
     ssusysinfo_t *si = ssusysinfo_create();
 
@@ -205,6 +223,91 @@ void DeviceInfoPrivate::modemSerialChanged(const QString &serial)
     updateModemPropertiesLater();
 }
 
+QString DeviceInfoPrivate::uniqueDeviceID()
+{
+    /* Like QDeviceInfo::uniqueDeviceID() */
+    if (!m_uniqueDeviceIdProbed) {
+        m_uniqueDeviceIdProbed = setUniqueDeviceIdFromFile(QStringLiteral("/sys/devices/virtual/dmi/id/product_uuid"), 36, false)
+            || setUniqueDeviceIdFromMacAddress()
+            || setUniqueDeviceIdFromFile(QStringLiteral("/var/lib/dbus/machine-id"), 32, true)
+            || setUniqueDeviceIdFromFile(QStringLiteral("/etc/machine-id"), 32, true)
+            || setUniqueDeviceIdFromFile(QStringLiteral("/etc/unique-id"), 32, true)
+            || true;
+    }
+    return m_uniqueDeviceId;
+}
+
+int DeviceInfoPrivate::networkInterfaceCount(DeviceInfoPrivate::NetworkMode mode)
+{
+    /* Like QNetworkInfo::networkInterfaceCount() */
+    return networkModeDirectoryList(mode).size();
+}
+
+QString DeviceInfoPrivate::macAddress(DeviceInfoPrivate::NetworkMode mode, int interface)
+{
+    /* Like QNetworkInfo::macAddress() */
+    if (interface >= 0 && interface < networkInterfaceCount(mode))
+        return readSimpleFile(QDir(networkModeDirectoryList(mode).at(interface)).filePath("address"));
+    return QString();
+}
+
+const QStringList& DeviceInfoPrivate::networkModeDirectoryList(DeviceInfoPrivate::NetworkMode mode)
+{
+    if (!m_networkModeDirectoryListHash.contains(mode)) {
+        QStringList &modeDirectoryList(m_networkModeDirectoryListHash[mode]);
+        QDir baseDir(QStringLiteral("/sys/class/net"));
+        QStringList stemList;
+        if (mode == DeviceInfoPrivate::WlanMode)
+            stemList << QStringLiteral("wlan");
+        else if (mode == DeviceInfoPrivate::EthernetMode)
+            stemList << QStringLiteral("eth") << QStringLiteral("usb") << QStringLiteral("rndis");
+        for (auto stemIter = stemList.cbegin(); stemIter != stemList.cend(); ++stemIter) {
+            QFileInfoList modeDirList(baseDir.entryInfoList(QStringList() << QStringLiteral("%1*").arg(*stemIter), QDir::Dirs, QDir::Name));
+            for( auto modeDirIter = modeDirList.cbegin(); modeDirIter != modeDirList.cend(); ++modeDirIter)
+                modeDirectoryList.append((*modeDirIter).filePath());
+        }
+    }
+    return m_networkModeDirectoryListHash[mode];
+}
+
+bool DeviceInfoPrivate::setUniqueDeviceIdFromMacAddress()
+{
+    QString data(macAddress(DeviceInfoPrivate::WlanMode, 0));
+    if (data.isEmpty())
+        data = macAddress(DeviceInfoPrivate::EthernetMode, 0);
+    if (data.isEmpty())
+        return false;
+    QCryptographicHash sha(QCryptographicHash::Sha1);
+    sha.addData(data.toLocal8Bit());
+    data = sha.result().toHex();
+    return setUniqueDeviceId(data, 40, true);
+}
+
+bool DeviceInfoPrivate::setUniqueDeviceIdFromFile(const QString &path, int expectedLength, bool hyphenate)
+{
+    return setUniqueDeviceId(readSimpleFile(path), expectedLength, hyphenate);
+}
+
+bool DeviceInfoPrivate::setUniqueDeviceId(QString data, int expectedLength, bool hyphenate)
+{
+    if (data.length() != expectedLength)
+        return false;
+    if (hyphenate)
+        data = data.insert(8, '-').insert(13, '-').insert(18, '-').insert(23, '-');
+    if (QUuid(data).isNull())
+        return false;
+    m_uniqueDeviceId = data;
+    return true;
+}
+
+QString DeviceInfoPrivate::readSimpleFile(const QString &path)
+{
+    QFile file(path);
+    if (file.open(QIODevice::ReadOnly))
+        return QString::fromLocal8Bit(file.readAll().simplified().data());
+    return QString();
+}
+
 DeviceInfo::DeviceInfo(bool synchronousInit, QObject *parent)
     : QObject(parent)
     , d_ptr(new DeviceInfoPrivate(this, synchronousInit))
@@ -289,6 +392,12 @@ QStringList DeviceInfo::imeiNumbers()
 {
     Q_D(DeviceInfo);
     return d->imeiNumbers();
+}
+
+QString DeviceInfo::uniqueDeviceID()
+{
+    Q_D(DeviceInfo);
+    return d->uniqueDeviceID();
 }
 
 #include "deviceinfo.moc"

@@ -52,6 +52,7 @@ class SYSTEMSETTINGS_EXPORT DeviceInfo: public QObject
     Q_PROPERTY(QString osVersion READ osVersion CONSTANT)
     Q_PROPERTY(QString adaptationVersion READ adaptationVersion CONSTANT)
     Q_PROPERTY(QStringList imeiNumbers READ imeiNumbers NOTIFY imeiNumbersChanged)
+    Q_PROPERTY(QString uniqueDeviceID READ uniqueDeviceID CONSTANT)
 
 public:
     enum Feature {
@@ -249,6 +250,14 @@ public:
      *   QDeviceInfo::imeiCount()
      */
     QStringList imeiNumbers();
+
+    /*!
+     * Unique device identifier
+     *
+     * Should be functionally equivalent with:
+     *   QDeviceInfo::uniqueDeviceID()
+     */
+    QString uniqueDeviceID();
 
 Q_SIGNALS:
     void imeiNumbersChanged();
