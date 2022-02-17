@@ -34,12 +34,16 @@
 #include <QSet>
 
 #include <ssusysinfo.h>
+#include <qofonomanager.h>
+#include <qofonomodem.h>
 
-class DeviceInfoPrivate
+class DeviceInfoPrivate: public QObject
 {
+    Q_OBJECT
 public:
-    DeviceInfoPrivate();
+    DeviceInfoPrivate(DeviceInfo *deviceInfo, bool synchronousInit);
     ~DeviceInfoPrivate();
+    QStringList imeiNumbers();
 
     QSet<DeviceInfo::Feature> m_features;
     QSet<Qt::Key> m_keys;
@@ -51,9 +55,31 @@ public:
     QString m_osName;
     QString m_osVersion;
     QString m_adaptationVersion;
+private slots:
+    void modemsChanged(const QStringList &modems);
+    void modemSerialChanged(const QString &serial);
+    void updateModemProperties();
+private:
+    void modemAdded(const QString &modem);
+    void modemRemoved(const QString &modem);
+    QSharedPointer<QOfonoManager> ofonoManager();
+    void updateModemPropertiesLater();
+
+    DeviceInfo *q_ptr;
+    bool m_synchronousInit;
+    QSharedPointer<QOfonoManager> m_ofonoManager;
+    QHash<QString, QSharedPointer<QOfonoModem> > m_modemHash;
+    QStringList m_modemList;
+    QStringList m_imeiNumbers;
+    QTimer *m_updateModemPropertiesTimer;
+    Q_DISABLE_COPY(DeviceInfoPrivate);
+    Q_DECLARE_PUBLIC(DeviceInfo);
 };
 
-DeviceInfoPrivate::DeviceInfoPrivate()
+DeviceInfoPrivate::DeviceInfoPrivate(DeviceInfo *deviceInfo, bool synchronousInit)
+    : q_ptr(deviceInfo)
+    , m_synchronousInit(synchronousInit)
+    , m_updateModemPropertiesTimer(nullptr)
 {
     ssusysinfo_t *si = ssusysinfo_create();
 
@@ -90,10 +116,107 @@ DeviceInfoPrivate::~DeviceInfoPrivate()
 {
 }
 
+QStringList DeviceInfoPrivate::imeiNumbers()
+{
+    /* Trigger on-demand ofono tracking and
+     * evaluate initial property values. */
+    ofonoManager();
+
+    return m_imeiNumbers;
+}
+
+QSharedPointer<QOfonoManager> DeviceInfoPrivate::ofonoManager()
+{
+    if (m_ofonoManager.isNull()) {
+        m_ofonoManager = QOfonoManager::instance(m_synchronousInit);
+        connect(&*m_ofonoManager, &QOfonoManager::modemsChanged, this, &DeviceInfoPrivate::modemsChanged);
+
+        m_updateModemPropertiesTimer = new QTimer(this);
+        m_updateModemPropertiesTimer->setInterval(50);
+        m_updateModemPropertiesTimer->setSingleShot(true);
+        connect(m_updateModemPropertiesTimer, &QTimer::timeout, this, &DeviceInfoPrivate::updateModemProperties);
+
+        QStringList modems(m_ofonoManager->modems());
+        for (auto iter = modems.cbegin(); iter != modems.cend(); ++iter)
+            modemAdded(*iter);
+        updateModemProperties();
+    }
+    return m_ofonoManager;
+}
+
+void DeviceInfoPrivate::updateModemPropertiesLater()
+{
+    if (!m_updateModemPropertiesTimer->isActive())
+        m_updateModemPropertiesTimer->start();
+}
+
+void DeviceInfoPrivate::updateModemProperties()
+{
+    QStringList imeiNumbers;
+    for (auto iter = m_modemList.cbegin(); iter != m_modemList.cend(); ++iter) {
+        QString imei(m_modemHash[*iter]->serial());
+        if (!imei.isEmpty())
+            imeiNumbers.append(imei);
+    }
+    if (m_imeiNumbers != imeiNumbers) {
+        m_imeiNumbers = imeiNumbers;
+        Q_Q(DeviceInfo);
+        emit q->imeiNumbersChanged();
+    }
+    m_updateModemPropertiesTimer->stop();
+}
+
+void DeviceInfoPrivate::modemRemoved(const QString &modemName)
+{
+    QSharedPointer<QOfonoModem> modem(m_modemHash.take(modemName));
+    if (!modem.isNull()) {
+        disconnect(&*modem, &QOfonoModem::serialChanged, this, &DeviceInfoPrivate::modemSerialChanged);
+        m_modemList.removeOne(modemName);
+        updateModemPropertiesLater();
+    }
+}
+
+void DeviceInfoPrivate::modemAdded(const QString &modemName)
+{
+    if (!m_modemHash.contains(modemName)) {
+        QSharedPointer<QOfonoModem> modem(QOfonoModem::instance(modemName, m_synchronousInit));
+        connect(&*modem, &QOfonoModem::serialChanged, this, &DeviceInfoPrivate::modemSerialChanged);
+        m_modemHash[modemName] = modem;
+        m_modemList.append(modemName);
+        updateModemPropertiesLater();
+    }
+}
+
+void DeviceInfoPrivate::modemsChanged(const QStringList &modems)
+{
+    QSet<QString> previous(m_modemList.toSet());
+    QSet<QString> current(modems.toSet());
+    QSet<QString> added(current - previous);
+    QSet<QString> removed(previous - current);
+    for (auto iter = removed.cbegin(); iter != removed.cend(); ++iter)
+        modemRemoved(*iter);
+    for (auto iter = added.cbegin(); iter != added.cend(); ++iter)
+        modemAdded(*iter);
+}
+
+void DeviceInfoPrivate::modemSerialChanged(const QString &serial)
+{
+    Q_UNUSED(serial);
+    updateModemPropertiesLater();
+}
+
+DeviceInfo::DeviceInfo(bool synchronousInit, QObject *parent)
+    : QObject(parent)
+    , d_ptr(new DeviceInfoPrivate(this, synchronousInit))
+{
+    Q_D(const DeviceInfo);
+}
+
 DeviceInfo::DeviceInfo(QObject *parent)
     : QObject(parent)
-    , d_ptr(new DeviceInfoPrivate())
+    , d_ptr(new DeviceInfoPrivate(this, false))
 {
+    Q_D(const DeviceInfo);
 }
 
 DeviceInfo::~DeviceInfo()
@@ -161,3 +284,11 @@ QString DeviceInfo::adaptationVersion() const
     Q_D(const DeviceInfo);
     return d->m_adaptationVersion;
 }
+
+QStringList DeviceInfo::imeiNumbers()
+{
+    Q_D(DeviceInfo);
+    return d->imeiNumbers();
+}
+
+#include "deviceinfo.moc"
