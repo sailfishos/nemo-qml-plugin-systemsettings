@@ -2,7 +2,7 @@
 
 PACKAGENAME = nemo-qml-plugin-systemsettings
 
-QT += testlib qml dbus systeminfo
+QT += testlib qml dbus
 QT -= gui
 
 TEMPLATE = app

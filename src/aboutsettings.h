@@ -45,7 +45,6 @@ class SYSTEMSETTINGS_EXPORT AboutSettings: public QObject
     Q_OBJECT
 
     Q_PROPERTY(QString wlanMacAddress READ wlanMacAddress CONSTANT)
-    Q_PROPERTY(QString imei READ imei CONSTANT)
     Q_PROPERTY(QString serial READ serial CONSTANT)
     Q_PROPERTY(QString localizedOperatingSystemName READ localizedOperatingSystemName CONSTANT)
     Q_PROPERTY(QString baseOperatingSystemName READ baseOperatingSystemName CONSTANT)
@@ -62,7 +61,6 @@ public:
     virtual ~AboutSettings();
 
     QString wlanMacAddress() const;
-    QString imei() const;
     QString serial() const;
     QString localizedOperatingSystemName() const;
     QString baseOperatingSystemName() const;
