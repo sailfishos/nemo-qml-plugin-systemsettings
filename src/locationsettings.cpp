@@ -526,7 +526,9 @@ void LocationSettings::setGpsFlightMode(bool flightMode)
 
 bool LocationSettings::gpsAvailable() const
 {
-    return QFile::exists(QStringLiteral("/usr/libexec/geoclue-hybris"));
+    return QFile::exists(QStringLiteral("/usr/libexec/geoclue-hybris"))
+            || QFile::exists(QStringLiteral("/usr/libexec/geoclue-gpsd"))
+            || QFile::exists(QStringLiteral("/usr/libexec/geoclue-gpsd3"));
 }
 
 QStringList LocationSettings::locationProviders() const
