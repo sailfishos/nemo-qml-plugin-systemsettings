@@ -68,7 +68,6 @@ public:
     void updateOnlineAgpsState(const QString &name, LocationSettings::OnlineAGpsState state);
     LocationSettings::LocationMode calculateLocationMode() const;
     void writeSettings();
-    bool isEmergencyCallActive();
 
     QFileSystemWatcher m_watcher;
     bool m_locationEnabled;
@@ -82,8 +81,7 @@ public:
     NetworkTechnology *m_gpsTech;
     NemoDBus::Interface *m_gpsTechInterface;
     QMceCallState *m_mceCallState;
-    QMceCallState::State m_callstate;
-    QMceCallState::Type m_calltype;
+    LocationSettings::LocationCanToggle m_canToggleLocation;
 
 private slots:
     void readSettings();

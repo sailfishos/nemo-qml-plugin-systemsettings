@@ -207,8 +207,7 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
                                 "/net/connman/technology/gps",
                                 "net.connman.Technology"))
     , m_mceCallState(new QMceCallState(this))
-    , m_callstate(QMceCallState::None)
-    , m_calltype(QMceCallState::Normal)
+    , m_canToggleLocation(LocationSettings::ToggleEnabled)
 {
     loadProviders();
 
@@ -480,7 +479,7 @@ void LocationSettings::setLocationEnabled(bool enabled)
 {
     Q_D(LocationSettings);
 
-    if (d->isEmergencyCallActive()) {
+    if (d->m_canToggleLocation) {
         qWarning() << "Cannot allow to change location enabled status when emergency call is active";
         return;
     }
@@ -490,6 +489,12 @@ void LocationSettings::setLocationEnabled(bool enabled)
         d->writeSettings();
         emit locationEnabledChanged();
     }
+}
+
+LocationSettings::LocationCanToggle LocationSettings::locationCanToggle() const
+{
+    Q_D(const LocationSettings);
+    return d->m_canToggleLocation;
 }
 
 bool LocationSettings::gpsEnabled() const
@@ -502,9 +507,17 @@ void LocationSettings::setGpsEnabled(bool enabled)
 {
     Q_D(LocationSettings);
 
-    if (d->isEmergencyCallActive()) {
-        qWarning() << "Cannot allow to change GPS status when emergency call is active";
+    switch (d->m_canToggleLocation) {
+    case LocationSettings::ToggleDisabled:
+        qDebug() << "Cannot allow to change GPS status when emergency call is active";
         return;
+    case LocationSettings::CanOnlyEnable:
+        if (!enabled) {
+            qDebug() << "Cannot allow to disable GPS when emergency call is active";
+            return;
+        }
+    case LocationSettings::ToggleEnabled:
+        break;
     }
 
     if (enabled != d->m_gpsEnabled) {
@@ -552,6 +565,12 @@ void LocationSettings::setGpsFlightMode(bool flightMode)
 bool LocationSettings::gpsAvailable() const
 {
     return QFile::exists(QStringLiteral("/usr/libexec/geoclue-hybris"));
+}
+
+LocationSettings::LocationCanToggle LocationSettings::gpsCanToggle() const
+{
+    Q_D(const LocationSettings);
+    return d->m_canToggleLocation;
 }
 
 QStringList LocationSettings::locationProviders() const
@@ -840,16 +859,26 @@ void LocationSettingsPrivate::writeSettings()
     }
 }
 
-bool LocationSettingsPrivate::isEmergencyCallActive()
-{
-    return m_callstate == QMceCallState::Active && m_calltype == QMceCallState::Emergency;
-}
-
 void LocationSettingsPrivate::onCallStateChanged()
 {
-    if (!m_mceCallState->valid())
-        return;
+    LocationSettings::LocationCanToggle canToggleLocation;
 
-    m_callstate = m_mceCallState->state();
-    m_calltype = m_mceCallState->type();
+    /*
+     * During emergency call the location is set by AML.
+     * TODO: We'd most likely need a specific type for AML enabled emergency
+     * call since AML is not always enabled everywhere as it is not supported
+     * in every region yet.
+     */
+    if (m_mceCallState->valid() && m_mceCallState->state() == QMceCallState::Active &&
+                                    m_mceCallState->type() == QMceCallState::Emergency) {
+        canToggleLocation = LocationSettings::ToggleDisabled;
+    } else {
+        canToggleLocation = LocationSettings::ToggleEnabled;
+    }
+
+    if (m_canToggleLocation != canToggleLocation) {
+        m_canToggleLocation = canToggleLocation;
+        emit q->locationCanToggleChanged();
+        emit q->gpsCanToggleChanged();
+    }
 }
