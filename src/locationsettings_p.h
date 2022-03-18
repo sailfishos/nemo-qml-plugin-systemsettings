@@ -41,6 +41,7 @@
 #include <QHash>
 
 #include <nemo-dbus/interface.h>
+#include <mce-qt5/qmcecallstate.h>
 
 #include <sailfishkeyprovider_processmutex.h>
 
@@ -67,6 +68,7 @@ public:
     void updateOnlineAgpsState(const QString &name, LocationSettings::OnlineAGpsState state);
     LocationSettings::LocationMode calculateLocationMode() const;
     void writeSettings();
+    bool isEmergencyCallActive();
 
     QFileSystemWatcher m_watcher;
     bool m_locationEnabled;
@@ -79,11 +81,15 @@ public:
     NetworkManager *m_connMan;
     NetworkTechnology *m_gpsTech;
     NemoDBus::Interface *m_gpsTechInterface;
+    QMceCallState *m_mceCallState;
+    QMceCallState::State m_callstate;
+    QMceCallState::Type m_calltype;
 
 private slots:
     void readSettings();
     void findGpsTech();
     void gpsTechPropertyChanged(const QString &propertyName, const QDBusVariant &value);
+    void onCallStateChanged();
 };
 
 // TODO: replace this with DBus calls to a central settings service...

@@ -206,6 +206,9 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
                                 "net.connman",
                                 "/net/connman/technology/gps",
                                 "net.connman.Technology"))
+    , m_mceCallState(new QMceCallState(this))
+    , m_callstate(QMceCallState::None)
+    , m_calltype(QMceCallState::Normal)
 {
     loadProviders();
 
@@ -233,6 +236,16 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
                 this, &LocationSettingsPrivate::findGpsTech);
         findGpsTech();
     }
+
+    connect(m_mceCallState, &QMceCallState::validChanged,
+            this, &LocationSettingsPrivate::onCallStateChanged);
+    connect(m_mceCallState, &QMceCallState::stateChanged,
+            this, &LocationSettingsPrivate::onCallStateChanged);
+    connect(m_mceCallState, &QMceCallState::typeChanged,
+            this, &LocationSettingsPrivate::onCallStateChanged);
+
+    /* To check the current status of the call if it is valid */
+    onCallStateChanged();
 }
 
 LocationSettingsPrivate::~LocationSettingsPrivate()
@@ -466,6 +479,12 @@ bool LocationSettings::locationEnabled() const
 void LocationSettings::setLocationEnabled(bool enabled)
 {
     Q_D(LocationSettings);
+
+    if (d->isEmergencyCallActive()) {
+        qWarning() << "Cannot allow to change location enabled status when emergency call is active";
+        return;
+    }
+
     if (enabled != d->m_locationEnabled) {
         d->m_locationEnabled = enabled;
         d->writeSettings();
@@ -482,6 +501,12 @@ bool LocationSettings::gpsEnabled() const
 void LocationSettings::setGpsEnabled(bool enabled)
 {
     Q_D(LocationSettings);
+
+    if (d->isEmergencyCallActive()) {
+        qWarning() << "Cannot allow to change GPS status when emergency call is active";
+        return;
+    }
+
     if (enabled != d->m_gpsEnabled) {
         d->m_gpsEnabled = enabled;
         d->writeSettings();
@@ -813,4 +838,18 @@ void LocationSettingsPrivate::writeSettings()
             ini.writeBool(LocationSettingsSection, it.value(), m_allowedDataSources & it.key());
         }
     }
+}
+
+bool LocationSettingsPrivate::isEmergencyCallActive()
+{
+    return m_callstate == QMceCallState::Active && m_calltype == QMceCallState::Emergency;
+}
+
+void LocationSettingsPrivate::onCallStateChanged()
+{
+    if (!m_mceCallState->valid())
+        return;
+
+    m_callstate = m_mceCallState->state();
+    m_calltype = m_mceCallState->type();
 }

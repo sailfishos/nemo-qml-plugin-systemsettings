@@ -21,6 +21,7 @@ BuildRequires:  pkgconfig(Qt5XmlPatterns)
 BuildRequires:  pkgconfig(timed-qt5)
 BuildRequires:  pkgconfig(profile)
 BuildRequires:  pkgconfig(mce) >= 1.21.0
+BuildRequires:  pkgconfig(mce-qt5) >= 1.4.2
 BuildRequires:  pkgconfig(mlite5) >= 0.3.6
 BuildRequires:  pkgconfig(usb-moded-qt5)
 BuildRequires:  pkgconfig(blkid)
