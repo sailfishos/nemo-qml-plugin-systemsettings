@@ -41,6 +41,7 @@
 #include <QHash>
 
 #include <nemo-dbus/interface.h>
+#include <mce-qt5/qmcecallstate.h>
 
 #include <sailfishkeyprovider_processmutex.h>
 
@@ -79,11 +80,14 @@ public:
     NetworkManager *m_connMan;
     NetworkTechnology *m_gpsTech;
     NemoDBus::Interface *m_gpsTechInterface;
+    QMceCallState *m_mceCallState;
+    LocationSettings::LocationCanToggle m_canToggleLocation;
 
 private slots:
     void readSettings();
     void findGpsTech();
     void gpsTechPropertyChanged(const QString &propertyName, const QDBusVariant &value);
+    void onCallStateChanged();
 };
 
 // TODO: replace this with DBus calls to a central settings service...

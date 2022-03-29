@@ -61,11 +61,13 @@ class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
     Q_OBJECT
 
     Q_PROPERTY(bool locationEnabled READ locationEnabled WRITE setLocationEnabled NOTIFY locationEnabledChanged)
+    Q_PROPERTY(LocationCanToggle locationCanToggle READ locationCanToggle NOTIFY locationCanToggleChanged)
     Q_PROPERTY(LocationMode locationMode READ locationMode WRITE setLocationMode NOTIFY locationModeChanged)
     Q_PROPERTY(QStringList pendingAgreements READ pendingAgreements NOTIFY pendingAgreementsChanged)
     Q_PROPERTY(DataSources allowedDataSources READ allowedDataSources WRITE setAllowedDataSources NOTIFY allowedDataSourcesChanged)
     Q_PROPERTY(bool gpsAvailable READ gpsAvailable CONSTANT)
     Q_PROPERTY(bool gpsEnabled READ gpsEnabled WRITE setGpsEnabled NOTIFY gpsEnabledChanged)
+    Q_PROPERTY(LocationCanToggle gpsCanToggle READ gpsCanToggle NOTIFY gpsCanToggleChanged)
     Q_PROPERTY(bool gpsFlightMode READ gpsFlightMode WRITE setGpsFlightMode NOTIFY gpsFlightModeChanged)
     Q_PROPERTY(QStringList locationProviders READ locationProviders CONSTANT)
 
@@ -80,6 +82,7 @@ class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
 
     Q_ENUMS(OnlineAGpsState)
     Q_ENUMS(LocationMode)
+    Q_ENUMS(LocationCanToggle)
 
 public:
     enum Mode {
@@ -98,6 +101,12 @@ public:
         BatterySavingMode,
         DeviceOnlyMode,
         CustomMode
+    };
+
+    enum LocationCanToggle {
+        ToggleEnabled,
+        CanOnlyEnable,
+        ToggleDisabled
     };
 
     // Data sources are grouped roughly by type,
@@ -137,6 +146,9 @@ public:
     void setGpsFlightMode(bool flightMode);
     bool gpsAvailable() const;
 
+    LocationCanToggle locationCanToggle() const;
+    LocationCanToggle gpsCanToggle() const;
+
     QStringList locationProviders() const;
     LocationProvider providerInfo(const QString &name) const;
     bool updateLocationProvider(const QString &name, const LocationProvider &providerState);
@@ -165,7 +177,9 @@ public:
 
 signals:
     void locationEnabledChanged();
+    void locationCanToggleChanged();
     void gpsEnabledChanged();
+    void gpsCanToggleChanged();
     void gpsFlightModeChanged();
     void locationModeChanged();
     void pendingAgreementsChanged();
