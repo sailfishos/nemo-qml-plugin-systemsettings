@@ -515,7 +515,7 @@ void LocationSettings::setGpsFlightMode(bool flightMode)
     if (d->m_gpsTechInterface) {
         QDBusReply<void> reply = d->m_gpsTechInterface->blockingCall("SetProperty",
                                                              PoweredPropertyName,
-                                                             QVariant::fromValue<QDBusVariant>(QDBusVariant(QVariant::fromValue<bool>(!flightMode))));
+                                                             QVariant::fromValue<bool>(!flightMode));
         if (reply.error().isValid()) {
             qWarning() << reply.error().message();
         }
