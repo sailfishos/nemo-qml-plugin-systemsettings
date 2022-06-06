@@ -7,7 +7,8 @@ QT -= gui
 
 CONFIG += c++11 hide_symbols link_pkgconfig
 PKGCONFIG += profile mlite5 mce timed-qt5 blkid libcrypto libsailfishkeyprovider connman-qt5 glib-2.0
-PKGCONFIG += ssu-sysinfo nemodbus packagekitqt5 libsystemd sailfishusermanager sailfishaccesscontrol
+
+PKGCONFIG += ssu-sysinfo nemodbus libsystemd sailfishusermanager sailfishaccesscontrol
 PKGCONFIG += qofono-qt5
 
 system($$[QT_INSTALL_BINS]/qdbusxml2cpp -p mceiface.h:mceiface.cpp mce.xml)
@@ -24,7 +25,6 @@ SOURCES += \
     displaysettings.cpp \
     aboutsettings.cpp \
     certificatemodel.cpp \
-    developermodesettings.cpp \
     batterystatus.cpp \
     diskusage.cpp \
     diskusage_impl.cpp \
@@ -53,7 +53,6 @@ PUBLIC_HEADERS = \
     aboutsettings.h \
     certificatemodel.h \
     settingsvpnmodel.h \
-    developermodesettings.h \
     batterystatus.h \
     udisks2block_p.h \
     udisks2defines.h \
@@ -85,6 +84,17 @@ HEADERS += \
     udisks2job_p.h \
     udisks2monitor_p.h \
     userinfo_p.h
+
+CONFIG(disableDevmode) {
+    warning("Developer mode plugin disabled")
+} else {
+    message("Developer mode plugin enabled")
+    PKGCONFIG += packagekitqt5
+    DEFINES += DEVELOPER_MODE_ENABLED
+
+    SOURCES += developermodesettings.cpp
+    PUBLIC_HEADERS += developermodesettings.h
+}
 
 DEFINES += \
     SYSTEMSETTINGS_BUILD_LIBRARY
