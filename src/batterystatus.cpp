@@ -43,8 +43,11 @@ BatteryStatusPrivate::BatteryStatusPrivate(BatteryStatus *batteryInfo)
     : QObject(batteryInfo)
     , q(batteryInfo)
     , status(BatteryStatus::BatteryStatusUnknown)
+    , chargingMode(BatteryStatus::EnableCharging)
     , chargerStatus(BatteryStatus::ChargerStatusUnknown)
     , chargePercentage(-1)
+    , chargeEnableLimit(-1)
+    , chargeDisableLimit(-1)
     , m_connection(QDBusConnection::systemBus())
     , m_mceInterface(this, m_connection, MCE_SERVICE, MCE_REQUEST_PATH, MCE_REQUEST_IF)
 {
@@ -59,6 +62,17 @@ BatteryStatusPrivate::BatteryStatusPrivate(BatteryStatus *batteryInfo)
     registerSignals();
 
     // read initial values
+    NemoDBus::Response *chargingMode = m_mceInterface.call(MCE_CHARGING_MODE_GET);
+    chargingMode->onFinished<QString>([this](const QString &value) {
+        chargingModeChanged(value);
+    });
+    chargingMode->onError([this](const QDBusError &error) {
+        if (error.type() == QDBusError::ServiceUnknown) {
+            // Service unknown => mce not registered. Signal initial state.
+            emit q->chargingModeChanged(BatteryStatus::EnableCharging);
+        }
+    });
+
     NemoDBus::Response *chargerState = m_mceInterface.call(MCE_CHARGER_STATE_GET);
     chargerState->onFinished<QString>([this](const QString &value) {
         chargerStatusChanged(value);
@@ -78,6 +92,28 @@ BatteryStatusPrivate::BatteryStatusPrivate(BatteryStatus *batteryInfo)
         if (error.type() == QDBusError::ServiceUnknown) {
             // Service unknown => mce not registered. Signal initial state.
             emit q->statusChanged(BatteryStatus::BatteryStatusUnknown);
+        }
+    });
+
+    NemoDBus::Response *chargeEnableLimit = m_mceInterface.call(MCE_CHARGING_LIMIT_ENABLE_GET);
+    chargeEnableLimit->onFinished<int>([this](int value) {
+        chargeEnableLimitChanged(value);
+    });
+    chargeEnableLimit->onError([this](const QDBusError &error) {
+        if (error.type() == QDBusError::ServiceUnknown) {
+            // Service unknown => mce not registered. Signal initial state.
+            emit q->chargeEnableLimitChanged(-1);
+        }
+    });
+
+    NemoDBus::Response *chargeDisableLimit = m_mceInterface.call(MCE_CHARGING_LIMIT_DISABLE_GET);
+    chargeDisableLimit->onFinished<int>([this](int value) {
+        chargeDisableLimitChanged(value);
+    });
+    chargeDisableLimit->onError([this](const QDBusError &error) {
+        if (error.type() == QDBusError::ServiceUnknown) {
+            // Service unknown => mce not registered. Signal initial state.
+            emit q->chargeDisableLimitChanged(-1);
         }
     });
 
@@ -101,6 +137,10 @@ void BatteryStatusPrivate::registerSignals()
 {
     m_connection.connectToSignal(
             MCE_SERVICE, MCE_SIGNAL_PATH,
+            MCE_SIGNAL_IF, MCE_CHARGING_MODE_SIG,
+            this, SLOT(chargingModeChanged(QString)));
+    m_connection.connectToSignal(
+            MCE_SERVICE, MCE_SIGNAL_PATH,
             MCE_SIGNAL_IF, MCE_CHARGER_STATE_SIG,
             this, SLOT(chargerStatusChanged(QString)));
     m_connection.connectToSignal(
@@ -111,6 +151,44 @@ void BatteryStatusPrivate::registerSignals()
             MCE_SERVICE, MCE_SIGNAL_PATH,
             MCE_SIGNAL_IF, MCE_BATTERY_LEVEL_SIG,
             this, SLOT(chargePercentageChanged(int)));
+    m_connection.connectToSignal(
+            MCE_SERVICE, MCE_SIGNAL_PATH,
+            MCE_SIGNAL_IF, MCE_CHARGING_LIMIT_ENABLE_SIG,
+            this, SLOT(chargeEnableLimitChanged(int)));
+    m_connection.connectToSignal(
+            MCE_SERVICE, MCE_SIGNAL_PATH,
+            MCE_SIGNAL_IF, MCE_CHARGING_LIMIT_DISABLE_SIG,
+            this, SLOT(chargeDisableLimitChanged(int)));
+}
+
+BatteryStatus::ChargingMode BatteryStatusPrivate::parseChargingMode(const QString &mode)
+{
+    if (mode == QLatin1String(MCE_CHARGING_MODE_ENABLE)) {
+        return BatteryStatus::EnableCharging;
+    } else if (mode == QLatin1String(MCE_CHARGING_MODE_DISABLE)){
+        return BatteryStatus::DisableCharging;
+    } else if (mode == QLatin1String(MCE_CHARGING_MODE_APPLY_THRESHOLDS)){
+        return BatteryStatus::ApplyChargingThresholds;
+    } else if (mode == QLatin1String(MCE_CHARGING_MODE_APPLY_THRESHOLDS_AFTER_FULL)){
+        return BatteryStatus::ApplyChargingThresholdsAfterFull;
+    }
+
+    return BatteryStatus::EnableCharging;
+}
+
+QString BatteryStatusPrivate::chargingModeToString(BatteryStatus::ChargingMode mode)
+{
+    switch (mode) {
+    default:
+    case BatteryStatus::EnableCharging:
+        return QLatin1String(MCE_CHARGING_MODE_ENABLE);
+    case BatteryStatus::DisableCharging:
+        return QLatin1String(MCE_CHARGING_MODE_DISABLE);
+    case BatteryStatus::ApplyChargingThresholds:
+        return QLatin1String(MCE_CHARGING_MODE_APPLY_THRESHOLDS);
+    case BatteryStatus::ApplyChargingThresholdsAfterFull:
+        return QLatin1String(MCE_CHARGING_MODE_APPLY_THRESHOLDS_AFTER_FULL);
+    }
 }
 
 BatteryStatus::ChargerStatus BatteryStatusPrivate::parseChargerStatus(const QString &state)
@@ -151,6 +229,15 @@ void BatteryStatusPrivate::mceUnregistered()
     chargePercentageChanged(-1);
 }
 
+void BatteryStatusPrivate::chargingModeChanged(const QString &mode)
+{
+    BatteryStatus::ChargingMode newMode = parseChargingMode(mode);
+    if (newMode != chargingMode) {
+        chargingMode = newMode;
+        emit q->chargingModeChanged(chargingMode);
+    }
+}
+
 void BatteryStatusPrivate::chargerStatusChanged(const QString &status)
 {
     BatteryStatus::ChargerStatus newStatus = parseChargerStatus(status);
@@ -177,6 +264,22 @@ void BatteryStatusPrivate::chargePercentageChanged(int percentage)
     }
 }
 
+void BatteryStatusPrivate::chargeEnableLimitChanged(int percentage)
+{
+    if (percentage != chargeEnableLimit) {
+        chargeEnableLimit = percentage;
+        emit q->chargeEnableLimitChanged(chargeEnableLimit);
+    }
+}
+
+void BatteryStatusPrivate::chargeDisableLimitChanged(int percentage)
+{
+    if (percentage != chargeDisableLimit) {
+        chargeDisableLimit = percentage;
+        emit q->chargeDisableLimitChanged(chargeDisableLimit);
+    }
+}
+
 BatteryStatus::BatteryStatus(QObject *parent)
     : QObject(parent)
     , d_ptr(new BatteryStatusPrivate(this))
@@ -185,6 +288,31 @@ BatteryStatus::BatteryStatus(QObject *parent)
 
 BatteryStatus::~BatteryStatus()
 {
+}
+
+/**
+ * @brief BatteryStatus::chargingMode
+ * @return Returns active charging hysteresis policy mode. In case information cannot be read
+ * EnableCharging is returned.
+ */
+BatteryStatus::ChargingMode BatteryStatus::chargingMode() const
+{
+    Q_D(const BatteryStatus);
+    return d->chargingMode;
+}
+
+/**
+ * @brief BatteryStatus::setChargingMode
+ * @param mode Charging hysteresis policy mode
+ */
+void BatteryStatus::setChargingMode(BatteryStatus::ChargingMode mode)
+{
+    Q_D(BatteryStatus);
+    if (d->chargingMode != mode) {
+        d->chargingMode = mode;
+        d->m_mceInterface.call(MCE_CHARGING_MODE_SET, d->chargingModeToString(mode));
+        emit chargingModeChanged(mode);
+    }
 }
 
 /**
@@ -209,6 +337,57 @@ int BatteryStatus::chargePercentage() const
     return d->chargePercentage;
 }
 
+/**
+ * @brief BatteryStatus::chargeEnableLimit
+ * @return Returns battery charge level under which charging should be enabled
+ * @sa chargingMode
+ */
+int BatteryStatus::chargeEnableLimit() const
+{
+    Q_D(const BatteryStatus);
+    return d->chargeEnableLimit;
+}
+
+/**
+ * @brief BatteryStatus::setChargeEnableLimit
+ * @param percentage Battery charge level under which charging should be enabled
+ * @sa chargingMode
+ */
+void BatteryStatus::setChargeEnableLimit(int percentage)
+{
+    Q_D(BatteryStatus);
+    if (d->chargeEnableLimit != percentage) {
+        d->chargeEnableLimit = percentage;
+        d->m_mceInterface.call(MCE_CHARGING_LIMIT_ENABLE_SET, percentage);
+        emit chargeEnableLimitChanged(percentage);
+    }
+}
+
+/**
+ * @brief BatteryStatus::chargeDisableLimit
+ * @return Returns battery charge level under which charging should be disabled
+ * @sa chargingMode
+ */
+int BatteryStatus::chargeDisableLimit() const
+{
+    Q_D(const BatteryStatus);
+    return d->chargeDisableLimit;
+}
+
+/**
+ * @brief BatteryStatus::setChargeDisableLimit
+ * @param percentage Battery charge level above which charging should be disabled
+ * @sa chargingMode
+ */
+void BatteryStatus::setChargeDisableLimit(int percentage)
+{
+    Q_D(BatteryStatus);
+    if (d->chargeDisableLimit != percentage) {
+        d->chargeDisableLimit = percentage;
+        d->m_mceInterface.call(MCE_CHARGING_LIMIT_DISABLE_SET, percentage);
+        emit chargeDisableLimitChanged(percentage);
+    }
+}
 
 /**
  * @brief BatteryStatus::status

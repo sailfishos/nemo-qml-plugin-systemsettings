@@ -41,16 +41,31 @@ class BatteryStatusPrivate;
 class SYSTEMSETTINGS_EXPORT BatteryStatus : public QObject
 {
     Q_OBJECT
+    Q_ENUMS(ChargingMode)
     Q_ENUMS(ChargerStatus)
     Q_ENUMS(Status)
 
+    Q_PROPERTY(ChargingMode chargingMode READ chargingMode WRITE setChargingMode
+            NOTIFY chargingModeChanged)
     Q_PROPERTY(ChargerStatus chargerStatus READ chargerStatus NOTIFY chargerStatusChanged)
     Q_PROPERTY(int chargePercentage READ chargePercentage NOTIFY chargePercentageChanged)
+    Q_PROPERTY(int chargeEnableLimit READ chargeEnableLimit WRITE setChargeEnableLimit
+            NOTIFY chargeEnableLimitChanged)
+    Q_PROPERTY(int chargeDisableLimit READ chargeDisableLimit WRITE setChargeDisableLimit
+            NOTIFY chargeDisableLimitChanged)
     Q_PROPERTY(Status status READ status NOTIFY statusChanged)
 
 public:
     BatteryStatus(QObject *parent = 0);
     ~BatteryStatus();
+
+    enum ChargingMode {
+        EnableCharging,
+        DisableCharging,
+        ApplyChargingThresholds,
+        ApplyChargingThresholdsAfterFull
+    };
+    Q_ENUM(ChargingMode)
 
     enum ChargerStatus {
         ChargerStatusUnknown = -1,
@@ -68,13 +83,22 @@ public:
     };
     Q_ENUM(Status)
 
+    ChargingMode chargingMode() const;
+    void setChargingMode(ChargingMode mode);
     ChargerStatus chargerStatus() const;
     int chargePercentage() const;
+    int chargeEnableLimit() const;
+    void setChargeEnableLimit(int percentage);
+    int chargeDisableLimit() const;
+    void setChargeDisableLimit(int percentage);
     Status status() const;
 
 signals:
+    void chargingModeChanged(ChargingMode mode);
     void chargerStatusChanged(ChargerStatus status);
     void chargePercentageChanged(int percentage);
+    void chargeEnableLimitChanged(int percentage);
+    void chargeDisableLimitChanged(int percentage);
     void statusChanged(Status status);
 
 private:
