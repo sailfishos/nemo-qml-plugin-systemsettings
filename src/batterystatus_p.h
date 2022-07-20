@@ -50,23 +50,32 @@ public:
 
     void registerSignals();
 
+    BatteryStatus::ChargingMode parseChargingMode(const QString &mode);
+    QString chargingModeToString(BatteryStatus::ChargingMode mode);
     BatteryStatus::ChargerStatus parseChargerStatus(const QString &state);
     BatteryStatus::Status parseBatteryStatus(const QString &status);
 
     BatteryStatus *q;
     BatteryStatus::Status status;
+    BatteryStatus::ChargingMode chargingMode;
     BatteryStatus::ChargerStatus chargerStatus;
     int chargePercentage;
+    int chargeEnableLimit;
+    int chargeDisableLimit;
 
 public slots:
     void mceRegistered();
     void mceUnregistered();
 
+    void chargingModeChanged(const QString &mode);
     void chargerStatusChanged(const QString &status);
     void statusChanged(const QString &s);
     void chargePercentageChanged(int percentage);
+    void chargeEnableLimitChanged(int percentage);
+    void chargeDisableLimitChanged(int percentage);
 
 private:
+    friend class BatteryStatus;
     NemoDBus::Connection m_connection;
     NemoDBus::Interface m_mceInterface;
 };
