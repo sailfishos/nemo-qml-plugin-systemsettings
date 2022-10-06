@@ -62,6 +62,7 @@ public:
     int chargePercentage;
     int chargeEnableLimit;
     int chargeDisableLimit;
+    bool chargingForced;
 
 public slots:
     void mceRegistered();
@@ -69,6 +70,7 @@ public slots:
 
     void configChanged(const QString &key, const QDBusVariant &value);
     void chargingModeChanged(int mode);
+    void chargingForcedChanged(const QString &forced);
     void chargerStatusChanged(const QString &status);
     void statusChanged(const QString &s);
     void chargePercentageChanged(int percentage);

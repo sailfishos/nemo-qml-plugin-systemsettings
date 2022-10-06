@@ -47,6 +47,8 @@ class SYSTEMSETTINGS_EXPORT BatteryStatus : public QObject
 
     Q_PROPERTY(ChargingMode chargingMode READ chargingMode WRITE setChargingMode
             NOTIFY chargingModeChanged)
+    Q_PROPERTY(bool chargingForced READ chargingForced WRITE setChargingForced
+            NOTIFY chargingForcedChanged)
     Q_PROPERTY(ChargerStatus chargerStatus READ chargerStatus NOTIFY chargerStatusChanged)
     Q_PROPERTY(int chargePercentage READ chargePercentage NOTIFY chargePercentageChanged)
     Q_PROPERTY(int chargeEnableLimit READ chargeEnableLimit WRITE setChargeEnableLimit
@@ -84,7 +86,9 @@ public:
     Q_ENUM(Status)
 
     ChargingMode chargingMode() const;
+    bool chargingForced() const;
     void setChargingMode(ChargingMode mode);
+    void setChargingForced(bool forced);
     ChargerStatus chargerStatus() const;
     int chargePercentage() const;
     int chargeEnableLimit() const;
@@ -95,6 +99,7 @@ public:
 
 signals:
     void chargingModeChanged(ChargingMode mode);
+    void chargingForcedChanged(bool forced);
     void chargerStatusChanged(ChargerStatus status);
     void chargePercentageChanged(int percentage);
     void chargeEnableLimitChanged(int percentage);

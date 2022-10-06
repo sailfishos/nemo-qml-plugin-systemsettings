@@ -44,10 +44,24 @@ const QString MceSettingsChargingMode = QStringLiteral("/system/osso/dsm/chargin
 const QString MceSettingsChargingLimitEnable = QStringLiteral("/system/osso/dsm/charging/limit_enable");
 const QString MceSettingsChargingLimitDisable = QStringLiteral("/system/osso/dsm/charging/limit_disable");
 
+const QString MceForcedChargingEnabled = QStringLiteral(MCE_FORCED_CHARGING_ENABLED);
+const QString MceForcedChargingDisabled = QStringLiteral(MCE_FORCED_CHARGING_DISABLED);
+
 const int MceChargingModeDisable = 0;
 const int MceChargingModeEnable = 1;
 const int MceChargingModeApplyThresholds = 2;
 const int MceChargingModeApplyThresholdsAfterFull = 3;
+
+bool chargingForcedFromDBus(const QString &value)
+{
+    return value == MceForcedChargingEnabled;
+}
+
+QString chargingForcedToDBus(bool enabled)
+{
+    return enabled ? MceForcedChargingEnabled : MceForcedChargingDisabled;
+}
+
 }
 
 BatteryStatusPrivate::BatteryStatusPrivate(BatteryStatus *batteryInfo)
@@ -59,6 +73,7 @@ BatteryStatusPrivate::BatteryStatusPrivate(BatteryStatus *batteryInfo)
     , chargePercentage(-1)
     , chargeEnableLimit(-1)
     , chargeDisableLimit(-1)
+    , chargingForced(false)
     , m_connection(QDBusConnection::systemBus())
     , m_mceInterface(this, m_connection, MCE_SERVICE, MCE_REQUEST_PATH, MCE_REQUEST_IF)
 {
@@ -82,6 +97,17 @@ BatteryStatusPrivate::BatteryStatusPrivate(BatteryStatus *batteryInfo)
         if (error.type() == QDBusError::ServiceUnknown) {
             // Service unknown => mce not registered. Signal initial state.
             emit q->chargingModeChanged(BatteryStatus::EnableCharging);
+        }
+    });
+
+    NemoDBus::Response *chargingForced = m_mceInterface.call(MCE_FORCED_CHARGING_GET);
+    chargingForced->onFinished<QString>([this](const QString &value) {
+        chargingForcedChanged(value);
+    });
+    chargingForced->onError([this](const QDBusError &error) {
+        if (error.type() == QDBusError::ServiceUnknown) {
+            // Service unknown => mce not registered. Signal initial state.
+            chargingForcedChanged(MceForcedChargingDisabled);
         }
     });
 
@@ -165,6 +191,10 @@ void BatteryStatusPrivate::registerSignals()
             MCE_SERVICE, MCE_SIGNAL_PATH,
             MCE_SIGNAL_IF, MCE_BATTERY_LEVEL_SIG,
             this, SLOT(chargePercentageChanged(int)));
+    m_connection.connectToSignal(
+            MCE_SERVICE, MCE_SIGNAL_PATH,
+            MCE_SIGNAL_IF, MCE_FORCED_CHARGING_SIG,
+            this, SLOT(chargingForcedChanged(QString)));
 }
 
 BatteryStatus::ChargingMode BatteryStatusPrivate::parseChargingMode(int mode)
@@ -257,6 +287,15 @@ void BatteryStatusPrivate::chargingModeChanged(int mode)
     }
 }
 
+void BatteryStatusPrivate::chargingForcedChanged(const QString &forced)
+{
+    bool value = chargingForcedFromDBus(forced);
+    if (value != chargingForced) {
+        chargingForced = value;
+        emit q->chargingForcedChanged(chargingForced);
+    }
+}
+
 void BatteryStatusPrivate::chargerStatusChanged(const QString &status)
 {
     BatteryStatus::ChargerStatus newStatus = parseChargerStatus(status);
@@ -321,6 +360,16 @@ BatteryStatus::ChargingMode BatteryStatus::chargingMode() const
 }
 
 /**
+ * @brief BatteryStatus::chargingForced
+ * @return Returns true if forced charging is active
+ */
+bool BatteryStatus::chargingForced() const
+{
+    Q_D(const BatteryStatus);
+    return d->chargingForced;
+}
+
+/**
  * @brief BatteryStatus::setChargingMode
  * @param mode Charging hysteresis policy mode
  */
@@ -332,6 +381,21 @@ void BatteryStatus::setChargingMode(BatteryStatus::ChargingMode mode)
         d->m_mceInterface.call(MCE_CONFIG_SET, MceSettingsChargingMode,
                 QDBusVariant(d->chargingModeToInt(mode)));
         emit chargingModeChanged(mode);
+    }
+}
+
+/**
+ * @brief BatteryStatus::setChargingForced
+ * @param mode Charging hysteresis policy mode
+ */
+void BatteryStatus::setChargingForced(bool forced)
+{
+    Q_D(BatteryStatus);
+    if (d->chargingForced != forced) {
+        d->chargingForced = forced;
+        d->m_mceInterface.call(MCE_FORCED_CHARGING_REQ,
+                               chargingForcedToDBus(d->chargingForced));
+        emit chargingForcedChanged(d->chargingForced);
     }
 }
 
