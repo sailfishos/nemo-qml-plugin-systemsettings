@@ -8,7 +8,7 @@ Source0:    %{name}-%{version}.tar.bz2
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 Requires:       connman
-Requires:       mce >= 1.112.0
+Requires:       mce >= 1.113.0
 Requires:       libsailfishkeyprovider >= 0.0.14
 Requires:       connman-qt5 >= 1.2.38
 Requires:       user-managerd >= 0.4.0
@@ -20,7 +20,7 @@ BuildRequires:  pkgconfig(Qt5Test)
 BuildRequires:  pkgconfig(Qt5XmlPatterns)
 BuildRequires:  pkgconfig(timed-qt5)
 BuildRequires:  pkgconfig(profile)
-BuildRequires:  pkgconfig(mce) >= 1.31.0
+BuildRequires:  pkgconfig(mce) >= 1.32.0
 BuildRequires:  pkgconfig(mlite5) >= 0.3.6
 BuildRequires:  pkgconfig(usb-moded-qt5)
 BuildRequires:  pkgconfig(blkid)
