@@ -54,6 +54,8 @@ public:
     int chargingModeToInt(BatteryStatus::ChargingMode mode);
     BatteryStatus::ChargerStatus parseChargerStatus(const QString &state);
     BatteryStatus::Status parseBatteryStatus(const QString &status);
+    void chargingSuspendabledRefresh();
+    void chargingSuspendableChanged(bool supported);
 
     BatteryStatus *q;
     BatteryStatus::Status status;
@@ -63,6 +65,7 @@ public:
     int chargeEnableLimit;
     int chargeDisableLimit;
     bool chargingForced;
+    bool chargingSuspendendable;
 
 public slots:
     void mceRegistered();

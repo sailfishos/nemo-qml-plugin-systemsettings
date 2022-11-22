@@ -74,6 +74,7 @@ BatteryStatusPrivate::BatteryStatusPrivate(BatteryStatus *batteryInfo)
     , chargeEnableLimit(-1)
     , chargeDisableLimit(-1)
     , chargingForced(false)
+    , chargingSuspendendable(false)
     , m_connection(QDBusConnection::systemBus())
     , m_mceInterface(this, m_connection, MCE_SERVICE, MCE_REQUEST_PATH, MCE_REQUEST_IF)
 {
@@ -167,6 +168,8 @@ BatteryStatusPrivate::BatteryStatusPrivate(BatteryStatus *batteryInfo)
             emit q->chargePercentageChanged(-1);
         }
     });
+
+    chargingSuspendabledRefresh();
 }
 
 BatteryStatusPrivate::~BatteryStatusPrivate()
@@ -257,6 +260,7 @@ BatteryStatus::Status BatteryStatusPrivate::parseBatteryStatus(const QString &st
 void BatteryStatusPrivate::mceRegistered()
 {
     registerSignals();
+    chargingSuspendabledRefresh();
 }
 
 void BatteryStatusPrivate::mceUnregistered()
@@ -264,6 +268,7 @@ void BatteryStatusPrivate::mceUnregistered()
     chargerStatusChanged(QLatin1String(MCE_CHARGER_STATE_UNKNOWN));
     statusChanged(QLatin1String(MCE_BATTERY_STATUS_UNKNOWN));
     chargePercentageChanged(-1);
+    chargingSuspendableChanged(false);
 }
 
 void BatteryStatusPrivate::configChanged(const QString &key, const QDBusVariant &value_)
@@ -293,6 +298,26 @@ void BatteryStatusPrivate::chargingForcedChanged(const QString &forced)
     if (value != chargingForced) {
         chargingForced = value;
         emit q->chargingForcedChanged(chargingForced);
+    }
+}
+
+void BatteryStatusPrivate::chargingSuspendabledRefresh()
+{
+    NemoDBus::Response *chargingSuspendQuery = m_mceInterface.call(MCE_CHARGING_SUSPENDABLE_GET);
+    chargingSuspendQuery->onFinished<bool>([this](bool value) {
+        chargingSuspendableChanged(value);
+    });
+    chargingSuspendQuery->onError([this](const QDBusError &error) {
+        Q_UNUSED(error);
+        chargingSuspendableChanged(false);
+    });
+}
+
+void BatteryStatusPrivate::chargingSuspendableChanged(bool supported)
+{
+    if (chargingSuspendendable != supported) {
+        chargingSuspendendable = supported;
+        emit q->chargingSuspendableChanged(chargingSuspendendable);
     }
 }
 
@@ -367,6 +392,16 @@ bool BatteryStatus::chargingForced() const
 {
     Q_D(const BatteryStatus);
     return d->chargingForced;
+}
+
+/**
+ * @brief BatteryStatus::chargingSuspendendable
+ * @return Returns true if charging can be suspended
+ */
+bool BatteryStatus::chargingSuspendendable() const
+{
+    Q_D(const BatteryStatus);
+    return d->chargingSuspendendable;
 }
 
 /**
