@@ -51,8 +51,16 @@ const auto legacyDefaultDomain(QStringLiteral("merproject.org"));
 
 int numericValue(VpnConnection::ConnectionState state)
 {
-    return (state == VpnConnection::Ready ? 3 :
-                (state == VpnConnection::Configuration ? 2 : 0));
+    switch (state) {
+    case VpnConnection::Ready:
+        return 3;
+    case VpnConnection::Configuration:
+        return 2;
+    case VpnConnection::Association:
+        return 1;
+    default:
+        return 0;
+    }
 }
 
 VpnConnection::ConnectionState getMaxState(VpnConnection::ConnectionState newState, VpnConnection::ConnectionState oldState)
