@@ -45,6 +45,15 @@ Module {
         exports: ["org.nemomobile.systemsettings/BatteryStatus 1.0"]
         exportMetaObjectRevisions: [0]
         Enum {
+            name: "ChargingMode"
+            values: {
+                "EnableCharging": 0,
+                "DisableCharging": 1,
+                "ApplyChargingThresholds": 2,
+                "ApplyChargingThresholdsAfterFull": 3
+            }
+        }
+        Enum {
             name: "ChargerStatus"
             values: {
                 "ChargerStatusUnknown": -1,
@@ -62,15 +71,40 @@ Module {
                 "Empty": 3
             }
         }
+        Property { name: "chargingMode"; type: "ChargingMode" }
+        Property { name: "chargingForced"; type: "bool" }
+        Property { name: "chargingSuspendendable"; type: "bool"; isReadonly: true }
         Property { name: "chargerStatus"; type: "ChargerStatus"; isReadonly: true }
         Property { name: "chargePercentage"; type: "int"; isReadonly: true }
+        Property { name: "chargeEnableLimit"; type: "int" }
+        Property { name: "chargeDisableLimit"; type: "int" }
         Property { name: "status"; type: "Status"; isReadonly: true }
+        Signal {
+            name: "chargingModeChanged"
+            Parameter { name: "mode"; type: "ChargingMode" }
+        }
+        Signal {
+            name: "chargingForcedChanged"
+            Parameter { name: "forced"; type: "bool" }
+        }
+        Signal {
+            name: "chargingSuspendableChanged"
+            Parameter { name: "forced"; type: "bool" }
+        }
         Signal {
             name: "chargerStatusChanged"
             Parameter { name: "status"; type: "ChargerStatus" }
         }
         Signal {
             name: "chargePercentageChanged"
+            Parameter { name: "percentage"; type: "int" }
+        }
+        Signal {
+            name: "chargeEnableLimitChanged"
+            Parameter { name: "percentage"; type: "int" }
+        }
+        Signal {
+            name: "chargeDisableLimitChanged"
             Parameter { name: "percentage"; type: "int" }
         }
         Signal {
