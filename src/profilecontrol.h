@@ -50,6 +50,7 @@ class SYSTEMSETTINGS_EXPORT ProfileControl: public QObject
     Q_PROPERTY(int touchscreenVibrationLevel READ touchscreenVibrationLevel WRITE setTouchscreenVibrationLevel NOTIFY touchscreenVibrationLevelChanged)
 
     Q_PROPERTY(QString ringerToneFile READ ringerToneFile WRITE setRingerToneFile NOTIFY ringerToneFileChanged)
+    Q_PROPERTY(QString ringerTone2File READ ringerTone2File WRITE setRingerTone2File NOTIFY ringerTone2FileChanged)
     Q_PROPERTY(QString messageToneFile READ messageToneFile WRITE setMessageToneFile NOTIFY messageToneFileChanged)
     Q_PROPERTY(QString chatToneFile READ chatToneFile WRITE setChatToneFile NOTIFY chatToneFileChanged)
     Q_PROPERTY(QString mailToneFile READ mailToneFile WRITE setMailToneFile NOTIFY mailToneFileChanged)
@@ -58,6 +59,7 @@ class SYSTEMSETTINGS_EXPORT ProfileControl: public QObject
     Q_PROPERTY(QString clockAlarmToneFile READ clockAlarmToneFile WRITE setClockAlarmToneFile NOTIFY clockAlarmToneFileChanged)
 
     Q_PROPERTY(bool ringerToneEnabled READ ringerToneEnabled WRITE setRingerToneEnabled NOTIFY ringerToneEnabledChanged)
+    Q_PROPERTY(bool ringerTone2Enabled READ ringerTone2Enabled WRITE setRingerTone2Enabled NOTIFY ringerTone2EnabledChanged)
     Q_PROPERTY(bool messageToneEnabled READ messageToneEnabled WRITE setMessageToneEnabled NOTIFY messageToneEnabledChanged)
     Q_PROPERTY(bool chatToneEnabled READ chatToneEnabled WRITE setChatToneEnabled NOTIFY chatToneEnabledChanged)
     Q_PROPERTY(bool mailToneEnabled READ mailToneEnabled WRITE setMailToneEnabled NOTIFY mailToneEnabledChanged)
@@ -119,6 +121,9 @@ public:
     QString ringerToneFile();
     void setRingerToneFile(const QString &filename);
 
+    QString ringerTone2File(); // for sim2
+    void setRingerTone2File(const QString &filename);
+
     int ringerToneVolume();
     void setRingerToneVolume(int volume);
 
@@ -142,6 +147,9 @@ public:
 
     bool ringerToneEnabled();
     void setRingerToneEnabled(bool enabled);
+
+    bool ringerTone2Enabled();
+    void setRingerTone2Enabled(bool enabled);
 
     bool messageToneEnabled();
     void setMessageToneEnabled(bool enabled);
@@ -177,6 +185,7 @@ signals:
     void touchscreenVibrationLevelChanged();
 
     void ringerToneFileChanged();
+    void ringerTone2FileChanged();
     void messageToneFileChanged();
     void messageToneVolumeChanged();
     void internetCallToneFileChanged();
@@ -186,6 +195,7 @@ signals:
     void clockAlarmToneFileChanged();
 
     void ringerToneEnabledChanged();
+    void ringerTone2EnabledChanged();
     void messageToneEnabledChanged();
     void chatToneEnabledChanged();
     void mailToneEnabledChanged();
@@ -204,6 +214,7 @@ private:
     int m_touchscreenToneLevel;
     int m_touchscreenVibrationLevel;
     QString m_ringerToneFile;
+    QString m_ringerTone2File;
     QString m_messageToneFile;
     QString m_internetCallToneFile;
     QString m_chatToneFile;
@@ -212,6 +223,7 @@ private:
     QString m_clockAlarmToneFile;
 
     int m_ringerToneEnabled;
+    int m_ringerTone2Enabled;
     int m_messageToneEnabled;
     int m_chatToneEnabled;
     int m_mailToneEnabled;

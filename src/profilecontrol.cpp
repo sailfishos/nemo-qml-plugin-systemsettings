@@ -43,6 +43,7 @@ const char * const TouchscreenToneLevelKey = "touchscreen.sound.level";
 const char * const TouchscreenVibrationLevelKey = "touchscreen.vibration.level";
 
 const char * const RingerToneKey = "ringing.alert.tone";
+const char * const RingerTone2Key = "ringing.alert.tone2";
 const char * const MessageToneKey ="sms.alert.tone";
 const char * const ChatToneKey ="im.alert.tone";
 const char * const MailToneKey ="email.alert.tone";
@@ -51,6 +52,7 @@ const char * const CalendarToneKey ="calendar.alert.tone";
 const char * const ClockAlarmToneKey ="clock.alert.tone";
 
 const char * const RingerToneEnabledKey = "ringing.alert.enabled";
+const char * const RingerTone2EnabledKey = "ringing.alert.enabled2";
 const char * const MessageToneEnabledKey ="sms.alert.enabled";
 const char * const ChatToneEnabledKey ="im.alert.enabled";
 const char * const MailToneEnabledKey ="email.alert.enabled";
@@ -70,6 +72,7 @@ ProfileControl::ProfileControl(QObject *parent)
       m_touchscreenToneLevel(-1),
       m_touchscreenVibrationLevel(-1),
       m_ringerToneEnabled(-1),
+      m_ringerTone2Enabled(-1),
       m_messageToneEnabled(-1),
       m_chatToneEnabled(-1),
       m_mailToneEnabled(-1),
@@ -273,6 +276,26 @@ void ProfileControl::setRingerToneFile(const QString &filename)
     emit ringerToneFileChanged();
 }
 
+QString ProfileControl::ringerTone2File()
+{
+    if (m_ringerTone2File.isNull()) {
+        m_ringerTone2File = QString::fromUtf8(profile_get_value(GeneralProfile, RingerTone2Key));
+    }
+
+    return m_ringerTone2File;
+}
+
+void ProfileControl::setRingerTone2File(const QString &filename)
+{
+    if (filename == m_ringerTone2File) {
+        return;
+    }
+
+    m_ringerTone2File = filename;
+    profile_set_value(GeneralProfile, RingerTone2Key, filename.toUtf8().constData());
+    emit ringerTone2FileChanged();
+}
+
 QString ProfileControl::messageToneFile()
 {
     if (m_messageToneFile.isNull()) {
@@ -410,6 +433,24 @@ void ProfileControl::setRingerToneEnabled(bool enabled)
     m_ringerToneEnabled = enabled;
     profile_set_value_as_bool(GeneralProfile, RingerToneEnabledKey, enabled);
     emit ringerToneEnabledChanged();
+}
+
+bool ProfileControl::ringerTone2Enabled()
+{
+    if (m_ringerTone2Enabled == -1) {
+        m_ringerTone2Enabled = profile_get_value_as_bool(GeneralProfile, RingerTone2EnabledKey);
+    }
+    return m_ringerTone2Enabled;
+}
+
+void ProfileControl::setRingerTone2Enabled(bool enabled)
+{
+    if (static_cast<int>(enabled) == m_ringerTone2Enabled) {
+        return;
+    }
+    m_ringerTone2Enabled = enabled;
+    profile_set_value_as_bool(GeneralProfile, RingerTone2EnabledKey, enabled);
+    emit ringerTone2EnabledChanged();
 }
 
 bool ProfileControl::messageToneEnabled()
@@ -574,6 +615,12 @@ void ProfileControl::updateStateCallBack(const char *profile, const char *key, c
                 m_ringerToneFile = newFile;
                 emit ringerToneFileChanged();
             }
+        } else if (qstrcmp(key, RingerTone2Key) == 0) {
+            QString newFile = val;
+            if (newFile != m_ringerTone2File) {
+                m_ringerTone2File = newFile;
+                emit ringerTone2FileChanged();
+            }
         } else if (qstrcmp(key, MessageToneKey) == 0) {
             QString newFile = val;
             if (newFile != m_messageToneFile) {
@@ -611,6 +658,12 @@ void ProfileControl::updateStateCallBack(const char *profile, const char *key, c
             if (newEnabled != m_ringerToneEnabled) {
                 m_ringerToneEnabled = newEnabled;
                 emit ringerToneEnabledChanged();
+            }
+        } else if (qstrcmp(key, RingerTone2EnabledKey) == 0) {
+            int newEnabled = profile_parse_bool(val);
+            if (newEnabled != m_ringerTone2Enabled) {
+                m_ringerTone2Enabled = newEnabled;
+                emit ringerTone2EnabledChanged();
             }
         } else if (qstrcmp(key, MessageToneEnabledKey) == 0) {
             int newEnabled = profile_parse_bool(val);
