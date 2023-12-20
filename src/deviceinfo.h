@@ -102,6 +102,7 @@ public:
         FeatureVideoPlayback,
         FeatureSuspend,
         FeatureReboot,
+        FeatureBluetoothTethering,
     };
     Q_ENUM(Feature)
 

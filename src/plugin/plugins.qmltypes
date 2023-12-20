@@ -261,7 +261,8 @@ Module {
                 "FeatureNFC": 39,
                 "FeatureVideoPlayback": 40,
                 "FeatureSuspend": 41,
-                "FeatureReboot": 42
+                "FeatureReboot": 42,
+                "FeatureBluetoothTethering": 43
             }
         }
         Property { name: "model"; type: "string"; isReadonly: true }
