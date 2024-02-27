@@ -810,6 +810,14 @@ QVariantMap SettingsVpnModel::processOpenVpnProvisioningFile(QFile &provisioning
                     if (!arguments.isEmpty()) {
                         rv.insert(QStringLiteral("OpenVPN.Cipher"), arguments.join(QChar(' ')));
                     }
+                } else if (directive == QStringLiteral("data-ciphers")) {
+                    if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.DataCiphers"), arguments.join(QChar(' ')));
+                    }
+                } else if (directive == QStringLiteral("data-ciphers-fallback")) {
+                    if (!arguments.isEmpty()) {
+                        rv.insert(QStringLiteral("OpenVPN.DataCiphersFallback"), arguments.join(QChar(' ')));
+                    }
                 } else if (directive == QStringLiteral("auth")) {
                     if (!arguments.isEmpty()) {
                         rv.insert(QStringLiteral("OpenVPN.Auth"), arguments.join(QChar(' ')));
