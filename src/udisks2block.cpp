@@ -4,89 +4,117 @@
 
 #include <nemo-dbus/dbus.h>
 #include <nemo-dbus/interface.h>
+#include <nemo-dbus/connection.h>
+
+class BlockPrivate
+{
+public:
+    BlockPrivate(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap)
+        : m_path(path)
+        , m_interfacePropertyMap(interfacePropertyMap)
+        , m_data(interfacePropertyMap.value(UDISKS2_BLOCK_INTERFACE))
+        , m_connection(QDBusConnection::systemBus(), lcMemoryCardDBusLog())
+        , m_mountable(interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE))
+        , m_encrypted(interfacePropertyMap.contains(UDISKS2_ENCRYPTED_INTERFACE))
+    {}
+    ~BlockPrivate() {}
+
+    QString m_path;
+    UDisks2::InterfacePropertyMap m_interfacePropertyMap;
+    QVariantMap m_data;
+    QVariantMap m_drive;
+    NemoDBus::Connection m_connection;
+    QString m_mountPath;
+    bool m_mountable;
+    bool m_encrypted;
+    bool m_formatting = false;
+    bool m_locking = false;
+
+    bool m_overrideHintAuto = false;
+
+    bool m_pendingFileSystem = false;
+    bool m_pendingBlock = false;
+    bool m_pendingEncrypted = false;
+    bool m_pendingDrive = false;
+    bool m_pendingPartition = false;
+    bool m_pendingPartitionTable = false;
+};
 
 UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &interfacePropertyMap, QObject *parent)
     : QObject(parent)
-    , m_path(path)
-    , m_interfacePropertyMap(interfacePropertyMap)
-    , m_data(interfacePropertyMap.value(UDISKS2_BLOCK_INTERFACE))
-    , m_connection(QDBusConnection::systemBus(), lcMemoryCardDBusLog())
-    , m_mountable(interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE))
-    , m_encrypted(interfacePropertyMap.contains(UDISKS2_ENCRYPTED_INTERFACE))
-    , m_formatting(false)
-    , m_locking(false)
+    , d_ptr(new BlockPrivate(path, interfacePropertyMap))
 {
-    if (!m_connection.connectToSignal(
+    if (!d_ptr->m_connection.connectToSignal(
                 UDISKS2_SERVICE,
-                m_path,
+                d_ptr->m_path,
                 DBUS_OBJECT_PROPERTIES_INTERFACE,
                 UDisks2::propertiesChangedSignal,
                 this,
                 SLOT(updateProperties(QDBusMessage)))) {
-        qCWarning(lcMemoryCardLog) << "Failed to connect to Block properties change interface" << m_path
-                                   << m_connection.connection().lastError().message();
+        qCWarning(lcMemoryCardLog) << "Failed to connect to Block properties change interface" << d_ptr->m_path
+                                   << d_ptr->m_connection.connection().lastError().message();
     }
 
-    qCInfo(lcMemoryCardLog) << "Creating a new block. Mountable:" << m_mountable << ", encrypted:" << m_encrypted
-                            << "object path:" << m_path << "data is empty:" << m_data.isEmpty();
+    qCInfo(lcMemoryCardLog) << "Creating a new block. Mountable:" << d_ptr->m_mountable << ", encrypted:" << d_ptr->m_encrypted
+                            << "object path:" << d_ptr->m_path << "data is empty:" << d_ptr->m_data.isEmpty();
 
-    if (m_interfacePropertyMap.isEmpty()) {
+    if (d_ptr->m_interfacePropertyMap.isEmpty()) {
         // Encrypted interface
         getProperties(
-                m_path, UDISKS2_ENCRYPTED_INTERFACE, &m_pendingEncrypted,
+                d_ptr->m_path, UDISKS2_ENCRYPTED_INTERFACE, &d_ptr->m_pendingEncrypted,
                 [this](const QVariantMap &encryptedProperties) {
-                    m_encrypted = true;
-                    m_interfacePropertyMap.insert(UDISKS2_ENCRYPTED_INTERFACE, encryptedProperties);
+                    d_ptr->m_encrypted = true;
+                    d_ptr->m_interfacePropertyMap.insert(UDISKS2_ENCRYPTED_INTERFACE, encryptedProperties);
                 });
 
         // File system interface
         getProperties(
-                m_path, UDISKS2_FILESYSTEM_INTERFACE, &m_pendingFileSystem,
+                d_ptr->m_path, UDISKS2_FILESYSTEM_INTERFACE, &d_ptr->m_pendingFileSystem,
                 [this](const QVariantMap &filesystemProperties) {
                     updateFileSystemInterface(filesystemProperties);
                 });
 
         // Partition table interface
         getProperties(
-                m_path, UDISKS2_PARTITION_TABLE_INTERFACE, &m_pendingPartitionTable,
+                d_ptr->m_path, UDISKS2_PARTITION_TABLE_INTERFACE, &d_ptr->m_pendingPartitionTable,
                 [this](const QVariantMap &partitionTableProperties) {
-                    m_interfacePropertyMap.insert(UDISKS2_PARTITION_TABLE_INTERFACE, partitionTableProperties);
+                    d_ptr->m_interfacePropertyMap.insert(UDISKS2_PARTITION_TABLE_INTERFACE, partitionTableProperties);
                 });
 
         // Partition interface
         getProperties(
-                m_path, UDISKS2_PARTITION_INTERFACE, &m_pendingPartition,
+                d_ptr->m_path, UDISKS2_PARTITION_INTERFACE, &d_ptr->m_pendingPartition,
                 [this](const QVariantMap &partitionProperties) {
-                    m_interfacePropertyMap.insert(UDISKS2_PARTITION_INTERFACE, partitionProperties);
+                    d_ptr->m_interfacePropertyMap.insert(UDISKS2_PARTITION_INTERFACE, partitionProperties);
                 });
 
         // Block interface
         getProperties(
-                m_path, UDISKS2_BLOCK_INTERFACE, &m_pendingBlock,
+                d_ptr->m_path, UDISKS2_BLOCK_INTERFACE, &d_ptr->m_pendingBlock,
                 [this](const QVariantMap &blockProperties) {
                     qCInfo(lcMemoryCardLog) << "Block properties:" << blockProperties;
-                    m_data = blockProperties;
-                    m_interfacePropertyMap.insert(UDISKS2_BLOCK_INTERFACE, blockProperties);
+                    d_ptr->m_data = blockProperties;
+                    d_ptr->m_interfacePropertyMap.insert(UDISKS2_BLOCK_INTERFACE, blockProperties);
 
                     // Drive path is blocks property => doing it the callback.
                     getProperties(
-                            drive(), UDISKS2_DRIVE_INTERFACE, &m_pendingDrive,
+                            drive(), UDISKS2_DRIVE_INTERFACE, &d_ptr->m_pendingDrive,
                             [this](const QVariantMap &driveProperties) {
                                 qCInfo(lcMemoryCardLog) << "Drive properties:" << driveProperties;
-                                m_drive = driveProperties;
+                                d_ptr->m_drive = driveProperties;
                             });
                 });
     } else {
-        if (m_mountable) {
+        if (d_ptr->m_mountable) {
             QVariantMap map = interfacePropertyMap.value(UDISKS2_FILESYSTEM_INTERFACE);
             updateFileSystemInterface(map);
         }
 
         getProperties(
-                drive(), UDISKS2_DRIVE_INTERFACE, &m_pendingDrive,
+                drive(), UDISKS2_DRIVE_INTERFACE, &d_ptr->m_pendingDrive,
                 [this](const QVariantMap &driveProperties) {
                     qCInfo(lcMemoryCardLog) << "Drive properties:" << driveProperties;
-                    m_drive = driveProperties;
+                    d_ptr->m_drive = driveProperties;
                 });
 
         complete();
@@ -105,22 +133,23 @@ UDisks2::Block &UDisks2::Block::operator=(const UDisks2::Block &)
 UDisks2::Block::~Block()
 {
     emit blockRemoved(device());
+    delete d_ptr;
 }
 
 QString UDisks2::Block::path() const
 {
-    return m_path;
+    return d_ptr->m_path;
 }
 
 QString UDisks2::Block::device() const
 {
-    QByteArray d = m_data.value(QStringLiteral("Device")).toByteArray();
+    QByteArray d = d_ptr->m_data.value(QStringLiteral("Device")).toByteArray();
     return QString::fromLocal8Bit(d);
 }
 
 QString UDisks2::Block::preferredDevice() const
 {
-    QByteArray d = m_data.value(QStringLiteral("PreferredDevice")).toByteArray();
+    QByteArray d = d_ptr->m_data.value(QStringLiteral("PreferredDevice")).toByteArray();
     return QString::fromLocal8Bit(d);
 }
 
@@ -131,17 +160,17 @@ QString UDisks2::Block::drive() const
 
 QString UDisks2::Block::driveModel() const
 {
-    return NemoDBus::demarshallDBusArgument(m_drive.value(QStringLiteral("Model"))).toString();
+    return NemoDBus::demarshallDBusArgument(d_ptr->m_drive.value(QStringLiteral("Model"))).toString();
 }
 
 QString UDisks2::Block::driveVendor() const
 {
-    return NemoDBus::demarshallDBusArgument(m_drive.value(QStringLiteral("Vendor"))).toString();
+    return NemoDBus::demarshallDBusArgument(d_ptr->m_drive.value(QStringLiteral("Vendor"))).toString();
 }
 
 QString UDisks2::Block::connectionBus() const
 {
-    QString bus = NemoDBus::demarshallDBusArgument(m_drive.value(QStringLiteral("ConnectionBus"))).toString();
+    QString bus = NemoDBus::demarshallDBusArgument(d_ptr->m_drive.value(QStringLiteral("ConnectionBus"))).toString();
 
     // Do a bit of guesswork as we're missing connection between unlocked crypto block to crypto backing block device
     // from where we could see the drive where this block belongs to.
@@ -161,17 +190,19 @@ QString UDisks2::Block::connectionBus() const
 QString UDisks2::Block::partitionTable() const
 {
     // Partion table that this partition belongs to.
-    return NemoDBus::demarshallDBusArgument(m_interfacePropertyMap.value(UDISKS2_PARTITION_INTERFACE).value(QStringLiteral("Table"))).toString();
+    return NemoDBus::demarshallDBusArgument(d_ptr->m_interfacePropertyMap
+                                            .value(UDISKS2_PARTITION_INTERFACE)
+                                            .value(QStringLiteral("Table"))).toString();
 }
 
 bool UDisks2::Block::isPartition() const
 {
-    return !m_interfacePropertyMap.value(UDISKS2_PARTITION_INTERFACE).isEmpty();
+    return !d_ptr->m_interfacePropertyMap.value(UDISKS2_PARTITION_INTERFACE).isEmpty();
 }
 
 bool UDisks2::Block::isPartitionTable() const
 {
-    return !m_interfacePropertyMap.value(UDISKS2_PARTITION_TABLE_INTERFACE).isEmpty();
+    return !d_ptr->m_interfacePropertyMap.value(UDISKS2_PARTITION_TABLE_INTERFACE).isEmpty();
 }
 
 qint64 UDisks2::Block::deviceNumber() const
@@ -213,13 +244,13 @@ QString UDisks2::Block::cryptoBackingDeviceObjectPath() const
 
 bool UDisks2::Block::isEncrypted() const
 {
-    return m_encrypted;
+    return d_ptr->m_encrypted;
 }
 
 bool UDisks2::Block::setEncrypted(bool encrypted)
 {
-    if (m_encrypted != encrypted) {
-        m_encrypted = encrypted;
+    if (d_ptr->m_encrypted != encrypted) {
+        d_ptr->m_encrypted = encrypted;
         emit updated();
         return true;
     }
@@ -228,13 +259,13 @@ bool UDisks2::Block::setEncrypted(bool encrypted)
 
 bool UDisks2::Block::isMountable() const
 {
-    return m_mountable;
+    return d_ptr->m_mountable;
 }
 
 bool UDisks2::Block::setMountable(bool mountable)
 {
-    if (m_mountable != mountable) {
-        m_mountable = mountable;
+    if (d_ptr->m_mountable != mountable) {
+        d_ptr->m_mountable = mountable;
         emit updated();
         return true;
     }
@@ -243,13 +274,13 @@ bool UDisks2::Block::setMountable(bool mountable)
 
 bool UDisks2::Block::isFormatting() const
 {
-    return m_formatting;
+    return d_ptr->m_formatting;
 }
 
 bool UDisks2::Block::setFormatting(bool formatting)
 {
-    if (m_formatting != formatting) {
-        m_formatting = formatting;
+    if (d_ptr->m_formatting != formatting) {
+        d_ptr->m_formatting = formatting;
         emit updated();
         return true;
     }
@@ -258,12 +289,12 @@ bool UDisks2::Block::setFormatting(bool formatting)
 
 bool UDisks2::Block::isLocking() const
 {
-    return m_locking;
+    return d_ptr->m_locking;
 }
 
 void UDisks2::Block::setLocking()
 {
-    m_locking = true;
+    d_ptr->m_locking = true;
 }
 
 bool UDisks2::Block::isReadOnly() const
@@ -273,12 +304,12 @@ bool UDisks2::Block::isReadOnly() const
 
 bool UDisks2::Block::hintAuto() const
 {
-    return value(QStringLiteral("HintAuto")).toBool() || m_overrideHintAuto;
+    return value(QStringLiteral("HintAuto")).toBool() || d_ptr->m_overrideHintAuto;
 }
 
 bool UDisks2::Block::isValid() const
 {
-    bool hasBlock = m_interfacePropertyMap.contains(UDISKS2_BLOCK_INTERFACE);
+    bool hasBlock = d_ptr->m_interfacePropertyMap.contains(UDISKS2_BLOCK_INTERFACE);
     if (hasBlock && device().startsWith(QStringLiteral("/dev/dm"))) {
         return hasCryptoBackingDevice();
     }
@@ -333,17 +364,17 @@ QStringList UDisks2::Block::symlinks() const
 
 QString UDisks2::Block::mountPath() const
 {
-    return m_mountPath;
+    return d_ptr->m_mountPath;
 }
 
 QVariant UDisks2::Block::value(const QString &key) const
 {
-    return NemoDBus::demarshallDBusArgument(m_data.value(key));
+    return NemoDBus::demarshallDBusArgument(d_ptr->m_data.value(key));
 }
 
 bool UDisks2::Block::hasData() const
 {
-    return !m_data.isEmpty();
+    return !d_ptr->m_data.isEmpty();
 }
 
 void UDisks2::Block::dumpInfo() const
@@ -374,7 +405,7 @@ QString UDisks2::Block::cryptoBackingDevicePath(const QString &objectPath)
 
 void UDisks2::Block::addInterface(const QString &interface, QVariantMap propertyMap)
 {
-    m_interfacePropertyMap.insert(interface, propertyMap);
+    d_ptr->m_interfacePropertyMap.insert(interface, propertyMap);
     if (interface == UDISKS2_FILESYSTEM_INTERFACE) {
         updateFileSystemInterface(propertyMap);
     } else if (interface == UDISKS2_ENCRYPTED_INTERFACE) {
@@ -384,11 +415,11 @@ void UDisks2::Block::addInterface(const QString &interface, QVariantMap property
 
 void UDisks2::Block::removeInterface(const QString &interface)
 {
-    m_interfacePropertyMap.remove(interface);
+    d_ptr->m_interfacePropertyMap.remove(interface);
     if (interface == UDISKS2_BLOCK_INTERFACE) {
-        m_data.clear();
+        d_ptr->m_data.clear();
     } else if (interface == UDISKS2_DRIVE_INTERFACE) {
-        m_drive.clear();
+        d_ptr->m_drive.clear();
     } else if (interface == UDISKS2_FILESYSTEM_INTERFACE) {
         updateFileSystemInterface(QVariantMap());
     } else if (interface == UDISKS2_ENCRYPTED_INTERFACE) {
@@ -398,12 +429,12 @@ void UDisks2::Block::removeInterface(const QString &interface)
 
 int UDisks2::Block::interfaceCount() const
 {
-    return m_interfacePropertyMap.keys().count();
+    return d_ptr->m_interfacePropertyMap.keys().count();
 }
 
 bool UDisks2::Block::hasInterface(const QString &interface) const
 {
-    return m_interfacePropertyMap.contains(interface);
+    return d_ptr->m_interfacePropertyMap.contains(interface);
 }
 
 void UDisks2::Block::updateProperties(const QDBusMessage &message)
@@ -413,7 +444,7 @@ void UDisks2::Block::updateProperties(const QDBusMessage &message)
     if (interface == UDISKS2_BLOCK_INTERFACE) {
         QVariantMap changedProperties = NemoDBus::demarshallArgument<QVariantMap>(arguments.value(1));
         for (QMap<QString, QVariant>::const_iterator i = changedProperties.constBegin(); i != changedProperties.constEnd(); ++i) {
-            m_data.insert(i.key(), i.value());
+            d_ptr->m_data.insert(i.key(), i.value());
         }
 
         if (!clearFormattingState()) {
@@ -426,25 +457,25 @@ void UDisks2::Block::updateProperties(const QDBusMessage &message)
 
 bool UDisks2::Block::isCompleted() const
 {
-    return !m_pendingFileSystem && !m_pendingBlock && !m_pendingEncrypted && !m_pendingDrive
-            && !m_pendingPartition && !m_pendingPartitionTable;
+    return !d_ptr->m_pendingFileSystem && !d_ptr->m_pendingBlock && !d_ptr->m_pendingEncrypted && !d_ptr->m_pendingDrive
+            && !d_ptr->m_pendingPartition && !d_ptr->m_pendingPartitionTable;
 }
 
 void UDisks2::Block::updateFileSystemInterface(const QVariant &filesystemInterface)
 {
     QVariantMap filesystem = NemoDBus::demarshallArgument<QVariantMap>(filesystemInterface);
 
-    bool interfaceChange = m_interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE) != filesystem.isEmpty();
+    bool interfaceChange = d_ptr->m_interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE) != filesystem.isEmpty();
     if (filesystem.isEmpty()) {
-        m_interfacePropertyMap.remove(UDISKS2_FILESYSTEM_INTERFACE);
+        d_ptr->m_interfacePropertyMap.remove(UDISKS2_FILESYSTEM_INTERFACE);
     } else {
-        m_interfacePropertyMap.insert(UDISKS2_FILESYSTEM_INTERFACE, filesystem);
+        d_ptr->m_interfacePropertyMap.insert(UDISKS2_FILESYSTEM_INTERFACE, filesystem);
     }
     QList<QByteArray> mountPointList = NemoDBus::demarshallArgument<QList<QByteArray> >(filesystem.value(QStringLiteral("MountPoints")));
-    m_mountPath.clear();
+    d_ptr->m_mountPath.clear();
 
     if (!mountPointList.isEmpty()) {
-        m_mountPath = QString::fromLocal8Bit(mountPointList.at(0));
+        d_ptr->m_mountPath = QString::fromLocal8Bit(mountPointList.at(0));
     }
 
     bool triggerUpdate = false;
@@ -459,7 +490,7 @@ void UDisks2::Block::updateFileSystemInterface(const QVariant &filesystemInterfa
     }
 
     qCInfo(lcMemoryCardLog) << "New file system mount points:" << filesystemInterface
-                            << "resolved mount path: " << m_mountPath << "trigger update:" << triggerUpdate;
+                            << "resolved mount path: " << d_ptr->m_mountPath << "trigger update:" << triggerUpdate;
     emit mountPathChanged();
 }
 
@@ -484,7 +515,7 @@ void UDisks2::Block::rescan(const QString &dbusObjectPath)
     QVariantMap options;
     arguments << options;
 
-    NemoDBus::Interface blockDeviceInterface(this, m_connection, UDISKS2_SERVICE, dbusObjectPath, UDISKS2_BLOCK_INTERFACE);
+    NemoDBus::Interface blockDeviceInterface(this, d_ptr->m_connection, UDISKS2_SERVICE, dbusObjectPath, UDISKS2_BLOCK_INTERFACE);
     NemoDBus::Response *response = blockDeviceInterface.call(UDISKS2_BLOCK_RESCAN, arguments);
     response->onError([this, dbusObjectPath](const QDBusError &error) {
         qCDebug(lcMemoryCardLog) << "UDisks failed to rescan object path" << dbusObjectPath
@@ -504,7 +535,7 @@ void UDisks2::Block::getProperties(const QString &path, const QString &interface
 
     *pending = true;
 
-    NemoDBus::Interface dbusPropertyInterface(this, m_connection, UDISKS2_SERVICE, path, DBUS_OBJECT_PROPERTIES_INTERFACE);
+    NemoDBus::Interface dbusPropertyInterface(this, d_ptr->m_connection, UDISKS2_SERVICE, path, DBUS_OBJECT_PROPERTIES_INTERFACE);
     NemoDBus::Response *response = dbusPropertyInterface.call(DBUS_GET_ALL, interface);
     response->onFinished<QVariantMap>([this, success](const QVariantMap &values) {
         success(NemoDBus::demarshallArgument<QVariantMap>(values));
