@@ -108,6 +108,6 @@ QMAKE_PKGCONFIG_DESCRIPTION = System settings application development files
 QMAKE_PKGCONFIG_LIBDIR = $$target.path
 QMAKE_PKGCONFIG_INCDIR = $$develheaders.path
 QMAKE_PKGCONFIG_DESTDIR = pkgconfig
-QMAKE_PKGCONFIG_REQUIRES = Qt5Core Qt5DBus profile libsailfishkeyprovider connman-qt5 nemodbus
+QMAKE_PKGCONFIG_REQUIRES = Qt5Core Qt5DBus connman-qt5
 
 INSTALLS += target develheaders pkgconfig locationconfig compat_locationconfig
