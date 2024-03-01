@@ -1,11 +1,11 @@
 TEMPLATE = lib
 TARGET = systemsettings
 
-CONFIG += qt create_pc create_prl no_install_prl c++11
+CONFIG += qt create_pc create_prl no_install_prl
 QT += qml dbus xmlpatterns
 QT -= gui
 
-CONFIG += c++11 hide_symbols link_pkgconfig
+CONFIG += hide_symbols link_pkgconfig
 PKGCONFIG += profile mlite5 mce timed-qt5 blkid libcrypto libsailfishkeyprovider connman-qt5 glib-2.0
 PKGCONFIG += ssu-sysinfo nemodbus packagekitqt5 libsystemd sailfishusermanager sailfishaccesscontrol
 PKGCONFIG += qofono-qt5
