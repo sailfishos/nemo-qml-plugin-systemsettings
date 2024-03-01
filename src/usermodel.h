@@ -41,10 +41,8 @@
 #include "systemsettingsglobal.h"
 #include "userinfo.h"
 
-#include <nemo-dbus/interface.h>
-
-class QDBusServiceWatcher;
 struct SailfishUserManagerEntry;
+class UserModelPrivate;
 
 class SYSTEMSETTINGS_EXPORT UserModel: public QAbstractListModel
 {
@@ -136,25 +134,9 @@ signals:
     void removeGroupsFailed(int row, int error);
     void setGuestEnabledFailed(bool enabling, int error);
 
-private slots:
-    void onUserAdded(const SailfishUserManagerEntry &entry);
-    void onUserModified(uint uid, const QString &newName);
-    void onUserRemoved(uint uid);
-    void onCurrentUserChanged(uint uid);
-    void onCurrentUserChangeFailed(uint uid);
-    void onGuestUserEnabled(bool enabled);
-
-    void createInterface();
-    void destroyInterface();
-
 private:
-    void add(UserInfo &user);
+    UserModelPrivate *d_ptr;
 
-    QVector<UserInfo> m_users;
-    QHash<uint, int> m_uidsToRows;
-    QSet<uint> m_transitioning;
-    NemoDBus::Interface *m_dBusInterface;
-    QDBusServiceWatcher *m_dBusWatcher;
-    bool m_guestEnabled;
+    friend class UserModelPrivate;
 };
 #endif /* USERMODEL_H */
