@@ -258,11 +258,16 @@ public:
      */
     QString wlanMacAddress();
 
+    /*!
+     * Get device ID, similar to ID in SSU. Uses whatever available first, IMEI, WLAN MAC address or specific fallbacks.
+     * Only available with synchronously instantiated DeviceInfo object
+     */
+    QString deviceUid();
+
 Q_SIGNALS:
     void imeiNumbersChanged();
 
 private:
-
     DeviceInfoPrivate *d_ptr;
     Q_DISABLE_COPY(DeviceInfo)
     Q_DECLARE_PRIVATE(DeviceInfo)
