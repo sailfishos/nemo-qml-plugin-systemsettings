@@ -56,6 +56,7 @@ class SYSTEMSETTINGS_EXPORT UserInfo: public QObject
     Q_PROPERTY(bool watched READ watched WRITE setWatched NOTIFY watchedChanged)
 
     friend class UserModel;
+    friend class UserModelPrivate;
 
 public:
     enum UserType {

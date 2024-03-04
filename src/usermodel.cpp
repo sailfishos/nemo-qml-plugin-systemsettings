@@ -40,12 +40,16 @@
 #include <QDBusPendingReply>
 #include <QDBusServiceWatcher>
 #include <QString>
+
 #include <functional>
 #include <grp.h>
 #include <pwd.h>
+#include <sys/types.h>
+
 #include <sailfishaccesscontrol.h>
 #include <sailfishusermanagerinterface.h>
-#include <sys/types.h>
+
+#include <nemo-dbus/interface.h>
 
 namespace {
 const auto UserManagerService = QStringLiteral(SAILFISH_USERMANAGER_DBUS_INTERFACE);
@@ -76,22 +80,53 @@ int getErrorType(const QDBusError &error)
 }
 }
 
-UserModel::UserModel(QObject *parent)
-    : QAbstractListModel(parent)
+class UserModelPrivate: public QObject
+{
+    Q_OBJECT
+public:
+    UserModelPrivate(UserModel *parent);
+    virtual ~UserModelPrivate();
+
+public slots:
+    void onUserAdded(const SailfishUserManagerEntry &entry);
+    void onUserModified(uint uid, const QString &newName);
+    void onUserRemoved(uint uid);
+    void onCurrentUserChanged(uint uid);
+    void onCurrentUserChangeFailed(uint uid);
+    void onGuestUserEnabled(bool enabled);
+
+public:
+    void add(UserInfo &user);
+    void createInterface();
+    void destroyInterface();
+
+    UserModel *q;
+    QVector<UserInfo> m_users;
+    QHash<uint, int> m_uidsToRows;
+    QSet<uint> m_transitioning;
+    NemoDBus::Interface *m_dBusInterface;
+    QDBusServiceWatcher *m_dBusWatcher;
+    bool m_guestEnabled;
+};
+
+UserModelPrivate::UserModelPrivate(UserModel *parent)
+    : QObject(parent)
+    , q(parent)
     , m_dBusInterface(nullptr)
     , m_dBusWatcher(new QDBusServiceWatcher(UserManagerService, QDBusConnection::systemBus(),
                     QDBusServiceWatcher::WatchForRegistration | QDBusServiceWatcher::WatchForUnregistration, this))
     , m_guestEnabled(getpwuid((uid_t)SAILFISH_USERMANAGER_GUEST_UID))
 {
-    connect(this, &UserModel::guestEnabledChanged,
-            this, &UserModel::maximumCountChanged);
-    qDBusRegisterMetaType<SailfishUserManagerEntry>();
     connect(m_dBusWatcher, &QDBusServiceWatcher::serviceRegistered,
-            this, &UserModel::createInterface);
+            this, &UserModelPrivate::createInterface);
     connect(m_dBusWatcher, &QDBusServiceWatcher::serviceUnregistered,
-            this, &UserModel::destroyInterface);
-    if (QDBusConnection::systemBus().interface()->isServiceRegistered(UserManagerService))
+            this, &UserModelPrivate::destroyInterface);
+
+    if (QDBusConnection::systemBus().interface()->isServiceRegistered(UserManagerService)) {
         createInterface();
+    }
+    qDBusRegisterMetaType<SailfishUserManagerEntry>();
+
     struct group *grp = getgrnam("users");
     if (!grp) {
         qCWarning(lcUsersLog) << "Could not read users group:" << strerror(errno);
@@ -107,306 +142,12 @@ UserModel::UserModel(QObject *parent)
     // grp must not be free'd
 }
 
-UserModel::~UserModel()
+UserModelPrivate::~UserModelPrivate()
 {
     delete m_dBusInterface;
 }
 
-bool UserModel::placeholder() const
-{
-    // Placeholder is always last and the only item that can be invalid
-    if (m_users.count() == 0)
-        return false;
-    return !m_users.last().isValid();
-}
-
-void UserModel::setPlaceholder(bool value)
-{
-    if (placeholder() == value)
-        return;
-
-    if (value) {
-        int row = m_users.count();
-        beginInsertRows(QModelIndex(), row, row);
-        m_users.append(UserInfo::placeholder());
-        endInsertRows();
-    } else {
-        int row = m_users.count()-1;
-        beginRemoveRows(QModelIndex(), row, row);
-        m_users.remove(row);
-        endRemoveRows();
-    }
-    emit placeholderChanged();
-}
-
-/*
- * Number of existing users
- *
- * If placeholder = false, then this is the same as rowCount.
- */
-int UserModel::count() const
-{
-    return (placeholder()) ? m_users.count()-1 : m_users.count();
-}
-
-/*
- * Maximum number of users that can be created
- *
- * If more users are created after count reaches this,
- * MaximumNumberOfUsersReached may be thrown and user creation fails.
- */
-int UserModel::maximumCount() const
-{
-    return m_guestEnabled ? SAILFISH_USERMANAGER_MAX_USERS+1 : SAILFISH_USERMANAGER_MAX_USERS;
-}
-
-QHash<int, QByteArray> UserModel::roleNames() const
-{
-    static const QHash<int, QByteArray> roles = {
-        { Qt::DisplayRole, "displayName" },
-        { UsernameRole, "username" },
-        { NameRole, "name" },
-        { TypeRole, "type" },
-        { UidRole, "uid" },
-        { CurrentRole, "current" },
-        { PlaceholderRole, "placeholder" },
-        { TransitioningRole, "transitioning" },
-    };
-    return roles;
-}
-
-int UserModel::rowCount(const QModelIndex &parent) const
-{
-    Q_UNUSED(parent)
-    return m_users.count();
-}
-
-QVariant UserModel::data(const QModelIndex &index, int role) const
-{
-    if (index.row() < 0 || index.row() >= m_users.count() || index.column() != 0)
-        return QVariant();
-
-    const UserInfo &user = m_users.at(index.row());
-    switch (role) {
-    case Qt::DisplayRole:
-        return user.displayName();
-    case UsernameRole:
-        return user.username();
-    case NameRole:
-        return user.name();
-    case TypeRole:
-        return user.type();
-    case UidRole:
-        return user.uid();
-    case CurrentRole:
-        return user.current();
-    case PlaceholderRole:
-        return !user.isValid();
-    case TransitioningRole:
-        return m_transitioning.contains(user.uid());
-    default:
-        return QVariant();
-    }
-}
-
-bool UserModel::setData(const QModelIndex &index, const QVariant &value, int role)
-{
-    if (index.row() < 0 || index.row() >= m_users.count() || index.column() != 0)
-        return false;
-
-    UserInfo &user = m_users[index.row()];
-
-    if (user.type() == UserInfo::Guest)
-        return false;
-
-    switch (role) {
-    case NameRole: {
-        QString name = value.toString();
-        if (name.isEmpty() || name == user.name())
-            return false;
-        user.setName(name);
-        if (user.isValid()) {
-            createInterface();
-            const int uid = user.uid();
-            auto response = m_dBusInterface->call(QStringLiteral("modifyUser"), (uint)uid, name);
-            response->onError([this, uid](const QDBusError &error) {
-                int row = m_uidsToRows.value(uid);
-                emit userModifyFailed(row, getErrorType(error));
-                qCWarning(lcUsersLog) << "Modifying user with usermanager failed:" << error;
-                reset(row);
-            });
-        }
-        emit dataChanged(index, index, QVector<int>() << role);
-        return true;
-    }
-    case Qt::DisplayRole:
-    case UsernameRole:
-    case TypeRole:
-    case UidRole:
-    case CurrentRole:
-    case PlaceholderRole:
-    case TransitioningRole:
-    default:
-        return false;
-    }
-}
-
-QModelIndex UserModel::index(int row, int column, const QModelIndex &parent) const
-{
-    Q_UNUSED(parent);
-    if (row < 0 || row >= m_users.count() || column != 0)
-        return QModelIndex();
-
-    return createIndex(row, 0, row);
-}
-
-/*
- * Creates new user from a placeholder user.
- *
- * Does nothing if there is no placeholder or user's name is not set.
- */
-void UserModel::createUser()
-{
-    if (!placeholder())
-        return;
-
-    auto user = m_users.last();
-    if (user.name().isEmpty())
-        return;
-
-    m_transitioning.insert(user.uid());
-    auto idx = index(m_users.count()-1, 0);
-    emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
-
-    createInterface();
-    auto response = m_dBusInterface->call(QStringLiteral("addUser"), user.name());
-    response->onError([this](const QDBusError &error) {
-        emit userAddFailed(getErrorType(error));
-        qCWarning(lcUsersLog) << "Adding user with usermanager failed:" << error;
-    });
-    response->onFinished<uint>([this](uint uid) {
-        // Check that this was not just added to the list by onUserAdded
-        if (!m_uidsToRows.contains(uid)) {
-            UserInfo user(uid);
-            add(user);
-        }
-    });
-}
-
-void UserModel::removeUser(int row)
-{
-    if (row < 0 || row >= m_users.count())
-        return;
-
-    auto user = m_users.at(row);
-    if (!user.isValid())
-        return;
-
-    m_transitioning.insert(user.uid());
-    auto idx = index(row, 0);
-    emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
-
-    createInterface();
-    const int uid = user.uid();
-    auto response = m_dBusInterface->call(QStringLiteral("removeUser"), (uint)uid);
-    response->onError([this, uid](const QDBusError &error) {
-        int row = m_uidsToRows.value(uid);
-        emit userRemoveFailed(row, getErrorType(error));
-        qCWarning(lcUsersLog) << "Removing user with usermanager failed:" << error;
-        m_transitioning.remove(uid);
-        auto idx = index(row, 0);
-        emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
-    });
-}
-
-void UserModel::setCurrentUser(int row)
-{
-    if (row < 0 || row >= m_users.count())
-        return;
-
-    auto user = m_users.at(row);
-    if (!user.isValid())
-        return;
-
-    createInterface();
-    const int uid = user.uid();
-    auto response = m_dBusInterface->call(QStringLiteral("setCurrentUser"), (uint)uid);
-    response->onError([this, uid](const QDBusError &error) {
-        emit setCurrentUserFailed(m_uidsToRows.value(uid), getErrorType(error));
-        qCWarning(lcUsersLog) << "Switching user with usermanager failed:" << error;
-    });
-}
-
-void UserModel::reset(int row)
-{
-    if (row < 0 || row >= m_users.count())
-        return;
-
-    m_users[row].reset();
-    auto idx = index(row, 0);
-    emit dataChanged(idx, idx, QVector<int>());
-}
-
-UserInfo * UserModel::getCurrentUser() const
-{
-    return new UserInfo();
-}
-
-bool UserModel::hasGroup(int row, const QString &group) const
-{
-    if (row < 0 || row >= m_users.count())
-        return false;
-
-    auto user = m_users.at(row);
-    if (!user.isValid())
-        return false;
-
-    return sailfish_access_control_hasgroup(user.uid(), group.toUtf8().constData());
-}
-
-void UserModel::addGroups(int row, const QStringList &groups)
-{
-    if (row < 0 || row >= m_users.count())
-        return;
-
-    auto user = m_users.at(row);
-    if (!user.isValid())
-        return;
-
-    createInterface();
-    const int uid = user.uid();
-    auto response = m_dBusInterface->call(QStringLiteral("addToGroups"), (uint)uid, groups);
-    response->onError([this, uid](const QDBusError &error) {
-        emit addGroupsFailed(m_uidsToRows.value(uid), getErrorType(error));
-        qCWarning(lcUsersLog) << "Adding user to groups failed:" << error;
-    });
-    response->onFinished([this, uid]() {
-        emit userGroupsChanged(m_uidsToRows.value(uid));
-    });
-}
-
-void UserModel::removeGroups(int row, const QStringList &groups)
-{
-    if (row < 0 || row >= m_users.count())
-        return;
-
-    auto user = m_users.at(row);
-    if (!user.isValid())
-        return;
-
-    createInterface();
-    const int uid = user.uid();
-    auto response = m_dBusInterface->call(QStringLiteral("removeFromGroups"), (uint)uid, groups);
-    response->onError([this, uid](const QDBusError &error) {
-        emit removeGroupsFailed(m_uidsToRows.value(uid), getErrorType(error));
-        qCWarning(lcUsersLog) << "Removing user from groups failed:" << error;
-    });
-    response->onFinished([this, uid]() {
-        emit userGroupsChanged(m_uidsToRows.value(uid));
-    });
-}
-
-void UserModel::onUserAdded(const SailfishUserManagerEntry &entry)
+void UserModelPrivate::onUserAdded(const SailfishUserManagerEntry &entry)
 {
     if (m_uidsToRows.contains(entry.uid))
         return;
@@ -417,7 +158,7 @@ void UserModel::onUserAdded(const SailfishUserManagerEntry &entry)
         add(user);
 }
 
-void UserModel::onUserModified(uint uid, const QString &newName)
+void UserModelPrivate::onUserModified(uint uid, const QString &newName)
 {
     if (!m_uidsToRows.contains(uid))
         return;
@@ -426,18 +167,18 @@ void UserModel::onUserModified(uint uid, const QString &newName)
     UserInfo &user = m_users[row];
     if (user.name() != newName) {
         user.setName(newName);
-        auto idx = index(row, 0);
-        dataChanged(idx, idx, QVector<int>() << NameRole);
+        auto idx = q->index(row, 0);
+        q->dataChanged(idx, idx, QVector<int>() << UserModel::NameRole);
     }
 }
 
-void UserModel::onUserRemoved(uint uid)
+void UserModelPrivate::onUserRemoved(uint uid)
 {
     if (!m_uidsToRows.contains(uid))
         return;
 
     int row = m_uidsToRows.value(uid);
-    beginRemoveRows(QModelIndex(), row, row);
+    q->beginRemoveRows(QModelIndex(), row, row);
     m_transitioning.remove(uid);
     m_users.remove(row);
     // It is slightly costly to remove users since some row numbers may need to be updated
@@ -446,71 +187,68 @@ void UserModel::onUserRemoved(uint uid)
         if (iter.value() > row)
             iter.value() -= 1;
     }
-    endRemoveRows();
-    emit countChanged();
+    q->endRemoveRows();
+    emit q->countChanged();
 }
 
-void UserModel::onCurrentUserChanged(uint uid)
+void UserModelPrivate::onCurrentUserChanged(uint uid)
 {
-    UserInfo *previous = getCurrentUser();
+    UserInfo *previous = q->getCurrentUser();
     if (previous) {
         if (previous->updateCurrent()) {
-            auto idx = index(m_uidsToRows.value(previous->uid()), 0);
-            emit dataChanged(idx, idx, QVector<int>() << CurrentRole);
+            auto idx = q->index(m_uidsToRows.value(previous->uid()), 0);
+            emit q->dataChanged(idx, idx, QVector<int>() << UserModel::CurrentRole);
         }
         delete previous;
     }
     if (m_uidsToRows.contains(uid) && m_users[m_uidsToRows.value(uid)].updateCurrent()) {
-        auto idx = index(m_uidsToRows.value(uid), 0);
-        emit dataChanged(idx, idx, QVector<int>() << CurrentRole);
+        auto idx = q->index(m_uidsToRows.value(uid), 0);
+        emit q->dataChanged(idx, idx, QVector<int>() << UserModel::CurrentRole);
     }
 }
 
-void UserModel::onCurrentUserChangeFailed(uint uid)
+void UserModelPrivate::onCurrentUserChangeFailed(uint uid)
 {
     if (m_uidsToRows.contains(uid)) {
-        emit setCurrentUserFailed(m_uidsToRows.value(uid), Failure);
+        emit q->setCurrentUserFailed(m_uidsToRows.value(uid), UserModel::Failure);
     }
 }
 
-void UserModel::onGuestUserEnabled(bool enabled)
+void UserModelPrivate::onGuestUserEnabled(bool enabled)
 {
     if (enabled != m_guestEnabled) {
         m_guestEnabled = enabled;
-        emit guestEnabledChanged();
+        emit q->guestEnabledChanged();
     }
 }
 
-bool UserModel::guestEnabled() const
+void UserModelPrivate::add(UserInfo &user)
 {
-    return m_guestEnabled;
-}
-
-void UserModel::setGuestEnabled(bool enabled)
-{
-    if (enabled == m_guestEnabled)
-        return;
-
-    if (m_guestEnabled) {
-        m_transitioning.insert(SAILFISH_USERMANAGER_GUEST_UID);
-        auto idx = index(m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID), 0);
-        emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
+    if (q->placeholder() && m_transitioning.contains(m_users.last().uid())
+            && m_users.last().name() == user.name()) {
+        // This is the placeholder we were adding, "change" that
+        int row = m_users.count()-1;
+        m_users.insert(row, user);
+        m_uidsToRows.insert(user.uid(), row);
+        auto idx = q->index(row, 0);
+        emit q->dataChanged(idx, idx, QVector<int>());
+        // And then "add" the placeholder back to its position
+        q->beginInsertRows(QModelIndex(), row+1, row+1);
+        m_users[row+1].reset();
+        m_transitioning.remove(m_users[row+1].uid());
+        q->endInsertRows();
+    } else {
+        int row = q->placeholder() ? m_users.count() - 1 : m_users.count();
+        q->beginInsertRows(QModelIndex(), row, row);
+        m_users.insert(row, user);
+        m_uidsToRows.insert(user.uid(), row);
+        m_transitioning.remove(user.uid());
+        q->endInsertRows();
     }
-
-    createInterface();
-    auto response = m_dBusInterface->call(QStringLiteral("enableGuestUser"), enabled);
-    response->onError([this, enabled](const QDBusError &error) {
-        emit setGuestEnabledFailed(enabled, getErrorType(error));
-        qCWarning(lcUsersLog) << ((enabled) ? "Enabling" : "Disabling") << "guest user failed:" << error;
-        if (!enabled) {
-            m_transitioning.remove(SAILFISH_USERMANAGER_GUEST_UID);
-            auto idx = index(m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID), 0);
-            emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
-        }
-    });
+    emit q->countChanged();
 }
 
-void UserModel::createInterface()
+void UserModelPrivate::createInterface()
 {
     if (!m_dBusInterface) {
         qCDebug(lcUsersLog) << "Creating interface to user-managerd";
@@ -538,7 +276,7 @@ void UserModel::createInterface()
     }
 }
 
-void UserModel::destroyInterface()
+void UserModelPrivate::destroyInterface()
 {
     if (m_dBusInterface) {
         qCDebug(lcUsersLog) << "Destroying interface to user-managerd";
@@ -571,28 +309,344 @@ void UserModel::destroyInterface()
     }
 }
 
-void UserModel::add(UserInfo &user)
+UserModel::UserModel(QObject *parent)
+    : QAbstractListModel(parent)
+    , d_ptr(new UserModelPrivate(this))
 {
-    if (placeholder() && m_transitioning.contains(m_users.last().uid())
-            && m_users.last().name() == user.name()) {
-        // This is the placeholder we were adding, "change" that
-        int row = m_users.count()-1;
-        m_users.insert(row, user);
-        m_uidsToRows.insert(user.uid(), row);
-        auto idx = index(row, 0);
-        emit dataChanged(idx, idx, QVector<int>());
-        // And then "add" the placeholder back to its position
-        beginInsertRows(QModelIndex(), row+1, row+1);
-        m_users[row+1].reset();
-        m_transitioning.remove(m_users[row+1].uid());
+    connect(this, &UserModel::guestEnabledChanged,
+            this, &UserModel::maximumCountChanged);
+}
+
+UserModel::~UserModel()
+{
+}
+
+bool UserModel::placeholder() const
+{
+    // Placeholder is always last and the only item that can be invalid
+    if (d_ptr->m_users.count() == 0)
+        return false;
+    return !d_ptr->m_users.last().isValid();
+}
+
+void UserModel::setPlaceholder(bool value)
+{
+    if (placeholder() == value)
+        return;
+
+    if (value) {
+        int row = d_ptr->m_users.count();
+        beginInsertRows(QModelIndex(), row, row);
+        d_ptr->m_users.append(UserInfo::placeholder());
         endInsertRows();
     } else {
-        int row = placeholder() ? m_users.count() - 1 : m_users.count();
-        beginInsertRows(QModelIndex(), row, row);
-        m_users.insert(row, user);
-        m_uidsToRows.insert(user.uid(), row);
-        m_transitioning.remove(user.uid());
-        endInsertRows();
+        int row = d_ptr->m_users.count()-1;
+        beginRemoveRows(QModelIndex(), row, row);
+        d_ptr->m_users.remove(row);
+        endRemoveRows();
     }
-    emit countChanged();
+    emit placeholderChanged();
 }
+
+/*
+ * Number of existing users
+ *
+ * If placeholder = false, then this is the same as rowCount.
+ */
+int UserModel::count() const
+{
+    return (placeholder()) ? d_ptr->m_users.count()-1 : d_ptr->m_users.count();
+}
+
+/*
+ * Maximum number of users that can be created
+ *
+ * If more users are created after count reaches this,
+ * MaximumNumberOfUsersReached may be thrown and user creation fails.
+ */
+int UserModel::maximumCount() const
+{
+    return d_ptr->m_guestEnabled ? SAILFISH_USERMANAGER_MAX_USERS+1 : SAILFISH_USERMANAGER_MAX_USERS;
+}
+
+QHash<int, QByteArray> UserModel::roleNames() const
+{
+    static const QHash<int, QByteArray> roles = {
+        { Qt::DisplayRole, "displayName" },
+        { UsernameRole, "username" },
+        { NameRole, "name" },
+        { TypeRole, "type" },
+        { UidRole, "uid" },
+        { CurrentRole, "current" },
+        { PlaceholderRole, "placeholder" },
+        { TransitioningRole, "transitioning" },
+    };
+    return roles;
+}
+
+int UserModel::rowCount(const QModelIndex &parent) const
+{
+    Q_UNUSED(parent)
+    return d_ptr->m_users.count();
+}
+
+QVariant UserModel::data(const QModelIndex &index, int role) const
+{
+    if (index.row() < 0 || index.row() >= d_ptr->m_users.count() || index.column() != 0)
+        return QVariant();
+
+    const UserInfo &user = d_ptr->m_users.at(index.row());
+    switch (role) {
+    case Qt::DisplayRole:
+        return user.displayName();
+    case UsernameRole:
+        return user.username();
+    case NameRole:
+        return user.name();
+    case TypeRole:
+        return user.type();
+    case UidRole:
+        return user.uid();
+    case CurrentRole:
+        return user.current();
+    case PlaceholderRole:
+        return !user.isValid();
+    case TransitioningRole:
+        return d_ptr->m_transitioning.contains(user.uid());
+    default:
+        return QVariant();
+    }
+}
+
+bool UserModel::setData(const QModelIndex &index, const QVariant &value, int role)
+{
+    if (index.row() < 0 || index.row() >= d_ptr->m_users.count() || index.column() != 0)
+        return false;
+
+    UserInfo &user = d_ptr->m_users[index.row()];
+
+    if (user.type() == UserInfo::Guest)
+        return false;
+
+    switch (role) {
+    case NameRole: {
+        QString name = value.toString();
+        if (name.isEmpty() || name == user.name())
+            return false;
+        user.setName(name);
+        if (user.isValid()) {
+            d_ptr->createInterface();
+            const int uid = user.uid();
+            auto response = d_ptr->m_dBusInterface->call(QStringLiteral("modifyUser"), (uint)uid, name);
+
+            response->onError([this, uid](const QDBusError &error) {
+                int row = d_ptr->m_uidsToRows.value(uid);
+                emit userModifyFailed(row, getErrorType(error));
+                qCWarning(lcUsersLog) << "Modifying user with usermanager failed:" << error;
+                reset(row);
+            });
+        }
+        emit dataChanged(index, index, QVector<int>() << role);
+        return true;
+    }
+    case Qt::DisplayRole:
+    case UsernameRole:
+    case TypeRole:
+    case UidRole:
+    case CurrentRole:
+    case PlaceholderRole:
+    case TransitioningRole:
+    default:
+        return false;
+    }
+}
+
+QModelIndex UserModel::index(int row, int column, const QModelIndex &parent) const
+{
+    Q_UNUSED(parent);
+    if (row < 0 || row >= d_ptr->m_users.count() || column != 0)
+        return QModelIndex();
+
+    return createIndex(row, 0, row);
+}
+
+/*
+ * Creates new user from a placeholder user.
+ *
+ * Does nothing if there is no placeholder or user's name is not set.
+ */
+void UserModel::createUser()
+{
+    if (!placeholder())
+        return;
+
+    auto user = d_ptr->m_users.last();
+    if (user.name().isEmpty())
+        return;
+
+    d_ptr->m_transitioning.insert(user.uid());
+    auto idx = index(d_ptr->m_users.count()-1, 0);
+    emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
+
+    d_ptr->createInterface();
+    auto response = d_ptr->m_dBusInterface->call(QStringLiteral("addUser"), user.name());
+    response->onError([this](const QDBusError &error) {
+        emit userAddFailed(getErrorType(error));
+        qCWarning(lcUsersLog) << "Adding user with usermanager failed:" << error;
+    });
+    response->onFinished<uint>([this](uint uid) {
+        // Check that this was not just added to the list by onUserAdded
+        if (!d_ptr->m_uidsToRows.contains(uid)) {
+            UserInfo user(uid);
+            d_ptr->add(user);
+        }
+    });
+}
+
+void UserModel::removeUser(int row)
+{
+    if (row < 0 || row >= d_ptr->m_users.count())
+        return;
+
+    auto user = d_ptr->m_users.at(row);
+    if (!user.isValid())
+        return;
+
+    d_ptr->m_transitioning.insert(user.uid());
+    auto idx = index(row, 0);
+    emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
+
+    d_ptr->createInterface();
+    const int uid = user.uid();
+    auto response = d_ptr->m_dBusInterface->call(QStringLiteral("removeUser"), (uint)uid);
+
+    response->onError([this, uid](const QDBusError &error) {
+        int row = d_ptr->m_uidsToRows.value(uid);
+        emit userRemoveFailed(row, getErrorType(error));
+        qCWarning(lcUsersLog) << "Removing user with usermanager failed:" << error;
+        d_ptr->m_transitioning.remove(uid);
+        auto idx = index(row, 0);
+        emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
+    });
+}
+
+void UserModel::setCurrentUser(int row)
+{
+    if (row < 0 || row >= d_ptr->m_users.count())
+        return;
+
+    auto user = d_ptr->m_users.at(row);
+    if (!user.isValid())
+        return;
+
+    d_ptr->createInterface();
+    const int uid = user.uid();
+    auto response = d_ptr->m_dBusInterface->call(QStringLiteral("setCurrentUser"), (uint)uid);
+
+    response->onError([this, uid](const QDBusError &error) {
+        emit setCurrentUserFailed(d_ptr->m_uidsToRows.value(uid), getErrorType(error));
+        qCWarning(lcUsersLog) << "Switching user with usermanager failed:" << error;
+    });
+}
+
+void UserModel::reset(int row)
+{
+    if (row < 0 || row >= d_ptr->m_users.count())
+        return;
+
+    d_ptr->m_users[row].reset();
+    auto idx = index(row, 0);
+    emit dataChanged(idx, idx, QVector<int>());
+}
+
+UserInfo * UserModel::getCurrentUser() const
+{
+    return new UserInfo();
+}
+
+bool UserModel::hasGroup(int row, const QString &group) const
+{
+    if (row < 0 || row >= d_ptr->m_users.count())
+        return false;
+
+    auto user = d_ptr->m_users.at(row);
+    if (!user.isValid())
+        return false;
+
+    return sailfish_access_control_hasgroup(user.uid(), group.toUtf8().constData());
+}
+
+void UserModel::addGroups(int row, const QStringList &groups)
+{
+    if (row < 0 || row >= d_ptr->m_users.count())
+        return;
+
+    auto user = d_ptr->m_users.at(row);
+    if (!user.isValid())
+        return;
+
+    d_ptr->createInterface();
+    const int uid = user.uid();
+    auto response = d_ptr->m_dBusInterface->call(QStringLiteral("addToGroups"), (uint)uid, groups);
+
+    response->onError([this, uid](const QDBusError &error) {
+        emit addGroupsFailed(d_ptr->m_uidsToRows.value(uid), getErrorType(error));
+        qCWarning(lcUsersLog) << "Adding user to groups failed:" << error;
+    });
+    response->onFinished([this, uid]() {
+        emit userGroupsChanged(d_ptr->m_uidsToRows.value(uid));
+    });
+}
+
+void UserModel::removeGroups(int row, const QStringList &groups)
+{
+    if (row < 0 || row >= d_ptr->m_users.count())
+        return;
+
+    auto user = d_ptr->m_users.at(row);
+    if (!user.isValid())
+        return;
+
+    d_ptr->createInterface();
+    const int uid = user.uid();
+    auto response = d_ptr->m_dBusInterface->call(QStringLiteral("removeFromGroups"), (uint)uid, groups);
+    response->onError([this, uid](const QDBusError &error) {
+        emit removeGroupsFailed(d_ptr->m_uidsToRows.value(uid), getErrorType(error));
+        qCWarning(lcUsersLog) << "Removing user from groups failed:" << error;
+    });
+    response->onFinished([this, uid]() {
+        emit userGroupsChanged(d_ptr->m_uidsToRows.value(uid));
+    });
+}
+
+bool UserModel::guestEnabled() const
+{
+    return d_ptr->m_guestEnabled;
+}
+
+void UserModel::setGuestEnabled(bool enabled)
+{
+    if (enabled == d_ptr->m_guestEnabled)
+        return;
+
+    if (d_ptr->m_guestEnabled) {
+        d_ptr->m_transitioning.insert(SAILFISH_USERMANAGER_GUEST_UID);
+        auto idx = index(d_ptr->m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID), 0);
+        emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
+    }
+
+    d_ptr->createInterface();
+    auto response = d_ptr->m_dBusInterface->call(QStringLiteral("enableGuestUser"), enabled);
+
+    response->onError([this, enabled](const QDBusError &error) {
+        emit setGuestEnabledFailed(enabled, getErrorType(error));
+        qCWarning(lcUsersLog) << ((enabled) ? "Enabling" : "Disabling") << "guest user failed:" << error;
+        if (!enabled) {
+            d_ptr->m_transitioning.remove(SAILFISH_USERMANAGER_GUEST_UID);
+            auto idx = index(d_ptr->m_uidsToRows.value(SAILFISH_USERMANAGER_GUEST_UID), 0);
+            emit dataChanged(idx, idx, QVector<int>() << TransitioningRole);
+        }
+    });
+}
+
+#include "usermodel.moc"

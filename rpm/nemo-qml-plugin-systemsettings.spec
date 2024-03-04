@@ -44,7 +44,6 @@ BuildRequires:  pkgconfig(qofono-qt5) >= 0.105
 %package devel
 Summary:    System settings C++ library
 Requires:   %{name} = %{version}-%{release}
-Requires:   pkgconfig(nemodbus)
 
 %description devel
 %{summary}.

@@ -37,14 +37,8 @@
 #include <QObject>
 
 #include <systemsettingsglobal.h>
-#include <daemon.h>
 
-#include <nemo-dbus/connection.h>
-#include <nemo-dbus/interface.h>
-
-QT_BEGIN_NAMESPACE
-class QDBusPendingCallWatcher;
-QT_END_NAMESPACE
+class DeveloperModeSettingsPrivate;
 
 class SYSTEMSETTINGS_EXPORT DeveloperModeSettings : public QObject
 {
@@ -105,44 +99,8 @@ signals:
     void debugHomeEnabledChanged();
     void installationTypeChanged();
 
-private slots:
-    void reportTransactionErrorCode(PackageKit::Transaction::Error code, const QString &details);
-    void updateState(int percentage, PackageKit::Transaction::Status status, PackageKit::Transaction::Role role);
-
 private:
-    enum Command {
-        InstallCommand,
-        RemoveCommand
-    };
-
-    void resetState();
-    void setWorkStatus(Status status);
-    void refreshPackageCacheAndInstall();
-    void resolveAndExecute(Command command);
-    bool installAndRemove(Command command);
-    void connectCommandSignals(PackageKit::Transaction *transaction);
-    void setInstallationType(InstallationType type);
-
-    QString usbModedGetConfig(const QString &key, const QString &fallback);
-    void usbModedSetConfig(const QString &key, const QString &value);
-
-    NemoDBus::Connection m_connection;
-    NemoDBus::Interface m_usbModeDaemon;
-    QString m_wlanIpAddress;
-    QString m_usbInterface;
-    QString m_usbIpAddress;
-    QString m_username;
-    QString m_packageId;
-    bool m_developerModeEnabled;
-    DeveloperModeSettings::Status m_workStatus;
-    int m_workProgress;
-    PackageKit::Transaction::Role m_transactionRole;
-    PackageKit::Transaction::Status m_transactionStatus;
-    bool m_refreshedForInstall;
-    bool m_localInstallFailed;
-    QString m_localDeveloperModePackagePath;
-    bool m_debugHomeEnabled;
-    DeveloperModeSettings::InstallationType m_installationType;
+    DeveloperModeSettingsPrivate *d_ptr;
 };
 
 Q_DECLARE_METATYPE(DeveloperModeSettings::Status)

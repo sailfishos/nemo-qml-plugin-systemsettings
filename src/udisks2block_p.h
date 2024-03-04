@@ -33,8 +33,6 @@
 #ifndef UDISKS2_BLOCK_H
 #define UDISKS2_BLOCK_H
 
-#include <nemo-dbus/connection.h>
-
 #include <QObject>
 #include <QVariantMap>
 #include <QPointer>
@@ -45,9 +43,10 @@
 #include "udisks2defines.h"
 
 class QDBusPendingCallWatcher;
+class QDBusMessage;
+class BlockPrivate;
 
 namespace UDisks2 {
-
 
 class SYSTEMSETTINGS_EXPORT Block : public QObject
 {
@@ -147,27 +146,9 @@ private:
 
     void rescan(const QString &dbusObjectPath);
 
-    QString m_path;
-    UDisks2::InterfacePropertyMap m_interfacePropertyMap;
-    QVariantMap m_data;
-    QVariantMap m_drive;
-    NemoDBus::Connection m_connection;
-    QString m_mountPath;
-    bool m_mountable;
-    bool m_encrypted;
-    bool m_formatting;
-    bool m_locking;
-
-    bool m_overrideHintAuto = false;
-
-    bool m_pendingFileSystem = false;
-    bool m_pendingBlock = false;
-    bool m_pendingEncrypted = false;
-    bool m_pendingDrive = false;
-    bool m_pendingPartition = false;
-    bool m_pendingPartitionTable = false;
-
     friend class BlockDevices;
+
+    BlockPrivate *d_ptr;
 };
 
 }

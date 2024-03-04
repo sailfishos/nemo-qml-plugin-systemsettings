@@ -1,6 +1,7 @@
 *.o
 Makefile
 moc_*
+*.moc
 RPMS/
 documentation.list
 src/connmanvpnconnectionproxy.cpp
