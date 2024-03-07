@@ -34,7 +34,6 @@
 
 #include <QLoggingCategory>
 
-Q_DECLARE_LOGGING_CATEGORY(lcVpnLog)
 Q_DECLARE_LOGGING_CATEGORY(lcDeveloperModeLog)
 Q_DECLARE_LOGGING_CATEGORY(lcMemoryCardLog)
 Q_DECLARE_LOGGING_CATEGORY(lcMemoryCardDBusLog)

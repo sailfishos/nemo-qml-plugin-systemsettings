@@ -33,7 +33,6 @@ SOURCES += \
     partitionmodel.cpp \
     deviceinfo.cpp \
     locationsettings.cpp \
-    settingsvpnmodel.cpp \
     timezoneinfo.cpp \
     udisks2block.cpp \
     udisks2blockdevices.cpp \
@@ -52,7 +51,6 @@ PUBLIC_HEADERS = \
     displaysettings.h \
     aboutsettings.h \
     certificatemodel.h \
-    settingsvpnmodel.h \
     developermodesettings.h \
     batterystatus.h \
     udisks2block_p.h \
@@ -108,6 +106,6 @@ QMAKE_PKGCONFIG_DESCRIPTION = System settings application development files
 QMAKE_PKGCONFIG_LIBDIR = $$target.path
 QMAKE_PKGCONFIG_INCDIR = $$develheaders.path
 QMAKE_PKGCONFIG_DESTDIR = pkgconfig
-QMAKE_PKGCONFIG_REQUIRES = Qt5Core Qt5DBus connman-qt5
+QMAKE_PKGCONFIG_REQUIRES = Qt5Core Qt5DBus
 
 INSTALLS += target develheaders pkgconfig locationconfig compat_locationconfig
