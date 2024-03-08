@@ -33,8 +33,6 @@
 
 #include <QDir>
 #include <QDebug>
-#include <QQmlEngine>
-#include <qqml.h>
 
 const char * const AlarmToneDir = "/usr/share/sounds/jolla-ringtones/stereo/";
 
@@ -85,18 +83,17 @@ QVariant AlarmToneModel::data(const QModelIndex &index, int role) const
     }
 }
 
-QJSValue AlarmToneModel::get(int index) const
+QVariantMap AlarmToneModel::get(int index) const
 {
     if (index < 0 || m_fileInfoList.count() <= index) {
-        return QJSValue();
+        return QVariantMap();
     }
 
     QFileInfo info = m_fileInfoList.at(index);
-    QJSEngine *const engine = qmlEngine(this);
-    QJSValue value = engine->newObject();
+    QVariantMap value;
 
-    value.setProperty("filename", engine->toScriptValue(info.absoluteFilePath()));
-    value.setProperty("title",   engine->toScriptValue(info.baseName()));
+    value["filename"] = info.absoluteFilePath();
+    value["title"] = info.baseName();
 
     return value;
 }

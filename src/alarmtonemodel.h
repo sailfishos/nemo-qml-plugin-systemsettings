@@ -34,7 +34,7 @@
 
 #include <QAbstractListModel>
 #include <QFileInfo>
-#include <QJSValue>
+#include <QVariantMap>
 
 #include <systemsettingsglobal.h>
 
@@ -55,7 +55,7 @@ public:
     virtual int rowCount(const QModelIndex &parent = QModelIndex()) const;
     virtual QVariant data(const QModelIndex &index, int role) const;
 
-    Q_INVOKABLE QJSValue get(int index) const;
+    Q_INVOKABLE QVariantMap get(int index) const;
 
 signals:
     void selectedFileChanged();
