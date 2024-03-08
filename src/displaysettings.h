@@ -33,7 +33,6 @@
 #define DISPLAYSETTINGS_H
 
 #include <QObject>
-#include <QtQml>
 #include <QDBusPendingCallWatcher>
 
 class ComNokiaMceRequestInterface;
@@ -187,7 +186,5 @@ private:
     int m_powerSaveModeThreshold;
     bool m_populated;
 };
-
-QML_DECLARE_TYPE(DisplaySettings)
 
 #endif

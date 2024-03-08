@@ -2,7 +2,7 @@ TEMPLATE = lib
 TARGET = systemsettings
 
 CONFIG += qt create_pc create_prl no_install_prl
-QT += qml dbus xmlpatterns
+QT += dbus network
 QT -= gui
 
 CONFIG += hide_symbols link_pkgconfig
