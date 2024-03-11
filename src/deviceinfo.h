@@ -36,8 +36,6 @@
 
 #include "systemsettingsglobal.h"
 
-class QQmlEngine;
-class QJSEngine;
 class DeviceInfoPrivate;
 
 class SYSTEMSETTINGS_EXPORT DeviceInfo: public QObject
