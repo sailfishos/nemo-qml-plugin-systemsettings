@@ -46,7 +46,6 @@
 #include "aboutsettings.h"
 #include "developermodesettings.h"
 #include "batterystatus.h"
-#include "diskusage.h"
 #include "partitionmodel.h"
 #include "certificatemodel.h"
 #include "locationsettings.h"
@@ -103,7 +102,6 @@ public:
         qmlRegisterType<CertificateModel>(uri, 1, 0, "CertificateModel");
         qRegisterMetaType<DeveloperModeSettings::Status>("DeveloperModeSettings::Status");
         qmlRegisterType<BatteryStatus>(uri, 1, 0, "BatteryStatus");
-        qmlRegisterType<DiskUsage>(uri, 1, 0, "DiskUsage");
         qmlRegisterType<LocationSettings>(uri, 1, 0, "LocationSettings");
         qmlRegisterType<DeviceInfo>(uri, 1, 0, "DeviceInfo");
         qmlRegisterType<NfcSettings>(uri, 1, 0, "NfcSettings");

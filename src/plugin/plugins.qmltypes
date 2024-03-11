@@ -287,24 +287,6 @@ Module {
         }
     }
     Component {
-        name: "DiskUsage"
-        prototype: "QObject"
-        exports: ["org.nemomobile.systemsettings/DiskUsage 1.0"]
-        exportMetaObjectRevisions: [0]
-        Property { name: "working"; type: "bool"; isReadonly: true }
-        Property { name: "result"; type: "QVariantMap"; isReadonly: true }
-        Signal {
-            name: "submit"
-            Parameter { name: "paths"; type: "QStringList" }
-            Parameter { name: "callback"; type: "QJSValue"; isPointer: true }
-        }
-        Method {
-            name: "calculate"
-            Parameter { name: "paths"; type: "QStringList" }
-            Parameter { name: "callback"; type: "QJSValue" }
-        }
-    }
-    Component {
         name: "DisplaySettings"
         prototype: "QObject"
         exports: ["org.nemomobile.systemsettings/DisplaySettings 1.0"]
