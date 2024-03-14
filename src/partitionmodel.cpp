@@ -36,7 +36,6 @@
 
 #include <QDir>
 #include <QFileInfo>
-#include <QtQml/qqmlinfo.h>
 
 PartitionModel::PartitionModel(QObject *parent)
     : QAbstractListModel(parent)
@@ -166,7 +165,7 @@ void PartitionModel::format(const QString &devicePath, const QVariantMap &argume
 {
     QString filesystemType = arguments.value(QLatin1String("filesystemType"), QString()).toString();
     if (filesystemType.isEmpty()) {
-        qmlInfo(this) << "Missing or empty filesystemType argument, cannot format.";
+        qCWarning(lcMemoryCardLog) << "Missing or empty filesystemType argument, cannot format.";
         return;
     }
 

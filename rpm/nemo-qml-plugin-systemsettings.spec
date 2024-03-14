@@ -16,7 +16,7 @@ Requires:       udisks2 >= 2.8.1+git6
 Requires:       mlite-qt5 >= 0.3.6
 Requires(post): coreutils
 BuildRequires:  pkgconfig(Qt5Qml)
-BuildRequires:  pkgconfig(Qt5XmlPatterns)
+BuildRequires:  pkgconfig(Qt5Network)
 BuildRequires:  pkgconfig(timed-qt5)
 BuildRequires:  pkgconfig(profile)
 BuildRequires:  pkgconfig(mce) >= 1.32.0
