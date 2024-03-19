@@ -35,7 +35,7 @@ Module {
         Signal { name: "currentIndexChanged" }
         Method {
             name: "get"
-            type: "QJSValue"
+            type: "QVariantMap"
             Parameter { name: "index"; type: "int" }
         }
     }
@@ -589,6 +589,7 @@ Module {
         Property { name: "touchscreenToneLevel"; type: "int" }
         Property { name: "touchscreenVibrationLevel"; type: "int" }
         Property { name: "ringerToneFile"; type: "string" }
+        Property { name: "ringerTone2File"; type: "string" }
         Property { name: "messageToneFile"; type: "string" }
         Property { name: "chatToneFile"; type: "string" }
         Property { name: "mailToneFile"; type: "string" }
@@ -596,6 +597,7 @@ Module {
         Property { name: "calendarToneFile"; type: "string" }
         Property { name: "clockAlarmToneFile"; type: "string" }
         Property { name: "ringerToneEnabled"; type: "bool" }
+        Property { name: "ringerTone2Enabled"; type: "bool" }
         Property { name: "messageToneEnabled"; type: "bool" }
         Property { name: "chatToneEnabled"; type: "bool" }
         Property { name: "mailToneEnabled"; type: "bool" }
@@ -847,23 +849,6 @@ Module {
         Method {
             name: "setGuestEnabled"
             Parameter { name: "enabled"; type: "bool" }
-        }
-    }
-    Component {
-        name: "VpnModel"
-        prototype: "QAbstractListModel"
-        Property { name: "connected"; type: "bool"; isReadonly: true }
-        Property { name: "count"; type: "int"; isReadonly: true }
-        Property { name: "vpnManager"; type: "VpnManager"; isReadonly: true; isPointer: true }
-        Property { name: "populated"; type: "bool"; isReadonly: true }
-        Signal {
-            name: "connectedChanged"
-            Parameter { name: "connected"; type: "bool" }
-        }
-        Method {
-            name: "connectionSettings"
-            type: "QVariantMap"
-            Parameter { name: "path"; type: "string" }
         }
     }
 }
