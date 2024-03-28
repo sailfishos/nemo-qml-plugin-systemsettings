@@ -39,6 +39,7 @@
 #include <QString>
 #include <QStringList>
 #include <QHash>
+#include <QSharedPointer>
 
 #include <nemo-dbus/interface.h>
 
@@ -76,7 +77,7 @@ public:
     bool m_settingMultipleSettings;
     QStringList m_pendingAgreements;
     LocationSettings::DataSources m_allowedDataSources;
-    NetworkManager *m_connMan;
+    QSharedPointer<NetworkManager> m_connMan;
     NetworkTechnology *m_gpsTech;
     NemoDBus::Interface *m_gpsTechInterface;
 
