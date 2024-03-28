@@ -56,10 +56,12 @@ public:
     QString m_osName;
     QString m_osVersion;
     QString m_adaptationVersion;
+
 private slots:
     void modemsChanged(const QStringList &modems);
     void modemSerialChanged(const QString &serial);
     void updateModemProperties();
+
 private:
     enum NetworkMode {
         /* Subset of QNetworkInfo::NetworkMode enum */
@@ -84,6 +86,7 @@ private:
     QStringList m_imeiNumbers;
     QTimer *m_updateModemPropertiesTimer;
     QHash<DeviceInfoPrivate::NetworkMode, QStringList> m_networkModeDirectoryListHash;
+
     Q_DISABLE_COPY(DeviceInfoPrivate);
     Q_DECLARE_PUBLIC(DeviceInfo);
 };
@@ -141,7 +144,7 @@ QSharedPointer<QOfonoManager> DeviceInfoPrivate::ofonoManager()
 {
     if (m_ofonoManager.isNull()) {
         m_ofonoManager = QOfonoManager::instance(m_synchronousInit);
-        connect(&*m_ofonoManager, &QOfonoManager::modemsChanged, this, &DeviceInfoPrivate::modemsChanged);
+        connect(m_ofonoManager.data(), &QOfonoManager::modemsChanged, this, &DeviceInfoPrivate::modemsChanged);
 
         m_updateModemPropertiesTimer = new QTimer(this);
         m_updateModemPropertiesTimer->setInterval(50);
@@ -182,7 +185,7 @@ void DeviceInfoPrivate::modemRemoved(const QString &modemName)
 {
     QSharedPointer<QOfonoModem> modem(m_modemHash.take(modemName));
     if (!modem.isNull()) {
-        disconnect(&*modem, &QOfonoModem::serialChanged, this, &DeviceInfoPrivate::modemSerialChanged);
+        disconnect(modem.data(), &QOfonoModem::serialChanged, this, &DeviceInfoPrivate::modemSerialChanged);
         m_modemList.removeOne(modemName);
         updateModemPropertiesLater();
     }
@@ -192,7 +195,7 @@ void DeviceInfoPrivate::modemAdded(const QString &modemName)
 {
     if (!m_modemHash.contains(modemName)) {
         QSharedPointer<QOfonoModem> modem(QOfonoModem::instance(modemName, m_synchronousInit));
-        connect(&*modem, &QOfonoModem::serialChanged, this, &DeviceInfoPrivate::modemSerialChanged);
+        connect(modem.data(), &QOfonoModem::serialChanged, this, &DeviceInfoPrivate::modemSerialChanged);
         m_modemHash[modemName] = modem;
         m_modemList.append(modemName);
         updateModemPropertiesLater();
@@ -353,6 +356,50 @@ QString DeviceInfo::wlanMacAddress()
 {
     Q_D(DeviceInfo);
     return d->wlanMacAddress();
+}
+
+static QString normalizeUid(const QString &uid)
+{
+    // Normalize by stripping colons, dashes and making it lowercase
+    return QString(uid).replace(":", "").replace("-", "").toLower().trimmed();
+}
+
+QString DeviceInfo::deviceUid()
+{
+    Q_D(DeviceInfo);
+    if (!d->m_synchronousInit) {
+        // would need to ensure we don't return anything until sure the imeis are fetched etc
+        // let's just start with simple and require the synchronous mode, which should be
+        // sufficient for now
+        qWarning() << "DeviceInfo::deviceUid only available on synchronous instances";
+        return QString();
+    }
+    QStringList imeis = imeiNumbers();
+    if (imeis.length() > 0) {
+        return imeis.at(0);
+    }
+
+    QString mac = wlanMacAddress();
+    if (!mac.isEmpty()) {
+        return mac;
+    }
+
+    // Fallbacks as in ssu and qtsystems before it
+    qWarning() << "DeviceInfo::deviceUid() unable to read imeis or wlan macs. Trying some fallback files.";
+    QStringList fallbackFiles;
+    fallbackFiles << "/sys/devices/virtual/dmi/id/product_uuid"
+                  << "/etc/machine-id"
+                  << "/etc/unique-id"
+                  << "/var/lib/dbus/machine-id";
+
+    for (const QString &filename : fallbackFiles) {
+        QFile file(filename);
+        if (file.open(QFile::ReadOnly | QFile::Text) && file.size() > 0) {
+            return normalizeUid(file.readAll());
+        }
+    }
+
+    return QString();
 }
 
 #include "deviceinfo.moc"
