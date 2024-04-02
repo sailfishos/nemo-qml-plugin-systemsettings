@@ -197,7 +197,6 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
     , m_locationMode(LocationSettings::CustomMode)
     , m_settingMultipleSettings(false)
     , m_allowedDataSources(static_cast<LocationSettings::DataSources>(std::numeric_limits<quint32>::max()))
-    , m_connMan(Q_NULLPTR)
     , m_gpsTech(Q_NULLPTR)
     , m_gpsTechInterface(mode == LocationSettings::AsynchronousMode
                          ? Q_NULLPTR
@@ -226,10 +225,10 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
                                              "PropertyChanged",
                                              this, SLOT(gpsTechPropertyChanged(QString, QDBusVariant)));
     } else {
-        m_connMan = NetworkManagerFactory::createInstance();
-        connect(m_connMan, &NetworkManager::technologiesChanged,
+        m_connMan = NetworkManager::sharedInstance();
+        connect(m_connMan.data(), &NetworkManager::technologiesChanged,
                 this, &LocationSettingsPrivate::findGpsTech);
-        connect(m_connMan, &NetworkManager::availabilityChanged,
+        connect(m_connMan.data(), &NetworkManager::availabilityChanged,
                 this, &LocationSettingsPrivate::findGpsTech);
         findGpsTech();
     }
