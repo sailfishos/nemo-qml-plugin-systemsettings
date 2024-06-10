@@ -40,6 +40,7 @@
 
 #include <algorithm>
 #include <blkid/blkid.h>
+#include <limits>
 #include <linux/limits.h>
 #include <mntent.h>
 #include <sys/statvfs.h>
