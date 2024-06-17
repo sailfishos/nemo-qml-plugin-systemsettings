@@ -381,7 +381,7 @@ QString DeviceInfo::deviceUid()
 
     QString mac = wlanMacAddress();
     if (!mac.isEmpty()) {
-        return mac;
+        return normalizeUid(mac);
     }
 
     // Fallbacks as in ssu and qtsystems before it
