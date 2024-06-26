@@ -60,6 +60,7 @@ private:
     quint64 calculateApkdSize(const QString &rest);
 
     bool m_quit;
+    QVariantList m_apkd_cache;
 
     friend class Ut_DiskUsage;
 };

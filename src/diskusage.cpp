@@ -62,7 +62,7 @@ QVariantMap DiskUsageWorker::calculate(QStringList paths)
     QMap<QString, QString> originalPaths; // expanded path -> input path
 
     // Older adaptations (e.g. Jolla 1) don't have /home/.android/. Android home is in the root.
-    QString androidHome = QString("/home/.android");
+    QString androidHome = QString("/home/.appsupport/");
     bool androidHomeExists = QDir(androidHome).exists();
 
     foreach (const QString &path, paths) {
@@ -79,7 +79,7 @@ QVariantMap DiskUsageWorker::calculate(QStringList paths)
             // Pseudo-path for querying Android apps' data usage
             QString rest = path.mid(6);
             usage[path] = calculateApkdSize(rest);
-            expandedPath = (androidHomeExists ? androidHome : "") + "/data/data";
+            expandedPath = (androidHomeExists ? androidHome : "") + "/" + rest;
         } else {
             quint64 size = calculateSize(path, &expandedPath, androidHomeExists);
             if (expandedPath.startsWith(androidHome) && !androidHomeExists) {

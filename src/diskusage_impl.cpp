@@ -112,13 +112,18 @@ quint64 DiskUsageWorker::calculateRpmSize(const QString &glob)
 
 quint64 DiskUsageWorker::calculateApkdSize(const QString &rest)
 {
-    Q_UNUSED(rest)
-    QDBusMessage msg = QDBusMessage::createMethodCall("com.jolla.apkd",
-            "/com/jolla/apkd", "com.jolla.apkd", "getAndroidAppDataUsage");
-
-    QDBusReply<qulonglong> reply = QDBusConnection::systemBus().call(msg);
-    if (reply.isValid()) {
-        return quint64(reply.value());
+    if (m_apkd_cache.isEmpty()) {
+        QDBusMessage msg = QDBusMessage::createMethodCall("com.jolla.apkd",
+                "/com/jolla/apkd", "com.jolla.apkd", "getAndroidAppDataUsage");
+    
+        QDBusReply<QVariantList> reply = QDBusConnection::sessionBus().call(msg);
+        if (reply.isValid()) {
+            m_apkd_cache.append(reply.value());
+        }
+    }
+    if (!m_apkd_cache.isEmpty()) {
+        if (rest == "app") return m_apkd_cache.at(0).toULongLong();
+        else return m_apkd_cache.at(1).toULongLong() + m_apkd_cache.at(2).toULongLong();
     }
 
     qWarning() << "Could not determine Android app data usage";
