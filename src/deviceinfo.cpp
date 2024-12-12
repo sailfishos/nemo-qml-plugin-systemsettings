@@ -43,6 +43,7 @@ class DeviceInfoPrivate: public QObject
 public:
     DeviceInfoPrivate(DeviceInfo *deviceInfo, bool synchronousInit);
     ~DeviceInfoPrivate();
+
     QStringList imeiNumbers();
     QString wlanMacAddress();
 

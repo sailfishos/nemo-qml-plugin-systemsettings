@@ -138,7 +138,6 @@ QString Partition::cryptoBackingDevicePath() const
 
 bool Partition::isSupportedFileSystemType() const
 {
-
     return d && d->isSupportedFileSystemType;
 }
 

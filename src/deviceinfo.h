@@ -107,6 +107,7 @@ public:
     DeviceInfo(bool synchronousInit, QObject *parent = nullptr);
     DeviceInfo(QObject *parent = nullptr);
     ~DeviceInfo();
+
     Q_INVOKABLE bool hasFeature(DeviceInfo::Feature feature) const;
     Q_INVOKABLE bool hasHardwareKey(Qt::Key key) const;
 

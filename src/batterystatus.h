@@ -46,17 +46,17 @@ class SYSTEMSETTINGS_EXPORT BatteryStatus : public QObject
     Q_ENUMS(Status)
 
     Q_PROPERTY(ChargingMode chargingMode READ chargingMode WRITE setChargingMode
-            NOTIFY chargingModeChanged)
+               NOTIFY chargingModeChanged)
     Q_PROPERTY(bool chargingForced READ chargingForced WRITE setChargingForced
-            NOTIFY chargingForcedChanged)
+               NOTIFY chargingForcedChanged)
     Q_PROPERTY(bool chargingSuspendendable READ chargingSuspendendable
                NOTIFY chargingSuspendableChanged)
     Q_PROPERTY(ChargerStatus chargerStatus READ chargerStatus NOTIFY chargerStatusChanged)
     Q_PROPERTY(int chargePercentage READ chargePercentage NOTIFY chargePercentageChanged)
     Q_PROPERTY(int chargeEnableLimit READ chargeEnableLimit WRITE setChargeEnableLimit
-            NOTIFY chargeEnableLimitChanged)
+               NOTIFY chargeEnableLimitChanged)
     Q_PROPERTY(int chargeDisableLimit READ chargeDisableLimit WRITE setChargeDisableLimit
-            NOTIFY chargeDisableLimitChanged)
+               NOTIFY chargeDisableLimitChanged)
     Q_PROPERTY(Status status READ status NOTIFY statusChanged)
 
 public:

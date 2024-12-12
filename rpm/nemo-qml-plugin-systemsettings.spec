@@ -1,6 +1,6 @@
 Name:       nemo-qml-plugin-systemsettings
 Summary:    System settings plugin for Nemo Mobile
-Version:    0.10.1
+Version:    0.10.14
 Release:    1
 License:    BSD
 URL:        https://github.com/sailfishos/nemo-qml-plugin-systemsettings/
@@ -58,24 +58,16 @@ Summary: Translation source for %{name}
 
 %build
 %qmake5 "VERSION=%{version}"
-make %{?_smp_mflags}
+%make_build
 
 %install
 %qmake5_install
 
-%post
-/sbin/ldconfig
-# Note: can be removed after a stop release
-if [ ! -e /var/lib/location/configuration-migrated ]
-then
-    cp /etc/location/location.conf /var/lib/location/location.conf || :
-    touch /var/lib/location/configuration-migrated || :
-fi
+%post -p /sbin/ldconfig
 
 %postun -p /sbin/ldconfig
 
 %files
-%defattr(-,root,root,-)
 %license LICENSE.BSD
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/libnemosystemsettings.so
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/plugins.qmltypes
@@ -89,7 +81,6 @@ fi
 %{_datadir}/translations/*.qm
 
 %files devel
-%defattr(-,root,root,-)
 %{_libdir}/pkgconfig/systemsettings.pc
 %{_includedir}/systemsettings/*
 %{_libdir}/libsystemsettings.so

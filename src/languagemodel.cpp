@@ -51,7 +51,6 @@ bool nameLessThan(const Language &lang1, const Language &lang2)
 
 }
 
-
 Language::Language(QString name, QString localeCode, QString region, QString regionLabel)
     : m_name(name), m_localeCode(localeCode), m_region(region), m_regionLabel(regionLabel)
 {
