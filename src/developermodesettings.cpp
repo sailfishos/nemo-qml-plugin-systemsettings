@@ -334,7 +334,8 @@ void DeveloperModeSettingsPrivate::resolveAndExecute(Command command)
             && !m_localDeveloperModePackagePath.isEmpty()
             && m_installationType == DeveloperModeSettings::DeveloperMode) {
         // Resolve which version of developer mode package is expected
-        PackageKit::Transaction *resolvePackage = PackageKit::Daemon::resolve(DEVELOPER_MODE_PACKAGE"-preload", PackageKit::Transaction::FilterInstalled);
+        PackageKit::Transaction *resolvePackage = PackageKit::Daemon::resolve(DEVELOPER_MODE_PACKAGE"-preload",
+                                                                              PackageKit::Transaction::FilterInstalled);
         connect(resolvePackage, &PackageKit::Transaction::errorCode,
                 this, &DeveloperModeSettingsPrivate::reportTransactionErrorCode);
         connect(resolvePackage, &PackageKit::Transaction::package,
@@ -344,7 +345,8 @@ void DeveloperModeSettingsPrivate::resolveAndExecute(Command command)
             const QString version = PackageKit::Transaction::packageVersion(packageID);
             m_localDeveloperModePackagePath = get_cached_package(version);
             emit q->repositoryAccessRequiredChanged();
-            qCDebug(lcDeveloperModeLog) << "Preload package version: " << version << ", local package path: " << m_localDeveloperModePackagePath;
+            qCDebug(lcDeveloperModeLog) << "Preload package version: " << version
+                                        << ", local package path: " << m_localDeveloperModePackagePath;
         });
 
         connect(resolvePackage, &PackageKit::Transaction::finished,
@@ -360,7 +362,9 @@ void DeveloperModeSettingsPrivate::resolveAndExecute(Command command)
                 connect(tx, &PackageKit::Transaction::finished,
                         this, [this](PackageKit::Transaction::Exit status, uint runtime) {
                     if (status == PackageKit::Transaction::ExitSuccess) {
-                        qCDebug(lcDeveloperModeLog) << "Developer mode installation from local package transaction done:" << status << runtime;
+                        qCDebug(lcDeveloperModeLog)
+                                << "Developer mode installation from local package transaction done:"
+                                << status << runtime;
                         resetState();
                     } else if (status == PackageKit::Transaction::ExitFailed) {
                         qCWarning(lcDeveloperModeLog) << "Developer mode installation from local package failed, trying from repos";
@@ -506,7 +510,8 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
 {
     // Resolve and update local package path
     if (!d_ptr->m_localDeveloperModePackagePath.isEmpty()) {
-        PackageKit::Transaction *resolvePackage = PackageKit::Daemon::resolve(DEVELOPER_MODE_PACKAGE"-preload", PackageKit::Transaction::FilterInstalled);
+        PackageKit::Transaction *resolvePackage = PackageKit::Daemon::resolve(DEVELOPER_MODE_PACKAGE"-preload",
+                                                                              PackageKit::Transaction::FilterInstalled);
         connect(resolvePackage, &PackageKit::Transaction::errorCode,
                 d_ptr, &DeveloperModeSettingsPrivate::reportTransactionErrorCode);
         connect(resolvePackage, &PackageKit::Transaction::package,
@@ -515,10 +520,13 @@ DeveloperModeSettings::DeveloperModeSettings(QObject *parent)
             Q_ASSERT(info == PackageKit::Transaction::InfoInstalled);
             const QString version = PackageKit::Transaction::packageVersion(packageID);
             d_ptr->m_localDeveloperModePackagePath = get_cached_package(version);
+
             if (d_ptr->m_localDeveloperModePackagePath.isEmpty()) {
                 emit repositoryAccessRequiredChanged();
             }
-            qCDebug(lcDeveloperModeLog) << "Preload package version: " << version << ", local package path: " << d_ptr->m_localDeveloperModePackagePath;
+
+            qCDebug(lcDeveloperModeLog) << "Preload package version: " << version << ", local package path: "
+                                        << d_ptr->m_localDeveloperModePackagePath;
         });
     }
 

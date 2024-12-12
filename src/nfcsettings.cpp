@@ -43,11 +43,10 @@ NfcSettings::NfcSettings(QObject *parent)
     , m_valid(false)
     , m_enabled(false)
     , m_available(false)
-    , m_interface(
-            this, QDBusConnection::systemBus(),
-            "org.sailfishos.nfc.settings",
-            "/",
-            "org.sailfishos.nfc.Settings")
+    , m_interface(this, QDBusConnection::systemBus(),
+                  "org.sailfishos.nfc.settings",
+                  "/",
+                  "org.sailfishos.nfc.Settings")
 {
     if (QDBusConnection::systemBus().interface()->isServiceRegistered("org.sailfishos.nfc.settings")) {
         m_available = true;
@@ -63,7 +62,8 @@ NfcSettings::NfcSettings(QObject *parent)
             emit validChanged();
         });
 
-        QDBusConnection::systemBus().connect("org.sailfishos.nfc.settings", "/", "org.sailfishos.nfc.Settings", "EnabledChanged", this, SLOT(updateEnabledState(bool)));
+        QDBusConnection::systemBus().connect("org.sailfishos.nfc.settings", "/", "org.sailfishos.nfc.Settings",
+                                             "EnabledChanged", this, SLOT(updateEnabledState(bool)));
 
     } else {
         qWarning() << "NFC interface not available";

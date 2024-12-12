@@ -42,8 +42,7 @@ class PartitionPrivate;
 class SYSTEMSETTINGS_EXPORT Partition
 {
 public:
-    enum StorageType
-    {
+    enum StorageType {
         Invalid     = 0x00,
         System      = 0x01,
         User        = 0x02,
