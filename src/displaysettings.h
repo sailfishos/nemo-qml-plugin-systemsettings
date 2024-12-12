@@ -48,7 +48,7 @@ class SYSTEMSETTINGS_EXPORT DisplaySettings: public QObject
 
     Q_ENUMS(DoubleTapMode InhibitMode)
     Q_PROPERTY(int brightness READ brightness WRITE setBrightness NOTIFY brightnessChanged)
-    Q_PROPERTY(int maximumBrightness READ maximumBrightness CONSTANT)
+    Q_PROPERTY(int maximumBrightness READ maximumBrightness NOTIFY maximumBrightnessChanged)
     Q_PROPERTY(int dimTimeout READ dimTimeout WRITE setDimTimeout NOTIFY dimTimeoutChanged)
     Q_PROPERTY(int blankTimeout READ blankTimeout WRITE setBlankTimeout NOTIFY blankTimeoutChanged)
     Q_PROPERTY(InhibitMode inhibitMode READ inhibitMode WRITE setInhibitMode NOTIFY inhibitModeChanged)
@@ -159,6 +159,7 @@ signals:
     void powerSaveModeEnabledChanged();
     void powerSaveModeThresholdChanged();
     void populatedChanged();
+    void maximumBrightnessChanged();
 
 private slots:
     void configChange(const QString &key, const QDBusVariant &value);
@@ -169,6 +170,7 @@ private:
     ComNokiaMceRequestInterface *m_mceIface;
     ComNokiaMceSignalInterface *m_mceSignalIface;
     MGConfItem *m_orientationLock;
+    int m_maxBrightness;
     int m_brightness;
     int m_dimTimeout;
     int m_blankTimeout;

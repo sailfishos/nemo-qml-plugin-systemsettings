@@ -29,13 +29,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE."
  */
 
+#include "displaysettings.h"
+
 #include <mce/dbus-names.h>
 #include <mce/mode-names.h>
 #include "mceiface.h"
-#include "displaysettings.h"
 #include <MGConfItem>
 #include <QDebug>
 
+static const char *MceMaxDisplayBrightness = "/system/osso/dsm/display/max_display_brightness_levels";
 static const char *MceDisplayBrightness = "/system/osso/dsm/display/display_brightness";
 static const char *MceDisplayDimTimeout = "/system/osso/dsm/display/display_dim_timeout";
 static const char *MceDisplayBlankTimeout = "/system/osso/dsm/display/display_blank_timeout";
@@ -56,12 +58,14 @@ DisplaySettings::DisplaySettings(QObject *parent)
     : QObject(parent)
 {
     m_orientationLock = new MGConfItem("/lipstick/orientationLock", this);
-    connect(m_orientationLock, SIGNAL(valueChanged()), SIGNAL(orientationLockChanged()));
+    connect(m_orientationLock, &MGConfItem::valueChanged,
+            this, &DisplaySettings::orientationLockChanged);
 
     /* Initialize to defaults */
     m_autoBrightnessEnabled     = true;
     m_ambientLightSensorEnabled = true;
     m_blankTimeout              = 3;
+    m_maxBrightness             = 100;
     m_brightness                = 60;
     m_dimTimeout                = 30;
     m_flipoverGestureEnabled    = true;
@@ -77,10 +81,13 @@ DisplaySettings::DisplaySettings(QObject *parent)
     m_populated                 = false;
 
     /* Setup change listener & get current values via async query */
-    m_mceSignalIface = new ComNokiaMceSignalInterface(MCE_SERVICE, MCE_SIGNAL_PATH, QDBusConnection::systemBus(), this);
-    connect(m_mceSignalIface, SIGNAL(config_change_ind(QString,QDBusVariant)), this, SLOT(configChange(QString,QDBusVariant)));
+    m_mceSignalIface = new ComNokiaMceSignalInterface(MCE_SERVICE, MCE_SIGNAL_PATH,
+                                                      QDBusConnection::systemBus(), this);
+    connect(m_mceSignalIface, SIGNAL(config_change_ind(QString,QDBusVariant)),
+            this, SLOT(configChange(QString,QDBusVariant)));
 
-    m_mceIface = new ComNokiaMceRequestInterface(MCE_SERVICE, MCE_REQUEST_PATH, QDBusConnection::systemBus(), this);
+    m_mceIface = new ComNokiaMceRequestInterface(MCE_SERVICE, MCE_REQUEST_PATH,
+                                                 QDBusConnection::systemBus(), this);
     QDBusPendingReply<QVariantMap> call = m_mceIface->get_config_all();
     QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
     QObject::connect(watcher, SIGNAL(finished(QDBusPendingCallWatcher *)),
@@ -89,7 +96,7 @@ DisplaySettings::DisplaySettings(QObject *parent)
 
 void DisplaySettings::configReply(QDBusPendingCallWatcher *watcher)
 {
-    QDBusPendingReply<QVariantMap> reply =  *watcher;
+    QDBusPendingReply<QVariantMap> reply = *watcher;
 
     if (reply.isError()) {
         qWarning("Could not retrieve mce settings: '%s'",
@@ -124,10 +131,7 @@ void DisplaySettings::setBrightness(int value)
 
 int DisplaySettings::maximumBrightness()
 {
-    QDBusPendingReply<QDBusVariant> result = m_mceIface->get_config(QDBusObjectPath("/system/osso/dsm/display/max_display_brightness_levels"));
-    result.waitForFinished();
-
-    return result.value().variant().toInt();
+    return m_maxBrightness;
 }
 
 int DisplaySettings::dimTimeout() const
@@ -436,6 +440,12 @@ void DisplaySettings::updateConfig(const QString &key, const QVariant &value)
         if (val != m_powerSaveModeThreshold) {
             m_powerSaveModeThreshold = val;
             emit powerSaveModeThresholdChanged();
+        }
+    } else if (key == MceMaxDisplayBrightness) {
+        int val = value.toInt();
+        if (val != m_maxBrightness) {
+            m_maxBrightness = val;
+            emit maximumBrightnessChanged();
         }
     }
 }
