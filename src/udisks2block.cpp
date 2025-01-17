@@ -55,7 +55,8 @@ UDisks2::Block::Block(const QString &path, const UDisks2::InterfacePropertyMap &
                                    << d_ptr->m_connection.connection().lastError().message();
     }
 
-    qCInfo(lcMemoryCardLog) << "Creating a new block. Mountable:" << d_ptr->m_mountable << ", encrypted:" << d_ptr->m_encrypted
+    qCInfo(lcMemoryCardLog) << "Creating a new block. Mountable:" << d_ptr->m_mountable
+                            << ", encrypted:" << d_ptr->m_encrypted
                             << "object path:" << d_ptr->m_path << "data is empty:" << d_ptr->m_data.isEmpty();
 
     if (d_ptr->m_interfacePropertyMap.isEmpty()) {
@@ -379,14 +380,17 @@ bool UDisks2::Block::hasData() const
 
 void UDisks2::Block::dumpInfo() const
 {
-    qCInfo(lcMemoryCardLog) << this << ":" << device() << "Preferred device:" << preferredDevice() << "D-Bus object path:" << path();
-    qCInfo(lcMemoryCardLog) << "- drive:" << drive() << "device number:" << deviceNumber() << "connection bus:" << connectionBus();
+    qCInfo(lcMemoryCardLog) << this << ":" << device() << "Preferred device:" << preferredDevice()
+                            << "D-Bus object path:" << path();
+    qCInfo(lcMemoryCardLog) << "- drive:" << drive() << "device number:" << deviceNumber()
+                            << "connection bus:" << connectionBus();
     qCInfo(lcMemoryCardLog) << "- id:" << id() << "size:" << size();
     qCInfo(lcMemoryCardLog) << "- isreadonly:" << isReadOnly() << "idtype:" << idType();
     qCInfo(lcMemoryCardLog) << "- idversion:" << idVersion() << "idlabel:" << idLabel();
     qCInfo(lcMemoryCardLog) << "- iduuid:" << idUUID();
     qCInfo(lcMemoryCardLog) << "- ismountable:" << isMountable() << "mount path:" << mountPath();
-    qCInfo(lcMemoryCardLog) << "- isencrypted:" << isEncrypted() << "crypto backing device:" << cryptoBackingDevicePath()
+    qCInfo(lcMemoryCardLog) << "- isencrypted:" << isEncrypted()
+                            << "crypto backing device:" << cryptoBackingDevicePath()
                             << "crypto backing object path:" << cryptoBackingDeviceObjectPath();
     qCInfo(lcMemoryCardLog) << "- isformatting:" << isFormatting();
     qCInfo(lcMemoryCardLog) << "- ispartiontable:" << isPartitionTable() << "ispartition:" << isPartition();
@@ -515,11 +519,13 @@ void UDisks2::Block::rescan(const QString &dbusObjectPath)
     QVariantMap options;
     arguments << options;
 
-    NemoDBus::Interface blockDeviceInterface(this, d_ptr->m_connection, UDISKS2_SERVICE, dbusObjectPath, UDISKS2_BLOCK_INTERFACE);
+    NemoDBus::Interface blockDeviceInterface(this, d_ptr->m_connection,
+                                             UDISKS2_SERVICE, dbusObjectPath, UDISKS2_BLOCK_INTERFACE);
     NemoDBus::Response *response = blockDeviceInterface.call(UDISKS2_BLOCK_RESCAN, arguments);
     response->onError([this, dbusObjectPath](const QDBusError &error) {
         qCDebug(lcMemoryCardLog) << "UDisks failed to rescan object path" << dbusObjectPath
-                                 << ", error type:" << error.type() << ", name:" << error.name() << ", message:" << error.message();
+                                 << ", error type:" << error.type() << ", name:" << error.name()
+                                 << ", message:" << error.message();
     });
 }
 
@@ -535,7 +541,8 @@ void UDisks2::Block::getProperties(const QString &path, const QString &interface
 
     *pending = true;
 
-    NemoDBus::Interface dbusPropertyInterface(this, d_ptr->m_connection, UDISKS2_SERVICE, path, DBUS_OBJECT_PROPERTIES_INTERFACE);
+    NemoDBus::Interface dbusPropertyInterface(this, d_ptr->m_connection,
+                                              UDISKS2_SERVICE, path, DBUS_OBJECT_PROPERTIES_INTERFACE);
     NemoDBus::Response *response = dbusPropertyInterface.call(DBUS_GET_ALL, interface);
     response->onFinished<QVariantMap>([this, success](const QVariantMap &values) {
         success(NemoDBus::demarshallArgument<QVariantMap>(values));

@@ -55,7 +55,8 @@ class Job;
 
 struct Operation
 {
-    Operation(const QString &command, const QString &devicePath, const QString &dbusObjectPath = QString(), const QString &filesystemType = QString(), const QVariantMap &arguments  = QVariantMap())
+    Operation(const QString &command, const QString &devicePath, const QString &dbusObjectPath = QString(),
+              const QString &filesystemType = QString(), const QVariantMap &arguments  = QVariantMap())
         : command(command)
         , devicePath(devicePath)
         , dbusObjectPath(dbusObjectPath)
@@ -99,7 +100,8 @@ signals:
 private slots:
     void interfacesAdded(const QDBusObjectPath &objectPath, const UDisks2::InterfacePropertyMap &interfaces);
     void interfacesRemoved(const QDBusObjectPath &objectPath, const QStringList &interfaces);
-    void doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &filesystemType, const QVariantMap &arguments);
+    void doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &filesystemType,
+                  const QVariantMap &arguments);
     void handleNewBlock(UDisks2::Block *block, bool forceCreatePartition);
 
 private:
@@ -107,8 +109,10 @@ private:
     void updatePartitionProperties(const Block *blockDevice);
     void updatePartitionStatus(const Job *job, bool success);
 
-    void startLuksOperation(const QString &devicePath, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments);
-    void startMountOperation(const QString &devicePath, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments);
+    void startLuksOperation(const QString &devicePath, const QString &dbusMethod, const QString &dbusObjectPath,
+                            const QVariantList &arguments);
+    void startMountOperation(const QString &devicePath, const QString &dbusMethod, const QString &dbusObjectPath,
+                             const QVariantList &arguments);
     void lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartitions, const QStringList &objects);
 
     void createPartition(const Block *block);

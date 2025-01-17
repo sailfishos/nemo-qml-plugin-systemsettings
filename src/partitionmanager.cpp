@@ -208,7 +208,8 @@ void PartitionManagerPrivate::refresh()
 
 void PartitionManagerPrivate::refresh(PartitionPrivate *partition)
 {
-    refresh(Partitions() << QExplicitlySharedDataPointer<PartitionPrivate>(partition), Partitions() << QExplicitlySharedDataPointer<PartitionPrivate>(partition));
+    refresh(Partitions() << QExplicitlySharedDataPointer<PartitionPrivate>(partition),
+            Partitions() << QExplicitlySharedDataPointer<PartitionPrivate>(partition));
 
     emit partitionChanged(Partition(QExplicitlySharedDataPointer<PartitionPrivate>(partition)));
 }
@@ -246,8 +247,9 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
         const QString deviceName = devicePath.section(QChar('/'), 2);
 
         for (auto partition : partitions) {
-            if (partition->valid || ((partition->status == Partition::Mounted || partition->status == Partition::Mounting) &&
-                                     (partition->storageType != Partition::External))) {
+            if (partition->valid
+                    || ((partition->status == Partition::Mounted || partition->status == Partition::Mounting)
+                        && (partition->storageType != Partition::External))) {
                 continue;
             }
 

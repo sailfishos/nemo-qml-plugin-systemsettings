@@ -54,10 +54,12 @@ UDisks2::Job::Job(const QString &path, const QVariantMap &data, QObject *parent)
                 QStringLiteral("Completed"),
                 this,
                 SLOT(updateCompleted(bool, QString)))) {
-        qCWarning(lcMemoryCardLog) << "Failed to connect to Job's at path" << qPrintable(m_path) << "completed signal" << qPrintable(m_connection.lastError().message());
+        qCWarning(lcMemoryCardLog) << "Failed to connect to Job's at path" << qPrintable(m_path)
+                                   << "completed signal" << qPrintable(m_connection.lastError().message());
     }
 
-    connect(Monitor::instance(), &Monitor::errorMessage, this, [this](const QString &objectPath, const QString &errorName) {
+    connect(Monitor::instance(), &Monitor::errorMessage,
+            this, [this](const QString &objectPath, const QString &errorName) {
         if (objects().contains(objectPath) && errorName == UDISKS2_ERROR_DEVICE_BUSY) {
             m_message = errorName;
             if (!isCompleted() && deviceBusy()) {
