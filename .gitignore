@@ -15,4 +15,4 @@ src/mceiface.h
 src/pkgconfig/
 src/plugin/libnemosystemsettings.so
 src/plugin/plugin.moc
-
+setlocale/setlocale
