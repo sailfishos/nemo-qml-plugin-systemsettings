@@ -57,12 +57,16 @@ UDisks2::Job::Job(const QString &path, const QVariantMap &data, QObject *parent)
                                    << "completed signal" << qPrintable(QDBusConnection::systemBus().lastError().message());
     }
 
+    // might be error-prone if there are multiple simultaneous jobs on an object.
+    // is this even needed?
     connect(Monitor::instance(), &Monitor::errorMessage,
             this, [this](const QString &objectPath, const QString &errorName) {
         if (objects().contains(objectPath) && errorName == UDISKS2_ERROR_DEVICE_BUSY) {
-            m_message = errorName;
-            if (!isCompleted() && deviceBusy()) {
-                updateCompleted(false, m_message);
+            if (!isCompleted()) {
+                m_message = errorName;
+                if (deviceBusy()) {
+                    complete(false, m_message);
+                }
             }
         }
     });
