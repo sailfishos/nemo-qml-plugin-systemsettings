@@ -123,6 +123,16 @@ UDisks2::Monitor::Monitor(PartitionManagerPrivate *manager, QObject *parent)
         qCWarning(lcMemoryCardLog) << "Failed to connect to interfaces removed signal:" << qPrintable(systemBus.lastError().message());
     }
 
+    if (!QDBusConnection::systemBus().connect(
+                UDISKS2_SERVICE,
+                QString(),
+                UDISKS2_JOB_INTERFACE,
+                QStringLiteral("Completed"),
+                this,
+                SLOT(jobCompleted(bool, QString)))) {
+        qCWarning(lcMemoryCardLog) << "Failed to connect to jobs completed signal:" << qPrintable(systemBus.lastError().message());
+    }
+
     getBlockDevices();
 
     connect(m_blockDevices, &BlockDevices::newBlock, this, &Monitor::handleNewBlock);
@@ -301,8 +311,11 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
 
     if (m_jobsToWait.contains(path)) {
         UDisks2::Job *job = m_jobsToWait.take(path);
-        // Make sure job is completed.
-        job->complete(true);
+        // Make sure job is completed. Not sure if we can assume it success really.
+        if (!job->isCompleted()) {
+            qWarning() << "Udisks2 job removed without finishing. Assuming completed" << path;
+            job->complete(true);
+        }
         delete job;
     } else if (m_blockDevices->contains(path) && interfaces.contains(UDISKS2_BLOCK_INTERFACE)) {
         // Cleanup partitions first.
@@ -775,4 +788,12 @@ void UDisks2::Monitor::handleNewBlock(UDisks2::Block *block, bool forceCreatePar
     }
 
     connectSignals(block);
+}
+
+void UDisks2::Monitor::jobCompleted(bool success, const QString &msg)
+{
+    QString jobPath = message().path();
+    if (m_jobsToWait.contains(jobPath)) {
+        m_jobsToWait[jobPath]->complete(success, msg);
+    }
 }

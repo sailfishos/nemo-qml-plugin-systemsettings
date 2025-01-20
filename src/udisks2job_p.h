@@ -62,7 +62,7 @@ public:
     };
     Q_ENUM(Operation)
 
-    void complete(bool success);
+    void complete(bool success, const QString &message = QString());
     bool isCompleted() const;
     bool success() const;
     QString message() const;
@@ -80,9 +80,6 @@ public:
 
 signals:
     void completed(bool success);
-
-private slots:
-    void updateCompleted(bool success, const QString &message);
 
 private:
     QString m_path;

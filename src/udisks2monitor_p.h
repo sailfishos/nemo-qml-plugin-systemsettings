@@ -34,6 +34,7 @@
 
 #include <QObject>
 #include <QDBusObjectPath>
+#include <QDBusContext>
 #include <QExplicitlySharedDataPointer>
 #include <QRegularExpression>
 #include <QQueue>
@@ -71,7 +72,7 @@ struct Operation
     QVariantMap arguments;
 };
 
-class Monitor : public QObject
+class Monitor : public QObject, protected QDBusContext
 {
     Q_OBJECT
 public:
@@ -103,6 +104,7 @@ private slots:
     void doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &filesystemType,
                   const QVariantMap &arguments);
     void handleNewBlock(UDisks2::Block *block, bool forceCreatePartition);
+    void jobCompleted(bool success, const QString &msg);
 
 private:
     void setPartitionProperties(QExplicitlySharedDataPointer<PartitionPrivate> &partition, const Block *blockDevice);

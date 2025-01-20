@@ -46,17 +46,6 @@ UDisks2::Job::Job(const QString &path, const QVariantMap &data, QObject *parent)
     , m_completed(false)
     , m_success(false)
 {
-    if (!m_path.isEmpty() && !QDBusConnection::systemBus().connect(
-                UDISKS2_SERVICE,
-                m_path,
-                UDISKS2_JOB_INTERFACE,
-                QStringLiteral("Completed"),
-                this,
-                SLOT(updateCompleted(bool, QString)))) {
-        qCWarning(lcMemoryCardLog) << "Failed to connect to Job's at path" << qPrintable(m_path)
-                                   << "completed signal" << qPrintable(QDBusConnection::systemBus().lastError().message());
-    }
-
     // might be error-prone if there are multiple simultaneous jobs on an object.
     // is this even needed?
     connect(Monitor::instance(), &Monitor::errorMessage,
@@ -76,12 +65,13 @@ UDisks2::Job::~Job()
 {
 }
 
-void UDisks2::Job::complete(bool success)
+void UDisks2::Job::complete(bool success, const QString &message)
 {
     if (isCompleted()) {
         return;
     }
 
+    m_message = message;
     m_completed = true;
     m_success = success;
     m_status = UDisks2::Job::Completed;
@@ -152,10 +142,4 @@ void UDisks2::Job::dumpInfo() const
     for (const QString &key : m_data.keys()) {
         qCInfo(lcMemoryCardLog) << "- " << qPrintable(key) << value(key);
     }
-}
-
-void UDisks2::Job::updateCompleted(bool success, const QString &message)
-{
-    m_message = message;
-    complete(success);
 }
