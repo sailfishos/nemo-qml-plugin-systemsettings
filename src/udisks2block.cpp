@@ -455,7 +455,17 @@ void UDisks2::Block::updateProperties(const QDBusMessage &message)
             emit updated();
         }
     } else if (interface == UDISKS2_FILESYSTEM_INTERFACE) {
-        updateFileSystemInterface(arguments.value(1));
+        QVariantMap filesystemProperties = NemoDBus::demarshallArgument<QVariantMap>(arguments.value(1));
+        if (!filesystemProperties.isEmpty())
+            updateFileSystemInterface(filesystemProperties);
+
+        QStringList invalidatedProperties = NemoDBus::demarshallArgument<QStringList>(arguments.value(2));
+        if (invalidatedProperties.contains("MountPoints")) {
+            // we are generally getting initial values and then tracking changes, assuming that
+            // udisks2 passes the new values instead of just invalidating.
+            // catch here at least if it does something unexpected.
+            qWarning() << "FIXME: invalidated udisks2 filesystem properties contained MountPoints";
+        }
     }
 }
 
@@ -465,26 +475,35 @@ bool UDisks2::Block::isCompleted() const
             && !d_ptr->m_pendingPartition && !d_ptr->m_pendingPartitionTable;
 }
 
-void UDisks2::Block::updateFileSystemInterface(const QVariant &filesystemInterface)
+// explicitly empty map as parameter clears the content
+void UDisks2::Block::updateFileSystemInterface(const QVariantMap &filesystemProperties)
 {
-    QVariantMap filesystem = NemoDBus::demarshallArgument<QVariantMap>(filesystemInterface);
-
-    bool interfaceChange = d_ptr->m_interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE) != filesystem.isEmpty();
-    if (filesystem.isEmpty()) {
-        d_ptr->m_interfacePropertyMap.remove(UDISKS2_FILESYSTEM_INTERFACE);
-    } else {
-        d_ptr->m_interfacePropertyMap.insert(UDISKS2_FILESYSTEM_INTERFACE, filesystem);
-    }
-    QList<QByteArray> mountPointList = NemoDBus::demarshallArgument<QList<QByteArray> >(filesystem.value(QStringLiteral("MountPoints")));
+    bool interfaceChange = d_ptr->m_interfacePropertyMap.contains(UDISKS2_FILESYSTEM_INTERFACE) != filesystemProperties.isEmpty();
     d_ptr->m_mountPath.clear();
 
-    if (!mountPointList.isEmpty()) {
-        d_ptr->m_mountPath = QString::fromLocal8Bit(mountPointList.at(0));
+    if (filesystemProperties.isEmpty()) {
+        d_ptr->m_interfacePropertyMap.remove(UDISKS2_FILESYSTEM_INTERFACE);
+    } else {
+        QVariantMap currentValues = d_ptr->m_interfacePropertyMap.value(UDISKS2_FILESYSTEM_INTERFACE);
+
+        for (QMap<QString, QVariant>::const_iterator i = filesystemProperties.constBegin()
+             ; i != filesystemProperties.constEnd(); ++i) {
+            currentValues.insert(i.key(), i.value());
+        }
+
+        d_ptr->m_interfacePropertyMap.insert(UDISKS2_FILESYSTEM_INTERFACE, currentValues);
+
+        QList<QByteArray> mountPointList = NemoDBus::demarshallArgument<QList<QByteArray> >(
+                    filesystemProperties.value(QStringLiteral("MountPoints")));
+
+        if (!mountPointList.isEmpty()) {
+            d_ptr->m_mountPath = QString::fromLocal8Bit(mountPointList.at(0));
+        }
     }
 
     bool triggerUpdate = false;
     blockSignals(true);
-    triggerUpdate = setMountable(!filesystem.isEmpty());
+    triggerUpdate = setMountable(!filesystemProperties.isEmpty());
     triggerUpdate |= clearFormattingState();
     triggerUpdate |= interfaceChange;
     blockSignals(false);
@@ -493,7 +512,7 @@ void UDisks2::Block::updateFileSystemInterface(const QVariant &filesystemInterfa
         emit updated();
     }
 
-    qCInfo(lcMemoryCardLog) << "New file system mount points:" << filesystemInterface
+    qCInfo(lcMemoryCardLog) << "New file system mount points:" << filesystemProperties
                             << "resolved mount path: " << d_ptr->m_mountPath << "trigger update:" << triggerUpdate;
     emit mountPathChanged();
 }
