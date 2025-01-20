@@ -45,9 +45,8 @@ UDisks2::Job::Job(const QString &path, const QVariantMap &data, QObject *parent)
     , m_status(Added)
     , m_completed(false)
     , m_success(false)
-    , m_connection(QDBusConnection::systemBus())
 {
-    if (!m_path.isEmpty() && !m_connection.connect(
+    if (!m_path.isEmpty() && !QDBusConnection::systemBus().connect(
                 UDISKS2_SERVICE,
                 m_path,
                 UDISKS2_JOB_INTERFACE,
@@ -55,7 +54,7 @@ UDisks2::Job::Job(const QString &path, const QVariantMap &data, QObject *parent)
                 this,
                 SLOT(updateCompleted(bool, QString)))) {
         qCWarning(lcMemoryCardLog) << "Failed to connect to Job's at path" << qPrintable(m_path)
-                                   << "completed signal" << qPrintable(m_connection.lastError().message());
+                                   << "completed signal" << qPrintable(QDBusConnection::systemBus().lastError().message());
     }
 
     connect(Monitor::instance(), &Monitor::errorMessage,

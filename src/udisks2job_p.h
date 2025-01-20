@@ -92,8 +92,6 @@ private:
     QString m_message;
     bool m_completed;
     bool m_success;
-
-    QDBusConnection m_connection;
 };
 }
 
