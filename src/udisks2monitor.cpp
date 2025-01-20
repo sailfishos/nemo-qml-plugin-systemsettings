@@ -562,7 +562,7 @@ void UDisks2::Monitor::startMountOperation(const QString &devicePath, const QStr
             QByteArray errorData = error.name().toLocal8Bit();
             const char *errorCStr = errorData.constData();
 
-            qCWarning(lcMemoryCardLog) << dbusMethod << "error:" << errorCStr;
+            qCWarning(lcMemoryCardLog) << "udisks2 error: " << dbusMethod << "error:" << errorCStr;
 
             for (uint i = 0; i < sizeof(dbus_error_entries) / sizeof(ErrorEntry); i++) {
                 if (strcmp(dbus_error_entries[i].dbusErrorName, errorCStr) == 0) {
