@@ -228,8 +228,7 @@ void UDisks2::Monitor::format(const QString &devicePath, const QString &filesyst
     }
 
     const QString objectPath = m_blockDevices->objectPath(devicePath);
-    PartitionManagerPrivate::PartitionList affectedPartitions;
-    lookupPartitions(affectedPartitions, QStringList() << objectPath);
+    PartitionManagerPrivate::PartitionList affectedPartitions = lookupPartitions(QStringList() << objectPath);
 
     for (auto partition : affectedPartitions) {
         // Mark block to formatting state.
@@ -319,9 +318,8 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
         delete job;
     } else if (m_blockDevices->contains(path) && interfaces.contains(UDISKS2_BLOCK_INTERFACE)) {
         // Cleanup partitions first.
-        PartitionManagerPrivate::PartitionList removedPartitions;
         QStringList blockDevPaths = { path };
-        lookupPartitions(removedPartitions, blockDevPaths);
+        PartitionManagerPrivate::PartitionList removedPartitions = lookupPartitions(blockDevPaths);
         m_manager->remove(removedPartitions);
 
         m_blockDevices->remove(path);
@@ -401,8 +399,7 @@ void UDisks2::Monitor::updatePartitionProperties(const UDisks2::Block *blockDevi
 void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool success)
 {
     UDisks2::Job::Operation operation = job->operation();
-    PartitionManagerPrivate::PartitionList affectedPartitions;
-    lookupPartitions(affectedPartitions, job->objects());
+    PartitionManagerPrivate::PartitionList affectedPartitions = lookupPartitions(job->objects());
     if (operation == UDisks2::Job::Lock || operation == UDisks2::Job::Unlock) {
         for (auto partition : affectedPartitions) {
             Partition::Status oldStatus = partition->status;
@@ -615,17 +612,20 @@ void UDisks2::Monitor::startMountOperation(const QString &devicePath, const QStr
     }
 }
 
-void UDisks2::Monitor::lookupPartitions(PartitionManagerPrivate::PartitionList &affectedPartitions,
-                                        const QStringList &objects)
+PartitionManagerPrivate::PartitionList UDisks2::Monitor::lookupPartitions(const QStringList &objects)
 {
+    PartitionManagerPrivate::PartitionList result;
     QStringList blockDevs = m_blockDevices->devicePaths(objects);
+
     for (const QString &dev : blockDevs) {
         for (auto partition : m_manager->m_partitions) {
             if (partition->devicePath == dev) {
-                affectedPartitions << partition;
+                result << partition;
             }
         }
     }
+
+    return result;
 }
 
 void UDisks2::Monitor::createPartition(const UDisks2::Block *block)
