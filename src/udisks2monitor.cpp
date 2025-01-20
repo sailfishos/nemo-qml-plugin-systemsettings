@@ -228,7 +228,7 @@ void UDisks2::Monitor::format(const QString &devicePath, const QString &filesyst
     }
 
     const QString objectPath = m_blockDevices->objectPath(devicePath);
-    PartitionManagerPrivate::Partitions affectedPartitions;
+    PartitionManagerPrivate::PartitionList affectedPartitions;
     lookupPartitions(affectedPartitions, QStringList() << objectPath);
 
     for (auto partition : affectedPartitions) {
@@ -319,7 +319,7 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
         delete job;
     } else if (m_blockDevices->contains(path) && interfaces.contains(UDISKS2_BLOCK_INTERFACE)) {
         // Cleanup partitions first.
-        PartitionManagerPrivate::Partitions removedPartitions;
+        PartitionManagerPrivate::PartitionList removedPartitions;
         QStringList blockDevPaths = { path };
         lookupPartitions(removedPartitions, blockDevPaths);
         m_manager->remove(removedPartitions);
@@ -401,7 +401,7 @@ void UDisks2::Monitor::updatePartitionProperties(const UDisks2::Block *blockDevi
 void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool success)
 {
     UDisks2::Job::Operation operation = job->operation();
-    PartitionManagerPrivate::Partitions affectedPartitions;
+    PartitionManagerPrivate::PartitionList affectedPartitions;
     lookupPartitions(affectedPartitions, job->objects());
     if (operation == UDisks2::Job::Lock || operation == UDisks2::Job::Unlock) {
         for (auto partition : affectedPartitions) {
@@ -615,7 +615,7 @@ void UDisks2::Monitor::startMountOperation(const QString &devicePath, const QStr
     }
 }
 
-void UDisks2::Monitor::lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartitions,
+void UDisks2::Monitor::lookupPartitions(PartitionManagerPrivate::PartitionList &affectedPartitions,
                                         const QStringList &objects)
 {
     QStringList blockDevs = m_blockDevices->devicePaths(objects);
@@ -751,7 +751,7 @@ void UDisks2::Monitor::connectSignals(UDisks2::Block *block)
     }, Qt::UniqueConnection);
 
     connect(block, &UDisks2::Block::blockRemoved, this, [this](const QString &device) {
-        PartitionManagerPrivate::Partitions removedPartitions;
+        PartitionManagerPrivate::PartitionList removedPartitions;
         for (auto partition : m_manager->m_partitions) {
             if (partition->devicePath == device) {
                 removedPartitions << partition;

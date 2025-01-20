@@ -48,7 +48,7 @@ class PartitionManagerPrivate : public QObject, public QSharedData
 {
     Q_OBJECT
 public:
-    typedef QVector<QExplicitlySharedDataPointer<PartitionPrivate>> Partitions;
+    typedef QVector<QExplicitlySharedDataPointer<PartitionPrivate>> PartitionList;
 
     PartitionManagerPrivate();
     ~PartitionManagerPrivate();
@@ -59,11 +59,11 @@ public:
     QVector<Partition> partitions(Partition::StorageTypes types) const;
 
     void add(QExplicitlySharedDataPointer<PartitionPrivate> partition);
-    void remove(const Partitions &partitions);
+    void remove(const PartitionList &partitions);
 
     void refresh();
     void refresh(PartitionPrivate *partition);
-    void refresh(const Partitions &partitions, Partitions &changedPartitions);
+    void refresh(const PartitionList &partitions, PartitionList &changedPartitions);
 
     void lock(const QString &devicePath);
     void unlock(const Partition &partition, const QString &passphrase);
@@ -95,7 +95,7 @@ private:
     // TODO: This is leaking (Disks2::Monitor is never free'ed).
     static PartitionManagerPrivate *sharedInstance;
 
-    Partitions m_partitions;
+    PartitionList m_partitions;
     Partition m_root;
 
     QScopedPointer<UDisks2::Monitor> m_udisksMonitor;
