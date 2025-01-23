@@ -279,10 +279,13 @@ void PartitionManagerPrivate::refresh(const PartitionList &partitions, Partition
     for (auto partition : partitions) {
         if (partition->status == Partition::Mounted) {
             qint64 quotaAvailable = std::numeric_limits<qint64>::max();
-            struct if_dqblk quota;
+            struct if_dqblk quota = {};
+
             if (::quotactl(QCMD(Q_GETQUOTA, USRQUOTA), partition->devicePath.toUtf8().constData(), ::getuid(), (caddr_t)&quota) == 0
                     && quota.dqb_bsoftlimit != 0)
-                quotaAvailable = std::max((qint64)dbtob(quota.dqb_bsoftlimit) - (qint64)quota.dqb_curspace, 0LL);
+                quotaAvailable = std::max(static_cast<qint64>(dbtob(quota.dqb_bsoftlimit))
+                                          - static_cast<qint64>(quota.dqb_curspace),
+                                          0LL);
 
             // FIXME JB#56182: statvfs64() may block for a long time so would better be done in separate thread.
             struct statvfs64 stat;
