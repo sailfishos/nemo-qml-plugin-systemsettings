@@ -90,7 +90,7 @@ PartitionManagerPrivate::PartitionManagerPrivate()
 
     // Remove any prospective internal partitions that aren't mounted.
     int internalPartitionCount = 0;
-    for (Partitions::iterator it = m_partitions.begin(); it != m_partitions.end();) {
+    for (PartitionList::iterator it = m_partitions.begin(); it != m_partitions.end();) {
         auto partition = *it;
 
         if (partition->storageType & Partition::Internal) {
@@ -171,12 +171,12 @@ void PartitionManagerPrivate::add(QExplicitlySharedDataPointer<PartitionPrivate>
     }
 
     m_partitions.insert(insertIndex, partition);
-    Partitions addedPartitions = { partition };
+    PartitionList addedPartitions = { partition };
     refresh(addedPartitions, addedPartitions);
     emit partitionAdded(Partition(partition));
 }
 
-void PartitionManagerPrivate::remove(const Partitions &partitions)
+void PartitionManagerPrivate::remove(const PartitionList &partitions)
 {
     for (const auto removedPartition : partitions) {
         for (int i = m_partitions.count() - 1; i >= 0 && m_partitions.at(i)->storageType == Partition::External; --i) {
@@ -192,7 +192,7 @@ void PartitionManagerPrivate::remove(const Partitions &partitions)
 
 void PartitionManagerPrivate::refresh()
 {
-    Partitions changedPartitions;
+    PartitionList changedPartitions;
     for (int index = 0; index < m_partitions.count(); ++index) {
         const auto partition = m_partitions.at(index);
         if (partition->storageType == Partition::External) {
@@ -208,12 +208,13 @@ void PartitionManagerPrivate::refresh()
 
 void PartitionManagerPrivate::refresh(PartitionPrivate *partition)
 {
-    refresh(Partitions() << QExplicitlySharedDataPointer<PartitionPrivate>(partition), Partitions() << QExplicitlySharedDataPointer<PartitionPrivate>(partition));
+    refresh(PartitionList() << QExplicitlySharedDataPointer<PartitionPrivate>(partition),
+            PartitionList() << QExplicitlySharedDataPointer<PartitionPrivate>(partition));
 
     emit partitionChanged(Partition(QExplicitlySharedDataPointer<PartitionPrivate>(partition)));
 }
 
-void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &changedPartitions)
+void PartitionManagerPrivate::refresh(const PartitionList &partitions, PartitionList &changedPartitions)
 {
     for (auto partition : partitions) {
         // Reset properties to the unmounted defaults.  If the partition is mounted these will be restored
@@ -246,8 +247,9 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
         const QString deviceName = devicePath.section(QChar('/'), 2);
 
         for (auto partition : partitions) {
-            if (partition->valid || ((partition->status == Partition::Mounted || partition->status == Partition::Mounting) &&
-                                     (partition->storageType != Partition::External))) {
+            if (partition->valid
+                    || ((partition->status == Partition::Mounted || partition->status == Partition::Mounting)
+                        && (partition->storageType != Partition::External))) {
                 continue;
             }
 
@@ -282,6 +284,7 @@ void PartitionManagerPrivate::refresh(const Partitions &partitions, Partitions &
                     && quota.dqb_bsoftlimit != 0)
                 quotaAvailable = std::max((qint64)dbtob(quota.dqb_bsoftlimit) - (qint64)quota.dqb_curspace, 0LL);
 
+            // FIXME JB#56182: statvfs64() may block for a long time so would better be done in separate thread.
             struct statvfs64 stat;
             if (::statvfs64(partition->mountPath.toUtf8().constData(), &stat) == 0) {
                 partition->bytesTotal = stat.f_blocks * stat.f_frsize;

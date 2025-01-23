@@ -136,7 +136,7 @@ private:
 
     bool isCompleted() const;
 
-    void updateFileSystemInterface(const QVariant &mountPoints);
+    void updateFileSystemInterface(const QVariantMap &filesystemProperties);
     bool clearFormattingState();
 
     void getProperties(const QString &path, const QString &interface,

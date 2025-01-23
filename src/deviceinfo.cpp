@@ -251,7 +251,8 @@ const QStringList &DeviceInfoPrivate::networkModeDirectoryList(DeviceInfoPrivate
         else if (mode == DeviceInfoPrivate::EthernetMode)
             stemList << QStringLiteral("eth") << QStringLiteral("usb") << QStringLiteral("rndis");
         for (auto stemIter = stemList.cbegin(); stemIter != stemList.cend(); ++stemIter) {
-            QFileInfoList modeDirList(baseDir.entryInfoList(QStringList() << QStringLiteral("%1*").arg(*stemIter), QDir::Dirs, QDir::Name));
+            QFileInfoList modeDirList(baseDir.entryInfoList(QStringList() << QStringLiteral("%1*").arg(*stemIter),
+                                                            QDir::Dirs, QDir::Name));
             for (auto modeDirIter = modeDirList.cbegin(); modeDirIter != modeDirList.cend(); ++modeDirIter)
                 modeDirectoryList.append((*modeDirIter).filePath());
         }

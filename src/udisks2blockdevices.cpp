@@ -267,8 +267,9 @@ bool BlockDevices::hintAuto(const QString &devicePath)
 void BlockDevices::blockCompleted()
 {
     Block *completedBlock = qobject_cast<Block *>(sender());
-    if (completedBlock->isValid() && (completedBlock->isPartitionTable() ||
-                                      (completedBlock->hasInterface(UDISKS2_BLOCK_INTERFACE) && completedBlock->interfaceCount() == 1)) ){
+    if (completedBlock->isValid() && (completedBlock->isPartitionTable()
+                                      || (completedBlock->hasInterface(UDISKS2_BLOCK_INTERFACE)
+                                          && completedBlock->interfaceCount() == 1))) {
         qCInfo(lcMemoryCardLog) << "Start waiting for block" << completedBlock->device();
         waitPartition(completedBlock);
         updatePopulatedCheck();
@@ -379,7 +380,11 @@ void BlockDevices::complete(Block *block, bool forceAccept)
         });
     }
 
-    bool willAccept = !unlocked && (block->isPartition() || block->isMountable() || block->isEncrypted() || block->isFormatting() || forceAccept);
+    bool willAccept = !unlocked && (block->isPartition()
+                                    || block->isMountable()
+                                    || block->isEncrypted()
+                                    || block->isFormatting()
+                                    || forceAccept);
     qCInfo(lcMemoryCardLog) << "Completed block" << qPrintable(block->path())
                             << "is" << (willAccept ? "accepted" : block->isPartition() ? "kept" : "rejected");
     block->dumpInfo();

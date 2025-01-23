@@ -79,7 +79,6 @@ public:
 
     void dumpBlocks() const;
 
-
 signals:
     void newBlock(Block *block, bool createPartition);
     void externalStoragesPopulated();
@@ -88,7 +87,6 @@ private slots:
     void blockCompleted();
 
 private:
-
     struct PartitionWaiter {
         PartitionWaiter(int timer, Block *block);
         ~PartitionWaiter();

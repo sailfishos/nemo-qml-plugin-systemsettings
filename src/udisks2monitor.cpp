@@ -123,6 +123,16 @@ UDisks2::Monitor::Monitor(PartitionManagerPrivate *manager, QObject *parent)
         qCWarning(lcMemoryCardLog) << "Failed to connect to interfaces removed signal:" << qPrintable(systemBus.lastError().message());
     }
 
+    if (!QDBusConnection::systemBus().connect(
+                UDISKS2_SERVICE,
+                QString(),
+                UDISKS2_JOB_INTERFACE,
+                QStringLiteral("Completed"),
+                this,
+                SLOT(jobCompleted(bool, QString)))) {
+        qCWarning(lcMemoryCardLog) << "Failed to connect to jobs completed signal:" << qPrintable(systemBus.lastError().message());
+    }
+
     getBlockDevices();
 
     connect(m_blockDevices, &BlockDevices::newBlock, this, &Monitor::handleNewBlock);
@@ -218,8 +228,7 @@ void UDisks2::Monitor::format(const QString &devicePath, const QString &filesyst
     }
 
     const QString objectPath = m_blockDevices->objectPath(devicePath);
-    PartitionManagerPrivate::Partitions affectedPartitions;
-    lookupPartitions(affectedPartitions, QStringList() << objectPath);
+    PartitionManagerPrivate::PartitionList affectedPartitions = lookupPartitions(QStringList() << objectPath);
 
     for (auto partition : affectedPartitions) {
         // Mark block to formatting state.
@@ -230,7 +239,8 @@ void UDisks2::Monitor::format(const QString &devicePath, const QString &filesyst
         // Lock unlocked block device before formatting.
         if (!partition->cryptoBackingDevicePath.isEmpty()) {
             lock(partition->cryptoBackingDevicePath);
-            m_operationQueue.enqueue(Operation(UDISKS2_BLOCK_FORMAT, partition->cryptoBackingDevicePath, objectPath, filesystemType, arguments));
+            m_operationQueue.enqueue(Operation(UDISKS2_BLOCK_FORMAT, partition->cryptoBackingDevicePath,
+                                               objectPath, filesystemType, arguments));
             return;
         } else if (partition->status == Partition::Mounted) {
             m_operationQueue.enqueue(Operation(UDISKS2_BLOCK_FORMAT, devicePath, objectPath, filesystemType, arguments));
@@ -254,12 +264,13 @@ void UDisks2::Monitor::interfacesAdded(const QDBusObjectPath &objectPath, const 
     } else if (path.startsWith(QStringLiteral("/org/freedesktop/UDisks2/jobs"))) {
         QVariantMap dict = interfaces.value(UDISKS2_JOB_INTERFACE);
         QString operation = dict.value(UDISKS2_JOB_KEY_OPERATION, QString()).toString();
-        if (operation == UDISKS2_JOB_OP_ENC_LOCK ||
-                operation == UDISKS2_JOB_OP_ENC_UNLOCK ||
-                operation == UDISKS2_JOB_OP_FS_MOUNT ||
-                operation == UDISKS2_JOB_OP_FS_UNMOUNT ||
-                operation == UDISKS2_JOB_OP_CLEANUP ||
-                operation == UDISKS2_JOB_OF_FS_FORMAT) {
+
+        if (operation == UDISKS2_JOB_OP_ENC_LOCK
+                || operation == UDISKS2_JOB_OP_ENC_UNLOCK
+                || operation == UDISKS2_JOB_OP_FS_MOUNT
+                || operation == UDISKS2_JOB_OP_FS_UNMOUNT
+                || operation == UDISKS2_JOB_OP_CLEANUP
+                || operation == UDISKS2_JOB_OF_FS_FORMAT) {
             UDisks2::Job *job = new UDisks2::Job(path, dict);
             updatePartitionStatus(job, true);
 
@@ -299,14 +310,16 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
 
     if (m_jobsToWait.contains(path)) {
         UDisks2::Job *job = m_jobsToWait.take(path);
-        // Make sure job is completed.
-        job->complete(true);
+        // Make sure job is completed. Not sure if we can assume it success really.
+        if (!job->isCompleted()) {
+            qWarning() << "Udisks2 job removed without finishing. Assuming completed" << path;
+            job->complete(true);
+        }
         delete job;
     } else if (m_blockDevices->contains(path) && interfaces.contains(UDISKS2_BLOCK_INTERFACE)) {
         // Cleanup partitions first.
-        PartitionManagerPrivate::Partitions removedPartitions;
         QStringList blockDevPaths = { path };
-        lookupPartitions(removedPartitions, blockDevPaths);
+        PartitionManagerPrivate::PartitionList removedPartitions = lookupPartitions(blockDevPaths);
         m_manager->remove(removedPartitions);
 
         m_blockDevices->remove(path);
@@ -315,7 +328,8 @@ void UDisks2::Monitor::interfacesRemoved(const QDBusObjectPath &objectPath, cons
     }
 }
 
-void UDisks2::Monitor::setPartitionProperties(QExplicitlySharedDataPointer<PartitionPrivate> &partition, const UDisks2::Block *blockDevice)
+void UDisks2::Monitor::setPartitionProperties(QExplicitlySharedDataPointer<PartitionPrivate> &partition,
+                                              const UDisks2::Block *blockDevice)
 {
     QString label = blockDevice->idLabel();
     if (label.isEmpty()) {
@@ -373,7 +387,8 @@ void UDisks2::Monitor::updatePartitionProperties(const UDisks2::Block *blockDevi
     const QString cryptoBackingDevicePath = blockDevice->cryptoBackingDevicePath();
 
     for (auto partition : m_manager->m_partitions) {
-        if ((partition->devicePath == blockDevice->device()) || (hasCryptoBackingDevice && (partition->devicePath == cryptoBackingDevicePath))) {
+        if ((partition->devicePath == blockDevice->device())
+                || (hasCryptoBackingDevice && (partition->devicePath == cryptoBackingDevicePath))) {
             setPartitionProperties(partition, blockDevice);
             partition->valid = true;
             m_manager->refresh(partition.data());
@@ -384,8 +399,7 @@ void UDisks2::Monitor::updatePartitionProperties(const UDisks2::Block *blockDevi
 void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool success)
 {
     UDisks2::Job::Operation operation = job->operation();
-    PartitionManagerPrivate::Partitions affectedPartitions;
-    lookupPartitions(affectedPartitions, job->objects());
+    PartitionManagerPrivate::PartitionList affectedPartitions = lookupPartitions(job->objects());
     if (operation == UDisks2::Job::Lock || operation == UDisks2::Job::Unlock) {
         for (auto partition : affectedPartitions) {
             Partition::Status oldStatus = partition->status;
@@ -412,14 +426,16 @@ void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool succe
 
             if (success) {
                 if (job->status() == UDisks2::Job::Added) {
-                    partition->activeState = operation == UDisks2::Job::Mount ? QStringLiteral("activating") : QStringLiteral("deactivating");
+                    partition->activeState = operation == UDisks2::Job::Mount ? QStringLiteral("activating")
+                                                                              : QStringLiteral("deactivating");
                     partition->status = operation == UDisks2::Job::Mount ? Partition::Mounting : Partition::Unmounting;
                 } else {
                     // Completed busy unmount job shall stay in mounted state.
                     if (job->deviceBusy() && operation == UDisks2::Job::Unmount)
                         operation = UDisks2::Job::Mount;
 
-                    partition->activeState = operation == UDisks2::Job::Mount ? QStringLiteral("active") : QStringLiteral("inactive");
+                    partition->activeState = operation == UDisks2::Job::Mount ? QStringLiteral("active")
+                                                                              : QStringLiteral("inactive");
                     partition->status = operation == UDisks2::Job::Mount ? Partition::Mounted : Partition::Unmounted;
                 }
             } else {
@@ -460,7 +476,8 @@ void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool succe
     }
 }
 
-void UDisks2::Monitor::startLuksOperation(const QString &devicePath, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments)
+void UDisks2::Monitor::startLuksOperation(const QString &devicePath, const QString &dbusMethod,
+                                          const QString &dbusObjectPath, const QVariantList &arguments)
 {
     Q_ASSERT(dbusMethod == UDISKS2_ENCRYPTED_LOCK || dbusMethod == UDISKS2_ENCRYPTED_UNLOCK);
 
@@ -522,7 +539,8 @@ void UDisks2::Monitor::startLuksOperation(const QString &devicePath, const QStri
     }
 }
 
-void UDisks2::Monitor::startMountOperation(const QString &devicePath, const QString &dbusMethod, const QString &dbusObjectPath, const QVariantList &arguments)
+void UDisks2::Monitor::startMountOperation(const QString &devicePath, const QString &dbusMethod,
+                                           const QString &dbusObjectPath, const QVariantList &arguments)
 {
     Q_ASSERT(dbusMethod == UDISKS2_FILESYSTEM_MOUNT || dbusMethod == UDISKS2_FILESYSTEM_UNMOUNT);
 
@@ -554,7 +572,7 @@ void UDisks2::Monitor::startMountOperation(const QString &devicePath, const QStr
             QByteArray errorData = error.name().toLocal8Bit();
             const char *errorCStr = errorData.constData();
 
-            qCWarning(lcMemoryCardLog) << dbusMethod << "error:" << errorCStr;
+            qCWarning(lcMemoryCardLog) << "udisks2 error: " << dbusMethod << "error:" << errorCStr;
 
             for (uint i = 0; i < sizeof(dbus_error_entries) / sizeof(ErrorEntry); i++) {
                 if (strcmp(dbus_error_entries[i].dbusErrorName, errorCStr) == 0) {
@@ -594,16 +612,20 @@ void UDisks2::Monitor::startMountOperation(const QString &devicePath, const QStr
     }
 }
 
-void UDisks2::Monitor::lookupPartitions(PartitionManagerPrivate::Partitions &affectedPartitions, const QStringList &objects)
+PartitionManagerPrivate::PartitionList UDisks2::Monitor::lookupPartitions(const QStringList &objects)
 {
+    PartitionManagerPrivate::PartitionList result;
     QStringList blockDevs = m_blockDevices->devicePaths(objects);
+
     for (const QString &dev : blockDevs) {
         for (auto partition : m_manager->m_partitions) {
             if (partition->devicePath == dev) {
-                affectedPartitions << partition;
+                result << partition;
             }
         }
     }
+
+    return result;
 }
 
 void UDisks2::Monitor::createPartition(const UDisks2::Block *block)
@@ -617,7 +639,8 @@ void UDisks2::Monitor::createPartition(const UDisks2::Block *block)
     m_manager->add(partition);
 }
 
-void UDisks2::Monitor::doFormat(const QString &devicePath, const QString &dbusObjectPath, const QString &filesystemType, const QVariantMap &arguments)
+void UDisks2::Monitor::doFormat(const QString &devicePath, const QString &dbusObjectPath,
+                                const QString &filesystemType, const QVariantMap &arguments)
 {
     QDBusInterface blockDeviceInterface(UDISKS2_SERVICE,
                                     dbusObjectPath,
@@ -704,7 +727,8 @@ void UDisks2::Monitor::connectSignals(UDisks2::Block *block)
 
         m_manager->blockSignals(true);
         QVariantMap data;
-        data.insert(UDISKS2_JOB_KEY_OPERATION, block->mountPath().isEmpty() ? UDISKS2_JOB_OP_FS_UNMOUNT : UDISKS2_JOB_OP_FS_MOUNT);
+        data.insert(UDISKS2_JOB_KEY_OPERATION, block->mountPath().isEmpty() ? UDISKS2_JOB_OP_FS_UNMOUNT
+                                                                            : UDISKS2_JOB_OP_FS_MOUNT);
         data.insert(UDISKS2_JOB_KEY_OBJECTS, QStringList() << block->path());
         qCDebug(lcMemoryCardLog) << "New partition status:" << data;
         UDisks2::Job tmpJob(QString(), data);
@@ -727,7 +751,7 @@ void UDisks2::Monitor::connectSignals(UDisks2::Block *block)
     }, Qt::UniqueConnection);
 
     connect(block, &UDisks2::Block::blockRemoved, this, [this](const QString &device) {
-        PartitionManagerPrivate::Partitions removedPartitions;
+        PartitionManagerPrivate::PartitionList removedPartitions;
         for (auto partition : m_manager->m_partitions) {
             if (partition->devicePath == device) {
                 removedPartitions << partition;
@@ -764,5 +788,12 @@ void UDisks2::Monitor::handleNewBlock(UDisks2::Block *block, bool forceCreatePar
     }
 
     connectSignals(block);
+}
 
+void UDisks2::Monitor::jobCompleted(bool success, const QString &msg)
+{
+    QString jobPath = message().path();
+    if (m_jobsToWait.contains(jobPath)) {
+        m_jobsToWait[jobPath]->complete(success, msg);
+    }
 }
