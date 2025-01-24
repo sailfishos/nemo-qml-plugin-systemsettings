@@ -44,7 +44,6 @@ namespace UDisks2 {
 class Monitor;
 }
 
-
 class PartitionManagerPrivate : public QObject, public QSharedData
 {
     Q_OBJECT
@@ -64,7 +63,7 @@ public:
 
     void scheduleRefresh();
     void refresh(PartitionPrivate *partition);
-    void refresh(const PartitionList &partitions, PartitionList &changedPartitions);
+    void refresh(const PartitionList &partitions);
 
     void lock(const QString &devicePath);
     void unlock(const Partition &partition, const QString &passphrase);
@@ -76,6 +75,8 @@ public:
 
     QStringList supportedFileSystems() const;
     bool externalStoragesPopulated() const;
+
+    bool event(QEvent *event) override;
 
 public slots:
     void refresh();
@@ -110,4 +111,3 @@ private:
 };
 
 #endif
-

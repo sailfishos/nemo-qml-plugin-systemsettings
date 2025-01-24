@@ -43,9 +43,9 @@ class PartitionPrivate : public QSharedData
 public:
     PartitionPrivate(PartitionManagerPrivate *manager)
         : manager(manager)
-        , bytesAvailable(0)
-        , bytesTotal(0)
-        , bytesFree(0)
+        , bytesAvailable(-1)
+        , bytesTotal(-1)
+        , bytesFree(-1)
         , storageType(Partition::Invalid)
         , status(Partition::Unmounted)
         , readOnly(true)

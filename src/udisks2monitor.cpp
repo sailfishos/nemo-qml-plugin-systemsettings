@@ -456,9 +456,9 @@ void UDisks2::Monitor::updatePartitionStatus(const UDisks2::Job *job, bool succe
                 if (job->status() == UDisks2::Job::Added) {
                     partition->activeState = QStringLiteral("inactive");
                     partition->status = Partition::Formatting;
-                    partition->bytesAvailable = 0;
-                    partition->bytesTotal = 0;
-                    partition->bytesFree = 0;
+                    partition->bytesAvailable = -1;
+                    partition->bytesTotal = -1;
+                    partition->bytesFree = -1;
                     partition->filesystemType.clear();
                     partition->canMount = false;
                     partition->valid = false;

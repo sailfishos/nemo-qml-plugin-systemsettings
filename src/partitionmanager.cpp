@@ -37,6 +37,10 @@
 
 #include <QFile>
 #include <QRegularExpression>
+#include <QRunnable>
+#include <QThreadPool>
+#include <QEvent>
+#include <QCoreApplication>
 
 #include <algorithm>
 #include <blkid/blkid.h>
@@ -49,6 +53,67 @@
 
 static const auto userName = QString(qgetenv("USER"));
 
+static const QEvent::Type RefreshFinishedEvent = QEvent::Type(QEvent::User + 1);
+
+class RefreshEvent : public QEvent
+{
+public:
+    RefreshEvent(const PartitionManagerPrivate::PartitionList &partitions)
+        : QEvent(RefreshFinishedEvent), m_partitions(partitions)
+    {
+    }
+
+    PartitionManagerPrivate::PartitionList m_partitions;
+};
+
+class StatTask : public QRunnable
+{
+public:
+    StatTask(PartitionManagerPrivate *owner, const PartitionManagerPrivate::PartitionList &partitions)
+        : m_owner(owner), m_partitions(partitions)
+    {
+    }
+
+    void run() override
+    {
+        PartitionManagerPrivate::PartitionList changedPartitions;
+
+        for (auto partition : m_partitions) {
+            qint64 quotaAvailable = std::numeric_limits<qint64>::max();
+            struct if_dqblk quota = {};
+
+            if (::quotactl(QCMD(Q_GETQUOTA, USRQUOTA), partition->devicePath.toUtf8().constData(),
+                           ::getuid(), (caddr_t)&quota) == 0
+                    && quota.dqb_bsoftlimit != 0) {
+                quotaAvailable = std::max(static_cast<qint64>(dbtob(quota.dqb_bsoftlimit))
+                                          - static_cast<qint64>(quota.dqb_curspace),
+                                          0LL);
+            }
+
+            struct statvfs64 stat;
+            if (::statvfs64(partition->mountPath.toUtf8().constData(), &stat) == 0) {
+                qint64 bytesFree = stat.f_bfree * stat.f_frsize;
+                qint64 bytesAvailable = std::min((qint64)(stat.f_bavail * stat.f_frsize), quotaAvailable);
+
+                if (partition->bytesFree != bytesFree || partition->bytesAvailable != bytesAvailable) {
+                    changedPartitions.append(partition);
+                }
+                partition->bytesFree = bytesFree;
+                partition->bytesAvailable = bytesAvailable;
+                partition->bytesTotal = stat.f_blocks * stat.f_frsize;
+                partition->readOnly = (stat.f_flag & ST_RDONLY) != 0;
+            }
+        }
+
+        if (m_owner) {
+            QCoreApplication::postEvent(m_owner, new RefreshEvent(changedPartitions));
+        }
+    }
+
+private:
+    QPointer<PartitionManagerPrivate> m_owner;
+    PartitionManagerPrivate::PartitionList m_partitions;
+};
 
 PartitionManagerPrivate *PartitionManagerPrivate::sharedInstance = nullptr;
 
@@ -86,7 +151,7 @@ PartitionManagerPrivate::PartitionManagerPrivate()
     home->drive = defaultDrive;
 
     m_partitions.append(home);
-    refresh(m_partitions, m_partitions);
+    refresh(m_partitions);
 
     // Remove any prospective internal partitions that aren't mounted.
     int internalPartitionCount = 0;
@@ -177,7 +242,7 @@ void PartitionManagerPrivate::add(QExplicitlySharedDataPointer<PartitionPrivate>
 
     m_partitions.insert(insertIndex, partition);
     PartitionList addedPartitions = { partition };
-    refresh(addedPartitions, addedPartitions);
+    refresh(addedPartitions);
     emit partitionAdded(Partition(partition));
 }
 
@@ -202,6 +267,7 @@ void PartitionManagerPrivate::scheduleRefresh()
 
 void PartitionManagerPrivate::refresh()
 {
+    // assuming changes. maybe should rather detect.
     PartitionList changedPartitions;
     for (int index = 0; index < m_partitions.count(); ++index) {
         const auto partition = m_partitions.at(index);
@@ -210,7 +276,8 @@ void PartitionManagerPrivate::refresh()
         }
     }
 
-    refresh(m_partitions, changedPartitions);
+    refresh(m_partitions);
+
     for (const auto partition : changedPartitions) {
         emit partitionChanged(Partition(partition));
     }
@@ -218,25 +285,22 @@ void PartitionManagerPrivate::refresh()
 
 void PartitionManagerPrivate::refresh(PartitionPrivate *partition)
 {
-    refresh(PartitionList() << QExplicitlySharedDataPointer<PartitionPrivate>(partition),
-            PartitionList() << QExplicitlySharedDataPointer<PartitionPrivate>(partition));
+    refresh(PartitionList() << QExplicitlySharedDataPointer<PartitionPrivate>(partition));
 
     emit partitionChanged(Partition(QExplicitlySharedDataPointer<PartitionPrivate>(partition)));
 }
 
-void PartitionManagerPrivate::refresh(const PartitionList &partitions, PartitionList &changedPartitions)
+void PartitionManagerPrivate::refresh(const PartitionList &partitions)
 {
     for (auto partition : partitions) {
-        // Reset properties to the unmounted defaults.  If the partition is mounted these will be restored
-        // by the refresh.
-        partition->bytesFree = 0;
-        partition->bytesAvailable = 0;
         if (!partition->valid) {
             if (partition->status != Partition::Formatting) {
                 partition->status = partition->activeState == QStringLiteral("activating")
                         ? Partition::Mounting
                         : Partition::Unmounted;
             }
+            partition->bytesFree = -1;
+            partition->bytesAvailable = -1;
             partition->canMount = false;
             partition->readOnly = true;
             partition->filesystemType.clear();
@@ -266,7 +330,7 @@ void PartitionManagerPrivate::refresh(const PartitionList &partitions, Partition
             if (((partition->storageType & Partition::Internal)
                             && partition->mountPath == mountPath
                             && devicePath.startsWith(QLatin1Char('/')))
-                        || (partition->storageType == Partition::External
+                    || (partition->storageType == Partition::External
                             && partition->devicePath == devicePath)) {
                 partition->mountPath = mountPath;
                 partition->devicePath = devicePath;
@@ -286,34 +350,17 @@ void PartitionManagerPrivate::refresh(const PartitionList &partitions, Partition
 
     endmntent(mtab);
 
+    PartitionList partitionsToStat;
+
     for (auto partition : partitions) {
         if (partition->status == Partition::Mounted) {
-            qint64 quotaAvailable = std::numeric_limits<qint64>::max();
-            struct if_dqblk quota = {};
-
-            if (::quotactl(QCMD(Q_GETQUOTA, USRQUOTA), partition->devicePath.toUtf8().constData(), ::getuid(), (caddr_t)&quota) == 0
-                    && quota.dqb_bsoftlimit != 0)
-                quotaAvailable = std::max(static_cast<qint64>(dbtob(quota.dqb_bsoftlimit))
-                                          - static_cast<qint64>(quota.dqb_curspace),
-                                          0LL);
-
-            // FIXME JB#56182: statvfs64() may block for a long time so would better be done in separate thread.
-            struct statvfs64 stat;
-            if (::statvfs64(partition->mountPath.toUtf8().constData(), &stat) == 0) {
-                partition->bytesTotal = stat.f_blocks * stat.f_frsize;
-                qint64 bytesFree = stat.f_bfree * stat.f_frsize;
-                qint64 bytesAvailable = std::min((qint64)(stat.f_bavail * stat.f_frsize), quotaAvailable);
-                partition->readOnly = (stat.f_flag & ST_RDONLY) != 0;
-
-                if (partition->bytesFree != bytesFree || partition->bytesAvailable != bytesAvailable) {
-                    if (!changedPartitions.contains(partition)) {
-                        changedPartitions.append(partition);
-                    }
-                }
-                partition->bytesFree = bytesFree;
-                partition->bytesAvailable = bytesAvailable;
-            }
+            partitionsToStat.append(partition);
+            partitionsToStat.last().detach(); // we don't want to share instances over threads
         }
+    }
+
+    if (!partitionsToStat.isEmpty()) {
+        QThreadPool::globalInstance()->start(new StatTask(this, partitionsToStat));
     }
 }
 
@@ -388,6 +435,45 @@ QStringList PartitionManagerPrivate::supportedFileSystems() const
 bool PartitionManagerPrivate::externalStoragesPopulated() const
 {
     return UDisks2::BlockDevices::instance()->populated();
+}
+
+bool PartitionManagerPrivate::event(QEvent *event)
+{
+    if (event->type() == RefreshFinishedEvent) {
+        PartitionList partitions = static_cast<RefreshEvent*>(event)->m_partitions;
+
+        for (auto partition : partitions) {
+            for (auto ownPartition : m_partitions) {
+                if (ownPartition->mountPath == partition->mountPath) {
+                    bool change = false;
+                    if (ownPartition->bytesFree != partition->bytesFree) {
+                        ownPartition->bytesFree = partition->bytesFree;
+                        change = true;
+                    }
+                    if (ownPartition->bytesAvailable != partition->bytesAvailable) {
+                        ownPartition->bytesAvailable = partition->bytesAvailable;
+                        change = true;
+                    }
+                    if (ownPartition->bytesTotal != partition->bytesTotal) {
+                        ownPartition->bytesTotal = partition->bytesTotal;
+                        change = true;
+                    }
+                    if (ownPartition->readOnly != partition->readOnly) {
+                        ownPartition->readOnly = partition->readOnly;
+                        change = true;
+                    }
+
+                    if (change)
+                        emit partitionChanged(Partition(ownPartition));
+                    break;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    return QObject::event(event);
 }
 
 PartitionManager::PartitionManager(QObject *parent)
