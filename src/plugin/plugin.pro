@@ -2,7 +2,7 @@ TARGET = nemosystemsettings
 PLUGIN_IMPORT_PATH = org/nemomobile/systemsettings
 
 TEMPLATE = lib
-CONFIG += qt plugin c++11 hide_symbols link_pkgconfig
+CONFIG += qt plugin hide_symbols link_pkgconfig
 QT += qml dbus network
 QT -= gui
 
