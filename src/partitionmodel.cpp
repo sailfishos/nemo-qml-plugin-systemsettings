@@ -334,7 +334,7 @@ QVariant PartitionModel::data(const QModelIndex &index, int role) const
 void PartitionModel::partitionChanged(const Partition &partition)
 {
     for (int i = 0; i < m_partitions.count(); ++i) {
-        qCInfo(lcMemoryCardLog) << "partition changed:" << partition.status() << partition.mountPath();;
+        qCInfo(lcMemoryCardLog) << "partition changed:" << partition.status() << partition.mountPath();
         if (m_partitions.at(i) == partition) {
             QModelIndex index = createIndex(i, 0);
             emit dataChanged(index, index);
