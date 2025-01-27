@@ -119,6 +119,11 @@ PartitionManagerPrivate::PartitionManagerPrivate()
     if (root->status == Partition::Mounted) {
         m_root = Partition(QExplicitlySharedDataPointer<PartitionPrivate>(root));
     }
+
+    m_refreshTimer.setSingleShot(true);
+    m_refreshTimer.setInterval(10);
+    connect(&m_refreshTimer, SIGNAL(timeout()),
+            this, SLOT(refresh()));
 }
 
 PartitionManagerPrivate::~PartitionManagerPrivate()
@@ -188,6 +193,11 @@ void PartitionManagerPrivate::remove(const PartitionList &partitions)
 
         emit partitionRemoved(Partition(removedPartition));
     }
+}
+
+void PartitionManagerPrivate::scheduleRefresh()
+{
+    m_refreshTimer.start();
 }
 
 void PartitionManagerPrivate::refresh()
@@ -407,5 +417,5 @@ QVector<Partition> PartitionManager::partitions(Partition::StorageTypes types) c
 
 void PartitionManager::refresh()
 {
-    d->refresh();
+    d->scheduleRefresh();
 }
