@@ -184,6 +184,12 @@ void PartitionModel::format(const QString &devicePath, const QVariantMap &argume
         args.insert(QLatin1String("encrypt.passphrase"), passphrase);
     }
 
+    QString mkfsArgs = arguments.value(QLatin1String("mkfs-args"), QString()).toString();
+    if (!mkfsArgs.isEmpty()) {
+        // assuming just one argument
+        args.insert(QLatin1String("mkfs-args"), QStringList() << mkfsArgs);
+    }
+
     qCInfo(lcMemoryCardLog) << Q_FUNC_INFO << devicePath << filesystemType << args << m_partitions.count();
     m_manager->format(devicePath, filesystemType, args);
 }
