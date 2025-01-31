@@ -38,11 +38,11 @@
 #include <QMap>
 #include <QVector>
 #include <QScopedPointer>
+#include <QTimer>
 
 namespace UDisks2 {
 class Monitor;
 }
-
 
 class PartitionManagerPrivate : public QObject, public QSharedData
 {
@@ -61,9 +61,9 @@ public:
     void add(QExplicitlySharedDataPointer<PartitionPrivate> partition);
     void remove(const PartitionList &partitions);
 
-    void refresh();
+    void scheduleRefresh();
     void refresh(PartitionPrivate *partition);
-    void refresh(const PartitionList &partitions, PartitionList &changedPartitions);
+    void refresh(const PartitionList &partitions);
 
     void lock(const QString &devicePath);
     void unlock(const Partition &partition, const QString &passphrase);
@@ -75,6 +75,11 @@ public:
 
     QStringList supportedFileSystems() const;
     bool externalStoragesPopulated() const;
+
+    bool event(QEvent *event) override;
+
+public slots:
+    void refresh();
 
 signals:
     void partitionChanged(const Partition &partition);
@@ -97,6 +102,7 @@ private:
 
     PartitionList m_partitions;
     Partition m_root;
+    QTimer m_refreshTimer;
 
     QScopedPointer<UDisks2::Monitor> m_udisksMonitor;
 
@@ -104,6 +110,4 @@ private:
     friend class UDisks2::Monitor;
 };
 
-
 #endif
-

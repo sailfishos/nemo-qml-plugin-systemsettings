@@ -143,17 +143,17 @@ bool Partition::isSupportedFileSystemType() const
 
 qint64 Partition::bytesAvailable() const
 {
-    return d ? d->bytesAvailable : 0;
+    return d ? d->bytesAvailable : -1;
 }
 
 qint64 Partition::bytesTotal() const
 {
-    return d ? d->bytesTotal : 0;
+    return d ? d->bytesTotal : -1;
 }
 
 qint64 Partition::bytesFree() const
 {
-    return d ? d->bytesFree : 0;
+    return d ? d->bytesFree : -1;
 }
 
 void Partition::refresh()
