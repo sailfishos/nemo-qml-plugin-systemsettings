@@ -638,6 +638,10 @@ Certificate::Certificate(const X509Certificate &cert)
     QVariantMap publicKey;
     const QList<QPair<QString, QString>> &keyDetails(cert.publicKeyList());
     for (auto it = keyDetails.cbegin(), end = keyDetails.cend(); it != end; ++it) {
+        // publicKeyList() adds "Bits" and "Algorithm" fields which include the same thing more nicely
+        if (it->first == QLatin1String("Public-Key") || it->first == QLatin1String("RSA Public-Key")) {
+            continue;
+        }
         publicKey.insert(it->first, QVariant(it->second));
     }
     m_details.insert(QStringLiteral("SubjectPublicKeyInfo"), QVariant(publicKey));
