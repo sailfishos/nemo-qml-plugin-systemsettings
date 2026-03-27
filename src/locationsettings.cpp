@@ -47,10 +47,6 @@
 #include <limits>
 
 namespace {
-    const QString LocationSettingsDeprecatedCellIdPositioningEnabledKey = QStringLiteral("cell_id_positioning_enabled");
-    const QString LocationSettingsDeprecatedHereEnabledKey = QStringLiteral("here_agreement_accepted");
-    const QString LocationSettingsDeprecatedHereAgreementAcceptedKey = QStringLiteral("agreement_accepted");
-
     const QString PoweredPropertyName = QStringLiteral("Powered");
     const QString LocationSettingsDir = QStringLiteral("/var/lib/location/");
     const QString LocationSettingsFile = QStringLiteral("/var/lib/location/location.conf");
@@ -703,14 +699,6 @@ void LocationSettingsPrivate::readSettings()
             return;
         }
 
-        // read the deprecated keys first for backward compatibility
-        bool oldMlsEnabled = false;
-        bool oldHereEnabled = false;
-        bool oldHereAgreementAccepted = false;
-        ini.readBool(LocationSettingsSection, LocationSettingsDeprecatedCellIdPositioningEnabledKey, &oldMlsEnabled);
-        ini.readBool(LocationSettingsSection, LocationSettingsDeprecatedHereEnabledKey, &oldHereEnabled);
-        ini.readBool(LocationSettingsSection, LocationSettingsDeprecatedHereAgreementAcceptedKey, &oldHereAgreementAccepted);
-
         // then read the current keys
         ini.readBool(LocationSettingsSection, LocationSettingsEnabledKey, &locationEnabled);
         ini.readBool(LocationSettingsSection, LocationSettingsCustomModeKey, &customMode);
@@ -718,12 +706,6 @@ void LocationSettingsPrivate::readSettings()
 
         for (const QString &name : m_providers.keys()) {
             LocationProvider provider;
-            if (name == MlsName) {
-                provider.offlineEnabled = oldMlsEnabled;
-            } else if (name == HereName) {
-                provider.onlineEnabled = oldHereEnabled;
-                provider.agreementAccepted = oldHereAgreementAccepted;
-            }
             ini.readBool(LocationSettingsSection, ProviderOfflineEnabledPattern.arg(name), &provider.offlineEnabled);
             ini.readBool(LocationSettingsSection, ProviderOnlineEnabledPattern.arg(name), &provider.onlineEnabled);
             ini.readBool(LocationSettingsSection, ProviderAgreementAcceptedPattern.arg(name), &provider.agreementAccepted);
