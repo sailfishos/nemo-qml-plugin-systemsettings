@@ -177,6 +177,7 @@ signals:
 
 private:
     LocationSettingsPrivate *d_ptr;
+
     Q_DISABLE_COPY(LocationSettings)
     Q_DECLARE_PRIVATE(LocationSettings)
 };

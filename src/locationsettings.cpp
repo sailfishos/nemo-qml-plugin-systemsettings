@@ -82,8 +82,8 @@ namespace {
 IniFile::IniFile(const QString &fileName, const QString &compatibilityFileName)
     : m_fileName(fileName)
     , m_compatibilityFileName(compatibilityFileName)
-    , m_keyFile(Q_NULLPTR)
-    , m_error(Q_NULLPTR)
+    , m_keyFile(nullptr)
+    , m_error(nullptr)
     , m_modified(false)
     , m_valid(false)
 {
@@ -101,7 +101,7 @@ IniFile::IniFile(const QString &fileName, const QString &compatibilityFileName)
             qWarning() << "Unable to load key file:" << m_fileName << ":"
                        << m_error->code << QString::fromUtf8(m_error->message);
             g_error_free(m_error);
-            m_error = Q_NULLPTR;
+            m_error = nullptr;
         } else {
             m_valid = true;
         }
@@ -118,7 +118,7 @@ IniFile::~IniFile()
             qWarning() << "Unable to save changes to key file:" << m_fileName << ":"
                        << m_error->code << QString::fromUtf8(m_error->message);
             g_error_free(m_error);
-            m_error = Q_NULLPTR;
+            m_error = nullptr;
         }
 
         if (!m_compatibilityFileName.isEmpty()) {
@@ -127,9 +127,9 @@ IniFile::~IniFile()
                                     &m_error);
             if (m_error) {
                 qWarning() << "Unable to save changes to compatibility key file:" << m_compatibilityFileName << ":"
-                       << m_error->code << QString::fromUtf8(m_error->message);
+                           << m_error->code << QString::fromUtf8(m_error->message);
                 g_error_free(m_error);
-                m_error = Q_NULLPTR;
+                m_error = nullptr;
             }
         }
     }
@@ -159,7 +159,7 @@ bool IniFile::readBool(const QString &section, const QString &key, bool *value, 
                        << m_error->code << QString::fromUtf8(m_error->message);
         }
         g_error_free(m_error);
-        m_error = Q_NULLPTR;
+        m_error = nullptr;
         *value = defaultValue;
         return false;
     }
@@ -193,9 +193,9 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
     , m_locationMode(LocationSettings::CustomMode)
     , m_settingMultipleSettings(false)
     , m_allowedDataSources(static_cast<LocationSettings::DataSources>(std::numeric_limits<quint32>::max()))
-    , m_gpsTech(Q_NULLPTR)
+    , m_gpsTech(nullptr)
     , m_gpsTechInterface(mode == LocationSettings::AsynchronousMode
-                         ? Q_NULLPTR
+                         ? nullptr
                          : new NemoDBus::Interface(
                                 this, QDBusConnection::systemBus(),
                                 "net.connman",
@@ -234,11 +234,11 @@ LocationSettingsPrivate::~LocationSettingsPrivate()
 {
     if (m_gpsTech) {
         disconnect(m_gpsTech, 0, q, 0);
-        m_gpsTech = 0;
+        m_gpsTech = nullptr;
     }
 
     delete m_gpsTechInterface;
-    m_gpsTechInterface = 0;
+    m_gpsTechInterface = nullptr;
 }
 
 void LocationSettingsPrivate::loadProviders()
@@ -501,7 +501,7 @@ bool LocationSettings::gpsFlightMode() const
         }
         return false;
     }
-    return d->m_gpsTech == Q_NULLPTR ? false : !(d->m_gpsTech->powered());
+    return d->m_gpsTech == nullptr ? false : !(d->m_gpsTech->powered());
 }
 
 void LocationSettings::setGpsFlightMode(bool flightMode)
