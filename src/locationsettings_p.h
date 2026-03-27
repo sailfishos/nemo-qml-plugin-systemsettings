@@ -73,6 +73,7 @@ public:
     bool m_locationEnabled;
     bool m_gpsEnabled;
     QHash<QString, LocationProvider> m_providers;
+    QStringList m_detectedProviders;
     LocationSettings::LocationMode m_locationMode;
     bool m_settingMultipleSettings;
     QStringList m_pendingAgreements;

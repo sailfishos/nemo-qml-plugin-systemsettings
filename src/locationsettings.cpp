@@ -244,15 +244,25 @@ LocationSettingsPrivate::~LocationSettingsPrivate()
 
 void LocationSettingsPrivate::loadProviders()
 {
+    // Note: on a sandbox the detected providers list may not be right
+    // TODO: could be better if we provided some config file with each provider
+    // rather than hard-coding here the details and detecting availability.
+
     // for now just hard-coding the known potential providers.
     // can be replaced with config type of thing if there's need to support more and more providers.
     if (QFile::exists(QStringLiteral("/usr/libexec/geoclue-here"))) {
+        m_detectedProviders.append(HereName);
+    }
+    {
         LocationProvider provider;
         provider.hasAgreement = true;
         m_providers[HereName] = provider;
     }
 
     if (QFile::exists(QStringLiteral("/usr/libexec/geoclue-mlsdb"))) {
+        m_detectedProviders.append(MlsName);
+    }
+    {
         LocationProvider provider;
         provider.hasAgreement = true;
         provider.offlineCapable = true;
@@ -260,12 +270,18 @@ void LocationSettingsPrivate::loadProviders()
     }
 
     if (QFile::exists(QStringLiteral("/usr/libexec/geoclue-yandex"))) {
+        m_detectedProviders.append(YandexName);
+    }
+    {
         LocationProvider provider;
         provider.hasAgreement = true; // supposedly
         m_providers[YandexName] = provider;
     }
 
     if (QFile::exists(QStringLiteral("/usr/libexec/geoclue-hybris"))) {
+        m_detectedProviders.append(HybrisName);
+    }
+    {
         LocationProvider provider;
         provider.offlineCapable = true; // used to separate the basic and extra network requests modes
         provider.hasAgreement = false;
@@ -308,8 +324,11 @@ bool LocationSettingsPrivate::updateProvider(const QString &name, const Location
             }
         } else if (provider.hasAgreement) {
             if (!provider.agreementAccepted && !m_pendingAgreements.contains(name)) {
-                m_pendingAgreements.append(name);
-                emit q->pendingAgreementsChanged();
+                // include only installed providers as possible pending agreement
+                if (m_detectedProviders.contains(name)) {
+                    m_pendingAgreements.append(name);
+                    emit q->pendingAgreementsChanged();
+                }
             } else if (provider.agreementAccepted && m_pendingAgreements.contains(name)) {
                 m_pendingAgreements.removeOne(name);
                 emit q->pendingAgreementsChanged();
@@ -544,7 +563,7 @@ bool LocationSettings::gpsAvailable() const
 QStringList LocationSettings::locationProviders() const
 {
     Q_D(const LocationSettings);
-    return d->m_providers.keys();
+    return d->m_detectedProviders;
 }
 
 LocationProvider LocationSettings::providerInfo(const QString &name) const
@@ -573,7 +592,7 @@ bool LocationSettings::mlsEnabled() const
 
 void LocationSettings::setMlsEnabled(bool enabled)
 {
-    if (mlsAvailable() && enabled != mlsEnabled()) {
+    if (enabled != mlsEnabled()) {
         LocationProvider provider = providerInfo(MlsName);
         provider.offlineEnabled = enabled;
         updateLocationProvider(MlsName, provider);
@@ -595,7 +614,7 @@ void LocationSettings::setMlsOnlineState(LocationSettings::OnlineAGpsState state
 bool LocationSettings::mlsAvailable() const
 {
     Q_D(const LocationSettings);
-    return d->m_providers.contains(MlsName);
+    return d->m_detectedProviders.contains(MlsName);
 }
 
 /*Yandex  services*/
@@ -614,7 +633,7 @@ void LocationSettings::setYandexOnlineState(LocationSettings::OnlineAGpsState st
 bool LocationSettings::yandexAvailable() const
 {
     Q_D(const LocationSettings);
-    return d->m_providers.contains(YandexName);
+    return d->m_detectedProviders.contains(YandexName);
 }
 
 /*HERE*/
@@ -633,14 +652,14 @@ void LocationSettings::setHereState(LocationSettings::OnlineAGpsState state)
 bool LocationSettings::hereAvailable() const
 {
     Q_D(const LocationSettings);
-    return d->m_providers.contains(HereName);
+    return d->m_detectedProviders.contains(HereName);
 }
 
 // Hybris
 bool LocationSettings::hybrisAvailable() const
 {
     Q_D(const LocationSettings);
-    return d->m_providers.contains(HybrisName);
+    return d->m_detectedProviders.contains(HybrisName);
 }
 
 bool LocationSettings::hybrisEnabled() const
@@ -651,7 +670,7 @@ bool LocationSettings::hybrisEnabled() const
 
 void LocationSettings::setHybrisEnabled(bool enabled)
 {
-    if (hybrisAvailable() && enabled != hybrisEnabled()) {
+    if (enabled != hybrisEnabled()) {
         LocationProvider provider = providerInfo(HybrisName);
         provider.offlineEnabled = enabled;
         updateLocationProvider(HybrisName, provider);
@@ -764,7 +783,7 @@ void LocationSettingsPrivate::readSettings()
             updateProvider(name, provider);
         }
 
-        if (m_providers.contains(HybrisName)) {
+        {
             // falling back to mls state if no explicit config
             LocationProvider provider;
             ini.readBool(LocationSettingsSection, ProviderOfflineEnabledPattern.arg(HybrisName),
