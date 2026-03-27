@@ -353,7 +353,7 @@ LocationSettings::OnlineAGpsState LocationSettingsPrivate::onlineState(const QSt
         if (!provider.onlineCapable) {
             resultValid = false;
             result = LocationSettings::OnlineAGpsAgreementNotAccepted;
-        } else if (!provider.agreementAccepted) {
+        } else if (provider.hasAgreement && !provider.agreementAccepted) {
             result = LocationSettings::OnlineAGpsAgreementNotAccepted;
         } else {
             result = provider.onlineEnabled ? LocationSettings::OnlineAGpsEnabled
