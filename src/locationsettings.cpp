@@ -77,6 +77,7 @@ namespace {
     const QString YandexName = QStringLiteral("yandex");
     const QString HereName = QStringLiteral("here");
     const QString MlsName = QStringLiteral("mls");
+    const QString HybrisName = QStringLiteral("hybris");
 }
 
 IniFile::IniFile(const QString &fileName, const QString &compatibilityFileName)
@@ -263,6 +264,13 @@ void LocationSettingsPrivate::loadProviders()
         provider.hasAgreement = true; // supposedly
         m_providers[YandexName] = provider;
     }
+
+    if (QFile::exists(QStringLiteral("/usr/libexec/geoclue-hybris"))) {
+        LocationProvider provider;
+        provider.offlineCapable = true; // used to separate the basic and extra network requests modes
+        provider.hasAgreement = false;
+        m_providers[HybrisName] = provider;
+    }
 }
 
 bool LocationSettingsPrivate::updateProvider(const QString &name, const LocationProvider &state)
@@ -309,9 +317,14 @@ bool LocationSettingsPrivate::updateProvider(const QString &name, const Location
         }
     }
 
-    if (offlineEnabledChanged && name == MlsName) {
-        emit q->mlsEnabledChanged();
+    if (offlineEnabledChanged) {
+        if (name == MlsName) {
+            emit q->mlsEnabledChanged();
+        } else if (name == HybrisName) {
+            emit q->hybrisEnabledChanged();
+        }
     }
+
     if (agreementChanged || onlineEnabledChanged) {
         if (name == HereName) {
             emit q->hereStateChanged();
@@ -319,6 +332,8 @@ bool LocationSettingsPrivate::updateProvider(const QString &name, const Location
             emit q->mlsOnlineStateChanged();
         } else if (name == YandexName) {
             emit q->yandexOnlineStateChanged();
+        } else if (name == HybrisName) {
+            emit q->hybrisOnlineStateChanged();
         }
     }
 
@@ -621,6 +636,40 @@ bool LocationSettings::hereAvailable() const
     return d->m_providers.contains(HereName);
 }
 
+// Hybris
+bool LocationSettings::hybrisAvailable() const
+{
+    Q_D(const LocationSettings);
+    return d->m_providers.contains(HybrisName);
+}
+
+bool LocationSettings::hybrisEnabled() const
+{
+    Q_D(const LocationSettings);
+    return d->m_providers.value(HybrisName).offlineEnabled;
+}
+
+void LocationSettings::setHybrisEnabled(bool enabled)
+{
+    if (hybrisAvailable() && enabled != hybrisEnabled()) {
+        LocationProvider provider = providerInfo(HybrisName);
+        provider.offlineEnabled = enabled;
+        updateLocationProvider(HybrisName, provider);
+    }
+}
+
+LocationSettings::OnlineAGpsState LocationSettings::hybrisOnlineState() const
+{
+    Q_D(const LocationSettings);
+    return d->onlineState(HybrisName);
+}
+
+void LocationSettings::setHybrisOnlineState(LocationSettings::OnlineAGpsState state)
+{
+    Q_D(LocationSettings);
+    d->updateOnlineAgpsState(HybrisName, state);
+}
+
 LocationSettings::LocationMode LocationSettings::locationMode() const
 {
     Q_D(const LocationSettings);
@@ -705,11 +754,26 @@ void LocationSettingsPrivate::readSettings()
         ini.readBool(LocationSettingsSection, LocationSettingsGpsEnabledKey, &gpsEnabled);
 
         for (const QString &name : m_providers.keys()) {
+            if (name == HybrisName) {
+                continue; // read this separately last to get proper defaults
+            }
             LocationProvider provider;
             ini.readBool(LocationSettingsSection, ProviderOfflineEnabledPattern.arg(name), &provider.offlineEnabled);
             ini.readBool(LocationSettingsSection, ProviderOnlineEnabledPattern.arg(name), &provider.onlineEnabled);
             ini.readBool(LocationSettingsSection, ProviderAgreementAcceptedPattern.arg(name), &provider.agreementAccepted);
             updateProvider(name, provider);
+        }
+
+        if (m_providers.contains(HybrisName)) {
+            // falling back to mls state if no explicit config
+            LocationProvider provider;
+            ini.readBool(LocationSettingsSection, ProviderOfflineEnabledPattern.arg(HybrisName),
+                         &provider.offlineEnabled,
+                         m_providers.value(MlsName).offlineEnabled);
+            ini.readBool(LocationSettingsSection, ProviderOnlineEnabledPattern.arg(HybrisName),
+                         &provider.onlineEnabled,
+                         m_providers.value(MlsName).onlineEnabled);
+            updateProvider(HybrisName, provider);
         }
 
         // read the MDM allowed allowed data source keys
