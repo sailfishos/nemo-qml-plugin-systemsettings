@@ -413,6 +413,9 @@ Module {
         Property { name: "mlsOnlineState"; type: "OnlineAGpsState" }
         Property { name: "yandexAvailable"; type: "bool"; isReadonly: true }
         Property { name: "yandexOnlineState"; type: "OnlineAGpsState" }
+        Property { name: "hybrisAvailable"; type: "bool"; isReadonly: true }
+        Property { name: "hybrisEnabled"; type: "bool" }
+        Property { name: "hybrisOnlineState"; type: "OnlineAGpsState" }
     }
     Component {
         name: "NfcSettings"

@@ -41,7 +41,8 @@
 
 #define LOCATION_SETTINGS_LAST_DATA_SOURCE_BIT 31
 
-struct LocationProvider {
+struct LocationProvider
+{
     bool hasAgreement = false;
     bool agreementAccepted = false;
     bool onlineCapable = true;
@@ -56,6 +57,7 @@ struct LocationProvider {
 // Or setting location mode to custom, and modifying specific details.
 
 class LocationSettingsPrivate;
+
 class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
 {
     Q_OBJECT
@@ -77,6 +79,9 @@ class SYSTEMSETTINGS_EXPORT LocationSettings : public QObject
     Q_PROPERTY(OnlineAGpsState mlsOnlineState READ mlsOnlineState WRITE setMlsOnlineState NOTIFY mlsOnlineStateChanged)
     Q_PROPERTY(bool yandexAvailable READ yandexAvailable CONSTANT)
     Q_PROPERTY(OnlineAGpsState yandexOnlineState READ yandexOnlineState WRITE setYandexOnlineState NOTIFY yandexOnlineStateChanged)
+    Q_PROPERTY(bool hybrisAvailable READ hybrisAvailable CONSTANT)
+    Q_PROPERTY(bool hybrisEnabled READ hybrisEnabled WRITE setHybrisEnabled NOTIFY hybrisEnabledChanged)
+    Q_PROPERTY(OnlineAGpsState hybrisOnlineState READ hybrisOnlineState WRITE setHybrisOnlineState NOTIFY hybrisOnlineStateChanged)
 
     Q_ENUMS(OnlineAGpsState)
     Q_ENUMS(LocationMode)
@@ -156,6 +161,12 @@ public:
     void setYandexOnlineState(OnlineAGpsState state);
     bool yandexAvailable() const;
 
+    bool hybrisAvailable() const;
+    bool hybrisEnabled() const;
+    void setHybrisEnabled(bool enabled);
+    OnlineAGpsState hybrisOnlineState() const;
+    void setHybrisOnlineState(OnlineAGpsState state);
+
     LocationMode locationMode() const;
     void setLocationMode(LocationMode locationMode);
     QStringList pendingAgreements() const;
@@ -174,9 +185,12 @@ signals:
     void mlsEnabledChanged();
     void mlsOnlineStateChanged();
     void yandexOnlineStateChanged();
+    void hybrisEnabledChanged();
+    void hybrisOnlineStateChanged();
 
 private:
     LocationSettingsPrivate *d_ptr;
+
     Q_DISABLE_COPY(LocationSettings)
     Q_DECLARE_PRIVATE(LocationSettings)
 };
