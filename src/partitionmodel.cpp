@@ -208,7 +208,7 @@ void PartitionModel::update()
 
     int index = 0;
 
-    for (const auto partition : partitions) {
+    for (const auto &partition : partitions) {
         const int existingIndex = [this, index, partition]() {
             for (int i = index; i < m_partitions.count(); ++i) {
                 if (m_partitions.at(i) == partition) {

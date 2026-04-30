@@ -214,7 +214,7 @@ QVector<Partition> PartitionManagerPrivate::partitions(const Partition::StorageT
 {
     QVector<Partition> partitions;
 
-    for (const auto partition : m_partitions) {
+    for (const auto &partition : m_partitions) {
         if (partition->storageType & types) {
             if ((types & Partition::ExcludeParents)
                     && !partitions.isEmpty()
@@ -232,7 +232,7 @@ QVector<Partition> PartitionManagerPrivate::partitions(const Partition::StorageT
 void PartitionManagerPrivate::add(QExplicitlySharedDataPointer<PartitionPrivate> partition)
 {
     int insertIndex = 0;
-    for (const auto existingPartition : m_partitions) {
+    for (const auto &existingPartition : m_partitions) {
         if (existingPartition->drive.value(QLatin1String("connectionBus")).toInt()
                 <= partition->drive.value(QLatin1String("connectionBus")).toInt())
             ++insertIndex;
@@ -248,7 +248,7 @@ void PartitionManagerPrivate::add(QExplicitlySharedDataPointer<PartitionPrivate>
 
 void PartitionManagerPrivate::remove(const PartitionList &partitions)
 {
-    for (const auto removedPartition : partitions) {
+    for (const auto &removedPartition : partitions) {
         for (int i = m_partitions.count() - 1; i >= 0 && m_partitions.at(i)->storageType == Partition::External; --i) {
             const auto partition = m_partitions.at(i);
             if (removedPartition->devicePath == partition->devicePath) {
@@ -278,7 +278,7 @@ void PartitionManagerPrivate::refresh()
 
     refresh(m_partitions);
 
-    for (const auto partition : changedPartitions) {
+    for (const auto &partition : changedPartitions) {
         emit partitionChanged(Partition(partition));
     }
 }
