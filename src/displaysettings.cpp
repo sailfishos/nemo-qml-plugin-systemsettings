@@ -34,7 +34,7 @@
 #include <mce/dbus-names.h>
 #include <mce/mode-names.h>
 #include "mceiface.h"
-#include <MGConfItem>
+#include <MDConfItem>
 #include <QDebug>
 
 static const char *MceMaxDisplayBrightness = "/system/osso/dsm/display/max_display_brightness_levels";
@@ -57,8 +57,8 @@ static const char *McePowerSaveModeThreshold = "/system/osso/dsm/energymanagemen
 DisplaySettings::DisplaySettings(QObject *parent)
     : QObject(parent)
 {
-    m_orientationLock = new MGConfItem("/lipstick/orientationLock", this);
-    connect(m_orientationLock, &MGConfItem::valueChanged,
+    m_orientationLock = new MDConfItem("/lipstick/orientationLock", this);
+    connect(m_orientationLock, &MDConfItem::valueChanged,
             this, &DisplaySettings::orientationLockChanged);
 
     /* Initialize to defaults */
