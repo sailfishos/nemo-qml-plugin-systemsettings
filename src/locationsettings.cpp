@@ -37,8 +37,6 @@
 #include <QTimer>
 #include <QDebug>
 
-#include <sailfishkeyprovider.h>
-#include <sailfishkeyprovider_iniparser.h>
 #include <sailfishkeyprovider_processmutex.h>
 
 #include <networkmanager.h>
