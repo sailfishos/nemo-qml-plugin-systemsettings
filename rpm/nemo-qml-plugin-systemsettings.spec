@@ -9,12 +9,10 @@ Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 Requires:       connman
 Requires:       mce >= 1.113.0
-Requires:       libsailfishkeyprovider >= 0.0.14
-Requires:       connman-qt5 >= 1.2.48
 Requires:       user-managerd >= 0.4.0
 Requires:       udisks2 >= 2.8.1+git6
-Requires:       mlite-qt5 >= 0.3.6
 Requires(post): coreutils
+BuildRequires:  qt5-qttools-linguist
 BuildRequires:  pkgconfig(Qt5Qml)
 BuildRequires:  pkgconfig(Qt5Network)
 BuildRequires:  pkgconfig(timed-qt5)
@@ -33,7 +31,6 @@ BuildRequires:  pkgconfig(glib-2.0)
 BuildRequires:  pkgconfig(sailfishaccesscontrol)
 BuildRequires:  pkgconfig(libsystemd)
 BuildRequires:  pkgconfig(sailfishusermanager)
-BuildRequires:  qt5-qttools-linguist
 BuildRequires:  pkgconfig(openssl)
 BuildRequires:  pkgconfig(qofono-qt5) >= 0.105
 
