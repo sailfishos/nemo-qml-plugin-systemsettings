@@ -445,7 +445,7 @@ LocationSettingsPrivate::calculateLocationMode() const
     bool networkLocationExists = false;
     bool allOfflineEnabled = true;
 
-    for (const QString &name : m_providers.keys()) {
+    for (const QString &name : m_detectedProviders) {
         bool valid = true;
         LocationSettings::OnlineAGpsState state = onlineState(name, &valid);
         if (valid) {
