@@ -49,6 +49,8 @@ const char * const MailToneKey = "email.alert.tone";
 const char * const InternetCallToneKey = "voip.alert.tone";
 const char * const CalendarToneKey = "calendar.alert.tone";
 const char * const ClockAlarmToneKey = "clock.alert.tone";
+const char * const LidOpenToneKey = "lid_open.alert.tone";
+const char * const LidCloseToneKey = "lid_close.alert.tone";
 
 const char * const RingerToneEnabledKey = "ringing.alert.enabled";
 const char * const RingerTone2EnabledKey = "ringing.alert.enabled2";
@@ -58,6 +60,8 @@ const char * const MailToneEnabledKey = "email.alert.enabled";
 const char * const InternetCallToneEnabledKey = "voip.alert.enabled";
 const char * const CalendarToneEnabledKey = "calendar.alert.enabled";
 const char * const ClockAlarmToneEnabledKey = "clock.alert.enabled";
+const char * const LidOpenToneEnabledKey = "lid_open.alert.enabled";
+const char * const LidCloseToneEnabledKey = "lid_close.alert.enabled";
 
 const char * const GeneralProfile = "general";
 const char * const SilentProfile = "silent";
@@ -414,6 +418,40 @@ void ProfileControl::setClockAlarmToneFile(const QString &filename)
     emit clockAlarmToneFileChanged();
 }
 
+QString ProfileControl::lidOpenToneFile()
+{
+    if (m_lidOpenToneFile.isNull()) {
+        m_lidOpenToneFile = QString::fromUtf8(profile_get_value(GeneralProfile, LidOpenToneKey));
+    }
+    return m_lidOpenToneFile;
+}
+
+void ProfileControl::setLidOpenToneFile(const QString &filename)
+{
+    if (m_lidOpenToneFile != filename) {
+        m_lidOpenToneFile = filename;
+        profile_set_value(GeneralProfile, LidOpenToneKey, filename.toUtf8().constData());
+        emit lidOpenToneFileChanged();
+    }
+}
+
+QString ProfileControl::lidCloseToneFile()
+{
+    if (m_lidCloseToneFile.isNull()) {
+        m_lidCloseToneFile = QString::fromUtf8(profile_get_value(GeneralProfile, LidCloseToneKey));
+    }
+    return m_lidCloseToneFile;
+}
+
+void ProfileControl::setLidCloseToneFile(const QString &filename)
+{
+    if (m_lidCloseToneFile != filename) {
+        m_lidCloseToneFile = filename;
+        profile_set_value(GeneralProfile, LidCloseToneKey, filename.toUtf8().constData());
+        emit lidCloseToneFileChanged();
+    }
+}
+
 bool ProfileControl::ringerToneEnabled()
 {
     if (m_ringerToneEnabled == -1) {
@@ -558,6 +596,40 @@ void ProfileControl::setClockAlarmToneEnabled(bool enabled)
     emit clockAlarmToneEnabledChanged();
 }
 
+bool ProfileControl::lidOpenToneEnabled()
+{
+    if (m_lidOpenToneEnabled == -1) {
+        m_lidOpenToneEnabled = profile_get_value_as_bool(GeneralProfile, LidOpenToneEnabledKey);
+    }
+    return m_lidOpenToneEnabled;
+}
+
+void ProfileControl::setLidOpenToneEnabled(bool enabled)
+{
+    if (m_lidOpenToneEnabled != enabled) {
+        m_lidOpenToneEnabled = enabled;
+        profile_set_value_as_bool(GeneralProfile, LidOpenToneEnabledKey, enabled);
+        emit lidOpenToneEnabledChanged();
+    }
+}
+
+bool ProfileControl::lidCloseToneEnabled()
+{
+    if (m_lidCloseToneEnabled == -1) {
+        m_lidCloseToneEnabled = profile_get_value_as_bool(GeneralProfile, LidCloseToneEnabledKey);
+    }
+    return m_lidCloseToneEnabled;
+}
+
+void ProfileControl::setLidCloseToneEnabled(bool enabled)
+{
+    if (m_lidCloseToneEnabled != enabled) {
+        m_lidCloseToneEnabled = enabled;
+        profile_set_value_as_bool(GeneralProfile, LidCloseToneEnabledKey, enabled);
+        emit lidCloseToneEnabledChanged();
+    }
+}
+
 void ProfileControl::currentProfileChangedCallback(const char *name, ProfileControl *profileControl)
 {
     QString newProfile = QString::fromUtf8(name);
@@ -647,6 +719,18 @@ void ProfileControl::updateStateCallBack(const char *profile, const char *key, c
                 m_clockAlarmToneFile = newFile;
                 emit clockAlarmToneFileChanged();
             }
+        } else if (qstrcmp(key, LidOpenToneKey) == 0) {
+            QString filename = val;
+            if (m_lidOpenToneFile != filename) {
+                m_lidOpenToneFile = filename;
+                emit lidOpenToneFileChanged();
+            }
+        } else if (qstrcmp(key, LidCloseToneKey) == 0) {
+            QString filename = val;
+            if (m_lidCloseToneFile != filename) {
+                m_lidCloseToneFile = filename;
+                emit lidCloseToneFileChanged();
+            }
 
             // alarms enabled begin
         } else if (qstrcmp(key, RingerToneEnabledKey) == 0) {
@@ -696,6 +780,18 @@ void ProfileControl::updateStateCallBack(const char *profile, const char *key, c
             if (newEnabled != m_clockAlarmToneEnabled) {
                 m_clockAlarmToneEnabled = newEnabled;
                 emit clockAlarmToneEnabledChanged();
+            }
+        } else if (qstrcmp(key, LidOpenToneEnabledKey) == 0) {
+            bool enabled = profile_parse_bool(val);
+            if (m_lidOpenToneEnabled != enabled) {
+                m_lidOpenToneEnabled = enabled;
+                emit lidOpenToneEnabledChanged();
+            }
+        } else if (qstrcmp(key, LidCloseToneEnabledKey) == 0) {
+            bool enabled = profile_parse_bool(val);
+            if (m_lidCloseToneEnabled != enabled) {
+                m_lidCloseToneEnabled = enabled;
+                emit lidCloseToneEnabledChanged();
             }
         }
     } else if (qstrcmp(profile, SilentProfile) == 0) {
