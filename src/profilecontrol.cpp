@@ -579,7 +579,7 @@ void ProfileControl::updateStateCallBack(const char *profile, const char *key, c
                 emit ringerVolumeChanged();
             }
         } else if (qstrcmp(key, VibraKey) == 0) {
-            bool newVibra = (qstrcmp(val, "On") == 0);
+            bool newVibra = profile_parse_bool(val);
             if (newVibra != m_vibraInGeneral) {
                 m_vibraInGeneral = newVibra;
 
@@ -700,7 +700,7 @@ void ProfileControl::updateStateCallBack(const char *profile, const char *key, c
         }
     } else if (qstrcmp(profile, SilentProfile) == 0) {
         if (qstrcmp(key, VibraKey) == 0) {
-            bool newVibra = (qstrcmp(val, "On") == 0);
+            bool newVibra = profile_parse_bool(val);
             if (newVibra != m_vibraInSilent) {
                 m_vibraInGeneral = newVibra;
 
