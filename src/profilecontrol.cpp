@@ -35,7 +35,6 @@
 
 // NOTE: most of profiled interface blocks
 
-
 const char * const VolumeKey = "ringing.alert.volume";
 const char * const VibraKey = "vibrating.alert.enabled";
 const char * const SystemSoundLevelKey = "system.sound.level";
@@ -44,27 +43,26 @@ const char * const TouchscreenVibrationLevelKey = "touchscreen.vibration.level";
 
 const char * const RingerToneKey = "ringing.alert.tone";
 const char * const RingerTone2Key = "ringing.alert.tone2";
-const char * const MessageToneKey ="sms.alert.tone";
-const char * const ChatToneKey ="im.alert.tone";
-const char * const MailToneKey ="email.alert.tone";
-const char * const InternetCallToneKey ="voip.alert.tone";
-const char * const CalendarToneKey ="calendar.alert.tone";
-const char * const ClockAlarmToneKey ="clock.alert.tone";
+const char * const MessageToneKey = "sms.alert.tone";
+const char * const ChatToneKey = "im.alert.tone";
+const char * const MailToneKey = "email.alert.tone";
+const char * const InternetCallToneKey = "voip.alert.tone";
+const char * const CalendarToneKey = "calendar.alert.tone";
+const char * const ClockAlarmToneKey = "clock.alert.tone";
 
 const char * const RingerToneEnabledKey = "ringing.alert.enabled";
 const char * const RingerTone2EnabledKey = "ringing.alert.enabled2";
-const char * const MessageToneEnabledKey ="sms.alert.enabled";
-const char * const ChatToneEnabledKey ="im.alert.enabled";
-const char * const MailToneEnabledKey ="email.alert.enabled";
-const char * const InternetCallToneEnabledKey ="voip.alert.enabled";
-const char * const CalendarToneEnabledKey ="calendar.alert.enabled";
-const char * const ClockAlarmToneEnabledKey ="clock.alert.enabled";
+const char * const MessageToneEnabledKey = "sms.alert.enabled";
+const char * const ChatToneEnabledKey = "im.alert.enabled";
+const char * const MailToneEnabledKey = "email.alert.enabled";
+const char * const InternetCallToneEnabledKey = "voip.alert.enabled";
+const char * const CalendarToneEnabledKey = "calendar.alert.enabled";
+const char * const ClockAlarmToneEnabledKey = "clock.alert.enabled";
 
 const char * const GeneralProfile = "general";
 const char * const SilentProfile = "silent";
 
 int ProfileControl::s_instanceCounter = 0;
-
 
 ProfileControl::ProfileControl(QObject *parent)
     : QObject(parent),
@@ -416,7 +414,6 @@ void ProfileControl::setClockAlarmToneFile(const QString &filename)
     emit clockAlarmToneFileChanged();
 }
 
-
 bool ProfileControl::ringerToneEnabled()
 {
     if (m_ringerToneEnabled == -1) {
@@ -561,7 +558,6 @@ void ProfileControl::setClockAlarmToneEnabled(bool enabled)
     emit clockAlarmToneEnabledChanged();
 }
 
-
 void ProfileControl::currentProfileChangedCallback(const char *name, ProfileControl *profileControl)
 {
     QString newProfile = QString::fromUtf8(name);
@@ -702,7 +698,6 @@ void ProfileControl::updateStateCallBack(const char *profile, const char *key, c
                 emit clockAlarmToneEnabledChanged();
             }
         }
-
     } else if (qstrcmp(profile, SilentProfile) == 0) {
         if (qstrcmp(key, VibraKey) == 0) {
             bool newVibra = (qstrcmp(val, "On") == 0);

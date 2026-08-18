@@ -169,7 +169,6 @@ public:
     bool clockAlarmToneEnabled();
     void setClockAlarmToneEnabled(bool enabled);
 
-
 signals:
     /*!
      * Signal that the profile has changed.
