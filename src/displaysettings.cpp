@@ -48,6 +48,7 @@ static const char *MceDisplayUseAmbientLightSensor = "/system/osso/dsm/display/a
 static const char *MceDisplayAutoBrightnessEnabled = "/system/osso/dsm/display/als_autobrightness";
 static const char *MceDoubleTapMode = "/system/osso/dsm/doubletap/mode";
 static const char *MceLidSensorEnabled = "/system/osso/dsm/locks/lid_sensor_enabled";
+static const char *MceLidSensorFeedback = "/system/osso/dsm/locks/lid_sensor_feedback";
 static const char *MceLidSensorFilteringEnabled = "/system/osso/dsm/locks/filter_lid_with_als";
 static const char *MceFlipOverGestureEnabled = "/system/osso/dsm/display/flipover_gesture_enabled";
 static const char *McePowerSaveModeForced = "/system/osso/dsm/energymanagement/force_power_saving";
@@ -75,6 +76,7 @@ DisplaySettings::DisplaySettings(QObject *parent)
     m_doubleTapMode             = true;
     m_lidSensorFilteringEnabled = true;
     m_lidSensorEnabled          = true;
+    m_lidSensorFeedback         = false;
     m_powerSaveModeForced       = false;
     m_powerSaveModeEnabled      = false;
     m_powerSaveModeThreshold    = 20;
@@ -270,6 +272,20 @@ void DisplaySettings::setLidSensorEnabled(bool enabled)
     }
 }
 
+bool DisplaySettings::lidSensorFeedback() const
+{
+    return m_lidSensorFeedback;
+}
+
+void DisplaySettings::setLidSensorFeedback(bool enabled)
+{
+    if (m_lidSensorFeedback != enabled) {
+        m_lidSensorFeedback = enabled;
+        m_mceIface->set_config(QDBusObjectPath(MceLidSensorFeedback), QDBusVariant(enabled));
+        emit lidSensorFeedbackChanged();
+    }
+}
+
 bool DisplaySettings::lidSensorFilteringEnabled() const
 {
     return m_lidSensorFilteringEnabled;
@@ -410,6 +426,12 @@ void DisplaySettings::updateConfig(const QString &key, const QVariant &value)
         if (val != m_lidSensorEnabled) {
             m_lidSensorEnabled = val;
             emit lidSensorEnabledChanged();
+        }
+    } else if (key == MceLidSensorFeedback) {
+        bool val = value.toBool();
+        if (val != m_lidSensorFeedback) {
+            m_lidSensorFeedback = val;
+            emit lidSensorFeedbackChanged();
         }
     } else if (key == MceLidSensorFilteringEnabled) {
         bool val = value.toBool();

@@ -57,6 +57,8 @@ class SYSTEMSETTINGS_EXPORT ProfileControl: public QObject
     Q_PROPERTY(QString internetCallToneFile READ internetCallToneFile WRITE setInternetCallToneFile NOTIFY internetCallToneFileChanged)
     Q_PROPERTY(QString calendarToneFile READ calendarToneFile WRITE setCalendarToneFile NOTIFY calendarToneFileChanged)
     Q_PROPERTY(QString clockAlarmToneFile READ clockAlarmToneFile WRITE setClockAlarmToneFile NOTIFY clockAlarmToneFileChanged)
+    Q_PROPERTY(QString lidOpenToneFile READ lidOpenToneFile WRITE setLidOpenToneFile NOTIFY lidOpenToneFileChanged)
+    Q_PROPERTY(QString lidCloseToneFile READ lidCloseToneFile WRITE setLidCloseToneFile NOTIFY lidCloseToneFileChanged)
 
     Q_PROPERTY(bool ringerToneEnabled READ ringerToneEnabled WRITE setRingerToneEnabled NOTIFY ringerToneEnabledChanged)
     Q_PROPERTY(bool ringerTone2Enabled READ ringerTone2Enabled WRITE setRingerTone2Enabled NOTIFY ringerTone2EnabledChanged)
@@ -66,6 +68,8 @@ class SYSTEMSETTINGS_EXPORT ProfileControl: public QObject
     Q_PROPERTY(bool internetCallToneEnabled READ internetCallToneEnabled WRITE setInternetCallToneEnabled NOTIFY internetCallToneEnabledChanged)
     Q_PROPERTY(bool calendarToneEnabled READ calendarToneEnabled WRITE setCalendarToneEnabled NOTIFY calendarToneEnabledChanged)
     Q_PROPERTY(bool clockAlarmToneEnabled READ clockAlarmToneEnabled WRITE setClockAlarmToneEnabled NOTIFY clockAlarmToneEnabledChanged)
+    Q_PROPERTY(bool lidOpenToneEnabled READ lidOpenToneEnabled WRITE setLidOpenToneEnabled NOTIFY lidOpenToneEnabledChanged)
+    Q_PROPERTY(bool lidCloseToneEnabled READ lidCloseToneEnabled WRITE setLidCloseToneEnabled NOTIFY lidCloseToneEnabledChanged)
 
 public:
     enum VibraMode {
@@ -145,6 +149,12 @@ public:
     QString clockAlarmToneFile();
     void setClockAlarmToneFile(const QString &filename);
 
+    QString lidOpenToneFile();
+    void setLidOpenToneFile(const QString &filename);
+
+    QString lidCloseToneFile();
+    void setLidCloseToneFile(const QString &filename);
+
     bool ringerToneEnabled();
     void setRingerToneEnabled(bool enabled);
 
@@ -169,6 +179,11 @@ public:
     bool clockAlarmToneEnabled();
     void setClockAlarmToneEnabled(bool enabled);
 
+    bool lidOpenToneEnabled();
+    void setLidOpenToneEnabled(bool enabled);
+
+    bool lidCloseToneEnabled();
+    void setLidCloseToneEnabled(bool enabled);
 
 signals:
     /*!
@@ -193,6 +208,8 @@ signals:
     void mailToneFileChanged();
     void calendarToneFileChanged();
     void clockAlarmToneFileChanged();
+    void lidOpenToneFileChanged();
+    void lidCloseToneFileChanged();
 
     void ringerToneEnabledChanged();
     void ringerTone2EnabledChanged();
@@ -202,6 +219,8 @@ signals:
     void internetCallToneEnabledChanged();
     void calendarToneEnabledChanged();
     void clockAlarmToneEnabledChanged();
+    void lidOpenToneEnabledChanged();
+    void lidCloseToneEnabledChanged();
 
 private:
     static int s_instanceCounter;
@@ -221,6 +240,8 @@ private:
     QString m_mailToneFile;
     QString m_calendarToneFile;
     QString m_clockAlarmToneFile;
+    QString m_lidOpenToneFile;
+    QString m_lidCloseToneFile;
 
     int m_ringerToneEnabled;
     int m_ringerTone2Enabled;
@@ -230,6 +251,8 @@ private:
     int m_internetCallToneEnabled;
     int m_calendarToneEnabled;
     int m_clockAlarmToneEnabled;
+    int m_lidOpenToneEnabled = -1;
+    int m_lidCloseToneEnabled = -1;
 
     //! libprofile callback for profile changes
     static void currentProfileChangedCallback(const char *profile, ProfileControl *profileControl);
