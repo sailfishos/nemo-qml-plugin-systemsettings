@@ -222,6 +222,10 @@ QList<Language> LanguageModel::supportedLanguages()
         languages.append(newLanguage);
     }
 
+    if (languages.isEmpty()) {
+        qWarning() << "LanguageModel didn't find any supported languages";
+    }
+
     std::sort(languages.begin(), languages.end(), nameLessThan);
     return languages;
 }
