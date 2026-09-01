@@ -88,8 +88,8 @@ private:
     QTimer *m_updateModemPropertiesTimer;
     QHash<DeviceInfoPrivate::NetworkMode, QStringList> m_networkModeDirectoryListHash;
 
-    Q_DISABLE_COPY(DeviceInfoPrivate);
-    Q_DECLARE_PUBLIC(DeviceInfo);
+    Q_DISABLE_COPY(DeviceInfoPrivate)
+    Q_DECLARE_PUBLIC(DeviceInfo)
 };
 
 DeviceInfoPrivate::DeviceInfoPrivate(DeviceInfo *deviceInfo, bool synchronousInit)
@@ -285,7 +285,7 @@ DeviceInfo::DeviceInfo(QObject *parent)
 DeviceInfo::~DeviceInfo()
 {
     delete d_ptr;
-    d_ptr = 0;
+    d_ptr = nullptr;
 }
 
 bool DeviceInfo::hasFeature(DeviceInfo::Feature feature) const

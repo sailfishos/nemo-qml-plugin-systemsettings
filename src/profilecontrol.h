@@ -259,7 +259,7 @@ private:
 
     //! libprofile callback for property changes
     static void updateStateCallBackTrampoline(const char *profile, const char *key, const char *val, const char *type,
-                                    ProfileControl *profileControl);
+                                              ProfileControl *profileControl);
     void updateStateCallBack(const char *profile, const char *key, const char *val, const char *type);
 };
 
