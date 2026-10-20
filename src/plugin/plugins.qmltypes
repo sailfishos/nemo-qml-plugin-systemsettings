@@ -331,6 +331,14 @@ Module {
         Property { name: "populated"; type: "bool"; isReadonly: true }
     }
     Component {
+        name: "KeypadSettings"
+        prototype: "QObject"
+        exports: ["org.nemomobile.systemsettings/KeypadSettings 1.0"]
+        exportMetaObjectRevisions: [0]
+        Property { name: "backlightEnabled"; type: "bool" }
+        Property { name: "populated"; type: "bool"; isReadonly: true }
+    }
+    Component {
         name: "LanguageModel"
         prototype: "QAbstractListModel"
         exports: ["org.nemomobile.systemsettings/LanguageModel 1.0"]

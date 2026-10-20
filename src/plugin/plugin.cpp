@@ -54,6 +54,7 @@
 #include "userinfo.h"
 #include "usermodel.h"
 #include "permissionsmodel.h"
+#include "keypadsettings.h"
 
 class AppTranslator: public QTranslator
 {
@@ -108,6 +109,7 @@ public:
         qmlRegisterType<UserInfo>(uri, 1, 0, "UserInfo");
         qmlRegisterType<UserModel>(uri, 1, 0, "UserModel");
         qmlRegisterType<PermissionsModel>(uri, 1, 0, "PermissionsModel");
+        qmlRegisterType<KeypadSettings>(uri, 1, 0, "KeypadSettings");
     }
 };
 
