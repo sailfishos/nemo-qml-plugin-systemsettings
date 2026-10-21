@@ -49,7 +49,7 @@ KeypadSettings::KeypadSettings(QObject *parent)
     m_mceSignalIface = new ComNokiaMceSignalInterface(MCE_SERVICE, MCE_SIGNAL_PATH,
                                                       QDBusConnection::systemBus(), this);
     connect(m_mceSignalIface, &ComNokiaMceSignalInterface::config_change_ind,
-            this, &KeypadSettings::configChange;
+            this, &KeypadSettings::configChange);
 
     m_mceIface = new ComNokiaMceRequestInterface(MCE_SERVICE, MCE_REQUEST_PATH,
                                                  QDBusConnection::systemBus(), this);

@@ -187,8 +187,8 @@ PartitionManagerPrivate::PartitionManagerPrivate()
 
     m_refreshTimer.setSingleShot(true);
     m_refreshTimer.setInterval(10);
-    connect(&m_refreshTimer, SIGNAL(timeout()),
-            this, SLOT(refresh()));
+    connect(&m_refreshTimer, &QTimer::timeout,
+            this, &PartitionManagerPrivate::timeoutElapsed);
 }
 
 PartitionManagerPrivate::~PartitionManagerPrivate()
@@ -263,6 +263,11 @@ void PartitionManagerPrivate::remove(const PartitionList &partitions)
 void PartitionManagerPrivate::scheduleRefresh()
 {
     m_refreshTimer.start();
+}
+
+void PartitionManagerPrivate::timeoutElapsed()
+{
+    refresh();
 }
 
 void PartitionManagerPrivate::refresh()

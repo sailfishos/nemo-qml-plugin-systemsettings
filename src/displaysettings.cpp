@@ -85,15 +85,15 @@ DisplaySettings::DisplaySettings(QObject *parent)
     /* Setup change listener & get current values via async query */
     m_mceSignalIface = new ComNokiaMceSignalInterface(MCE_SERVICE, MCE_SIGNAL_PATH,
                                                       QDBusConnection::systemBus(), this);
-    connect(m_mceSignalIface, SIGNAL(config_change_ind(QString,QDBusVariant)),
-            this, SLOT(configChange(QString,QDBusVariant)));
+    connect(m_mceSignalIface, &ComNokiaMceSignalInterface::config_change_ind,
+            this, &DisplaySettings::configChange);
 
     m_mceIface = new ComNokiaMceRequestInterface(MCE_SERVICE, MCE_REQUEST_PATH,
                                                  QDBusConnection::systemBus(), this);
     QDBusPendingReply<QVariantMap> call = m_mceIface->get_config_all();
     QDBusPendingCallWatcher *watcher = new QDBusPendingCallWatcher(call, this);
-    QObject::connect(watcher, SIGNAL(finished(QDBusPendingCallWatcher *)),
-                     this, SLOT(configReply(QDBusPendingCallWatcher *)));
+    QObject::connect(watcher, &QDBusPendingCallWatcher::finished,
+                     this, &DisplaySettings::configReply);
 }
 
 void DisplaySettings::configReply(QDBusPendingCallWatcher *watcher)
