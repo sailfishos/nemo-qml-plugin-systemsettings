@@ -369,103 +369,103 @@ void DisplaySettings::updateConfig(const QString &key, const QVariant &value)
 {
     if (key == MceDisplayBrightness) {
         int val = value.toInt();
-        if (val != m_brightness) {
+        if (m_brightness != val) {
             m_brightness = val;
             emit brightnessChanged();
         }
     } else if (key == MceDisplayDimTimeout) {
         int val = value.toInt();
-        if (val != m_dimTimeout) {
+        if (m_dimTimeout != val) {
             m_dimTimeout = val;
             emit dimTimeoutChanged();
         }
     } else if (key == MceDisplayBlankTimeout) {
         int val = value.toInt();
-        if (val != m_blankTimeout) {
+        if (m_blankTimeout != val) {
             m_blankTimeout = val;
             emit blankTimeoutChanged();
         }
     } else if (key == MceDisplayInhibitMode) {
         InhibitMode val = static_cast<InhibitMode>(value.toInt());
-        if (val != m_inhibitMode) {
+        if (m_inhibitMode != val) {
             m_inhibitMode = val;
             emit inhibitModeChanged();
         }
     } else if (key == MceDisplayUseAdaptiveDimming) {
         bool val = value.toBool();
-        if (val != m_adaptiveDimmingEnabled) {
+        if (m_adaptiveDimmingEnabled != val) {
             m_adaptiveDimmingEnabled = val;
             emit adaptiveDimmingEnabledChanged();
         }
     } else if (key == MceDisplayUseLowPowerMode) {
         bool val = value.toBool();
-        if (val != m_lowPowerModeEnabled) {
+        if (m_lowPowerModeEnabled != val) {
             m_lowPowerModeEnabled = val;
             emit lowPowerModeEnabledChanged();
         }
     } else if (key == MceDisplayUseAmbientLightSensor) {
         bool val = value.toBool();
-        if (val != m_ambientLightSensorEnabled) {
+        if (m_ambientLightSensorEnabled != val) {
             m_ambientLightSensorEnabled = val;
             emit ambientLightSensorEnabledChanged();
         }
     } else if (key == MceDisplayAutoBrightnessEnabled) {
         bool val = value.toBool();
-        if (val != m_autoBrightnessEnabled) {
+        if (m_autoBrightnessEnabled != val) {
             m_autoBrightnessEnabled = val;
             emit autoBrightnessEnabledChanged();
         }
     } else if (key == MceDoubleTapMode) {
         int val = value.toInt();
-        if (val != m_doubleTapMode) {
+        if (m_doubleTapMode != val) {
             m_doubleTapMode = val;
             emit doubleTapModeChanged();
         }
     } else if (key == MceLidSensorEnabled) {
         bool val = value.toBool();
-        if (val != m_lidSensorEnabled) {
+        if (m_lidSensorEnabled != val) {
             m_lidSensorEnabled = val;
             emit lidSensorEnabledChanged();
         }
     } else if (key == MceLidSensorFeedback) {
         bool val = value.toBool();
-        if (val != m_lidSensorFeedback) {
+        if (m_lidSensorFeedback != val) {
             m_lidSensorFeedback = val;
             emit lidSensorFeedbackChanged();
         }
     } else if (key == MceLidSensorFilteringEnabled) {
         bool val = value.toBool();
-        if (val != m_lidSensorFilteringEnabled) {
+        if (m_lidSensorFilteringEnabled != val) {
             m_lidSensorFilteringEnabled = val;
             emit lidSensorFilteringEnabledChanged();
         }
     } else if (key == MceFlipOverGestureEnabled) {
         bool val = value.toBool();
-        if (val != m_flipoverGestureEnabled) {
+        if (m_flipoverGestureEnabled != val) {
             m_flipoverGestureEnabled = val;
             emit flipoverGestureEnabledChanged();
         }
     } else if (key == McePowerSaveModeForced) {
         bool val = value.toBool();
-        if (val != m_powerSaveModeForced) {
+        if (m_powerSaveModeForced != val) {
             m_powerSaveModeForced = val;
             emit powerSaveModeForcedChanged();
         }
     } else if (key == McePowerSaveModeEnabled) {
         bool val = value.toBool();
-        if (val != m_powerSaveModeEnabled) {
+        if (m_powerSaveModeEnabled != val) {
             m_powerSaveModeEnabled = val;
             emit powerSaveModeEnabledChanged();
         }
     } else if (key == McePowerSaveModeThreshold) {
         int val = value.toInt();
-        if (val != m_powerSaveModeThreshold) {
+        if (m_powerSaveModeThreshold != val) {
             m_powerSaveModeThreshold = val;
             emit powerSaveModeThresholdChanged();
         }
     } else if (key == MceMaxDisplayBrightness) {
         int val = value.toInt();
-        if (val != m_maxBrightness) {
+        if (m_maxBrightness != val) {
             m_maxBrightness = val;
             emit maximumBrightnessChanged();
         }
