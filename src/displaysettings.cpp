@@ -62,27 +62,6 @@ DisplaySettings::DisplaySettings(QObject *parent)
     connect(m_orientationLock, &MDConfItem::valueChanged,
             this, &DisplaySettings::orientationLockChanged);
 
-    /* Initialize to defaults */
-    m_autoBrightnessEnabled     = true;
-    m_ambientLightSensorEnabled = true;
-    m_blankTimeout              = 3;
-    m_maxBrightness             = 100;
-    m_brightness                = 60;
-    m_dimTimeout                = 30;
-    m_flipoverGestureEnabled    = true;
-    m_inhibitMode               = InhibitOff;
-    m_adaptiveDimmingEnabled    = true;
-    m_lowPowerModeEnabled       = false;
-    m_doubleTapMode             = true;
-    m_lidSensorFilteringEnabled = true;
-    m_lidSensorEnabled          = true;
-    m_lidSensorFeedback         = false;
-    m_powerSaveModeForced       = false;
-    m_powerSaveModeEnabled      = false;
-    m_powerSaveModeThreshold    = 20;
-    m_populated                 = false;
-
-    /* Setup change listener & get current values via async query */
     m_mceSignalIface = new ComNokiaMceSignalInterface(MCE_SERVICE, MCE_SIGNAL_PATH,
                                                       QDBusConnection::systemBus(), this);
     connect(m_mceSignalIface, &ComNokiaMceSignalInterface::config_change_ind,

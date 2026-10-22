@@ -69,9 +69,8 @@ private:
     ComNokiaMceRequestInterface *m_mceIface;
     ComNokiaMceSignalInterface *m_mceSignalIface;
 
-    bool m_backlightEnabled;
-
-    bool m_populated;
+    bool m_backlightEnabled = false;
+    bool m_populated = false;
 };
 
 #endif // KEYPADSETTINGS_H

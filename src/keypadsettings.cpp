@@ -41,11 +41,6 @@ static const char MceKeypadBacklight[] = "/system/osso/dsm/keypadbacklight/enabl
 KeypadSettings::KeypadSettings(QObject *parent)
     : QObject(parent)
 {
-    /* Initialize to defaults */
-    m_backlightEnabled          = false;
-    m_populated                 = false;
-
-    /* Setup change listener & get current values via async query */
     m_mceSignalIface = new ComNokiaMceSignalInterface(MCE_SERVICE, MCE_SIGNAL_PATH,
                                                       QDBusConnection::systemBus(), this);
     connect(m_mceSignalIface, &ComNokiaMceSignalInterface::config_change_ind,
