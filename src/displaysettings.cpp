@@ -80,8 +80,7 @@ void DisplaySettings::configReply(QDBusPendingCallWatcher *watcher)
     QDBusPendingReply<QVariantMap> reply = *watcher;
 
     if (reply.isError()) {
-        qWarning("Could not retrieve mce settings: '%s'",
-                 reply.error().message().toStdString().c_str());
+        qWarning() << "Could not retrieve mce settings:" << reply.error().message();
     } else {
         QVariantMap map = reply.value();
         QMapIterator<QString, QVariant> i(map);
