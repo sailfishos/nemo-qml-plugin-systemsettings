@@ -108,6 +108,9 @@ private:
 
     // Allow direct access to the Partitions.
     friend class UDisks2::Monitor;
+
+private slots:
+    void timeoutElapsed();
 };
 
 #endif

@@ -322,11 +322,20 @@ Module {
         Property { name: "doubleTapMode"; type: "int" }
         Property { name: "orientationLock"; type: "QVariant" }
         Property { name: "lidSensorEnabled"; type: "bool" }
+        Property { name: "lidSensorFeedback"; type: "bool" }
         Property { name: "lidSensorFilteringEnabled"; type: "bool" }
         Property { name: "flipoverGestureEnabled"; type: "bool" }
         Property { name: "powerSaveModeForced"; type: "bool" }
         Property { name: "powerSaveModeEnabled"; type: "bool" }
         Property { name: "powerSaveModeThreshold"; type: "int" }
+        Property { name: "populated"; type: "bool"; isReadonly: true }
+    }
+    Component {
+        name: "KeypadSettings"
+        prototype: "QObject"
+        exports: ["org.nemomobile.systemsettings/KeypadSettings 1.0"]
+        exportMetaObjectRevisions: [0]
+        Property { name: "backlightEnabled"; type: "bool" }
         Property { name: "populated"; type: "bool"; isReadonly: true }
     }
     Component {
@@ -599,6 +608,8 @@ Module {
         Property { name: "internetCallToneFile"; type: "string" }
         Property { name: "calendarToneFile"; type: "string" }
         Property { name: "clockAlarmToneFile"; type: "string" }
+        Property { name: "lidOpenToneFile"; type: "string" }
+        Property { name: "lidCloseToneFile"; type: "string" }
         Property { name: "ringerToneEnabled"; type: "bool" }
         Property { name: "ringerTone2Enabled"; type: "bool" }
         Property { name: "messageToneEnabled"; type: "bool" }
@@ -607,6 +618,8 @@ Module {
         Property { name: "internetCallToneEnabled"; type: "bool" }
         Property { name: "calendarToneEnabled"; type: "bool" }
         Property { name: "clockAlarmToneEnabled"; type: "bool" }
+        Property { name: "lidOpenToneEnabled"; type: "bool" }
+        Property { name: "lidCloseToneEnabled"; type: "bool" }
         Signal {
             name: "profileChanged"
             Parameter { name: "profile"; type: "string" }

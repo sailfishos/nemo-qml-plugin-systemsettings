@@ -203,8 +203,10 @@ LocationSettingsPrivate::LocationSettingsPrivate(LocationSettings::Mode mode, Lo
 {
     loadProviders();
 
-    connect(&m_watcher, SIGNAL(fileChanged(QString)), this, SLOT(readSettings()));
-    connect(&m_watcher, SIGNAL(directoryChanged(QString)), this, SLOT(readSettings()));
+    connect(&m_watcher, &QFileSystemWatcher::fileChanged,
+            this, &LocationSettingsPrivate::readSettings);
+    connect(&m_watcher, &QFileSystemWatcher::directoryChanged,
+            this, &LocationSettingsPrivate::readSettings);
 
     m_watcher.addPath(LocationSettingsDir);
     if (QFile(LocationSettingsFile).exists() && m_watcher.addPath(LocationSettingsFile)) {

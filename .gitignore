@@ -2,6 +2,7 @@
 Makefile
 moc_*
 *.moc
+*.pro.user
 RPMS/
 documentation.list
 src/connmanvpnconnectionproxy.cpp
@@ -16,3 +17,5 @@ src/pkgconfig/
 src/plugin/libnemosystemsettings.so
 src/plugin/plugin.moc
 setlocale/setlocale
+translations/*.ts
+translations/*.qm
