@@ -40,6 +40,7 @@ const char * const VibraKey = "vibrating.alert.enabled";
 const char * const SystemSoundLevelKey = "system.sound.level";
 const char * const TouchscreenToneLevelKey = "touchscreen.sound.level";
 const char * const TouchscreenVibrationLevelKey = "touchscreen.vibration.level";
+const char * const LidToneLevelKey = "lid.sound.level";
 
 const char * const RingerToneKey = "ringing.alert.tone";
 const char * const RingerTone2Key = "ringing.alert.tone2";
@@ -256,6 +257,24 @@ void ProfileControl::setTouchscreenVibrationLevel(int level)
     m_touchscreenVibrationLevel = level;
     profile_set_value_as_int(GeneralProfile, TouchscreenVibrationLevelKey, level);
     emit touchscreenVibrationLevelChanged();
+}
+
+int ProfileControl::lidToneLevel()
+{
+    if (m_lidToneLevel == -1) {
+        m_lidToneLevel = profile_get_value_as_int(GeneralProfile, LidToneLevelKey);
+    }
+    return m_lidToneLevel;
+}
+
+void ProfileControl::setLidToneLevel(int level)
+{
+    if (level == m_lidToneLevel) {
+        return;
+    }
+    m_lidToneLevel = level;
+    profile_set_value_as_int(GeneralProfile, LidToneLevelKey, level);
+    emit lidToneLevelChanged();
 }
 
 QString ProfileControl::ringerToneFile()
@@ -674,6 +693,12 @@ void ProfileControl::updateStateCallBack(const char *profile, const char *key, c
             if (newLevel != m_touchscreenVibrationLevel) {
                 m_touchscreenVibrationLevel = newLevel;
                 emit touchscreenVibrationLevelChanged();
+            }
+        } else if (qstrcmp(key, LidToneLevelKey) == 0) {
+            int newLevel = QString(val).toInt();
+            if (newLevel != m_lidToneLevel) {
+                m_lidToneLevel = newLevel;
+                emit lidToneLevelChanged();
             }
 
             // alarm files begin
