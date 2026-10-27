@@ -48,6 +48,7 @@ class SYSTEMSETTINGS_EXPORT ProfileControl: public QObject
     Q_PROPERTY(int systemSoundLevel READ systemSoundLevel WRITE setSystemSoundLevel NOTIFY systemSoundLevelChanged)
     Q_PROPERTY(int touchscreenToneLevel READ touchscreenToneLevel WRITE setTouchscreenToneLevel NOTIFY touchscreenToneLevelChanged)
     Q_PROPERTY(int touchscreenVibrationLevel READ touchscreenVibrationLevel WRITE setTouchscreenVibrationLevel NOTIFY touchscreenVibrationLevelChanged)
+    Q_PROPERTY(int lidToneLevel READ lidToneLevel WRITE setLidToneLevel NOTIFY lidToneLevelChanged)
 
     Q_PROPERTY(QString ringerToneFile READ ringerToneFile WRITE setRingerToneFile NOTIFY ringerToneFileChanged)
     Q_PROPERTY(QString ringerTone2File READ ringerTone2File WRITE setRingerTone2File NOTIFY ringerTone2FileChanged)
@@ -121,6 +122,9 @@ public:
 
     int touchscreenVibrationLevel();
     void setTouchscreenVibrationLevel(int level);
+
+    int lidToneLevel();
+    void setLidToneLevel(int level);
 
     QString ringerToneFile();
     void setRingerToneFile(const QString &filename);
@@ -198,6 +202,7 @@ signals:
     void systemSoundLevelChanged();
     void touchscreenToneLevelChanged();
     void touchscreenVibrationLevelChanged();
+    void lidToneLevelChanged();
 
     void ringerToneFileChanged();
     void ringerTone2FileChanged();
@@ -232,6 +237,7 @@ private:
     int m_systemSoundLevel;
     int m_touchscreenToneLevel;
     int m_touchscreenVibrationLevel;
+    int m_lidToneLevel = -1;
     QString m_ringerToneFile;
     QString m_ringerTone2File;
     QString m_messageToneFile;
