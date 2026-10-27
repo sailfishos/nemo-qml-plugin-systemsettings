@@ -600,6 +600,7 @@ Module {
         Property { name: "systemSoundLevel"; type: "int" }
         Property { name: "touchscreenToneLevel"; type: "int" }
         Property { name: "touchscreenVibrationLevel"; type: "int" }
+        Property { name: "lidToneLevel"; type: "int" }
         Property { name: "ringerToneFile"; type: "string" }
         Property { name: "ringerTone2File"; type: "string" }
         Property { name: "messageToneFile"; type: "string" }
