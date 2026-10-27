@@ -46,6 +46,7 @@ class SYSTEMSETTINGS_EXPORT ProfileControl: public QObject
     Q_PROPERTY(int ringerVolume READ ringerVolume WRITE setRingerVolume NOTIFY ringerVolumeChanged())
     Q_PROPERTY(int vibraMode READ vibraMode WRITE setVibraMode NOTIFY vibraModeChanged())
     Q_PROPERTY(int systemSoundLevel READ systemSoundLevel WRITE setSystemSoundLevel NOTIFY systemSoundLevelChanged)
+    Q_PROPERTY(int batterySoundLevel READ batterySoundLevel WRITE setBatterySoundLevel NOTIFY batterySoundLevelChanged)
     Q_PROPERTY(int touchscreenToneLevel READ touchscreenToneLevel WRITE setTouchscreenToneLevel NOTIFY touchscreenToneLevelChanged)
     Q_PROPERTY(int touchscreenVibrationLevel READ touchscreenVibrationLevel WRITE setTouchscreenVibrationLevel NOTIFY touchscreenVibrationLevelChanged)
     Q_PROPERTY(int lidToneLevel READ lidToneLevel WRITE setLidToneLevel NOTIFY lidToneLevelChanged)
@@ -116,6 +117,9 @@ public:
 
     int systemSoundLevel();
     void setSystemSoundLevel(int level);
+
+    int batterySoundLevel();
+    void setBatterySoundLevel(int level);
 
     int touchscreenToneLevel();
     void setTouchscreenToneLevel(int level);
@@ -200,6 +204,7 @@ signals:
     void vibraModeChanged();
 
     void systemSoundLevelChanged();
+    void batterySoundLevelChanged();
     void touchscreenToneLevelChanged();
     void touchscreenVibrationLevelChanged();
     void lidToneLevelChanged();
@@ -235,6 +240,7 @@ private:
     bool m_vibraInGeneral;
     bool m_vibraInSilent;
     int m_systemSoundLevel;
+    int m_batterySoundLevel;
     int m_touchscreenToneLevel;
     int m_touchscreenVibrationLevel;
     int m_lidToneLevel = -1;

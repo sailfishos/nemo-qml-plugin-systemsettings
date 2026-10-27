@@ -38,6 +38,7 @@
 const char * const VolumeKey = "ringing.alert.volume";
 const char * const VibraKey = "vibrating.alert.enabled";
 const char * const SystemSoundLevelKey = "system.sound.level";
+const char * const BatterySoundLevelKey = "battery.sound.level";
 const char * const TouchscreenToneLevelKey = "touchscreen.sound.level";
 const char * const TouchscreenVibrationLevelKey = "touchscreen.vibration.level";
 const char * const LidToneLevelKey = "lid.sound.level";
@@ -72,6 +73,7 @@ int ProfileControl::s_instanceCounter = 0;
 ProfileControl::ProfileControl(QObject *parent)
     : QObject(parent),
       m_systemSoundLevel(-1),
+      m_batterySoundLevel(-1),
       m_touchscreenToneLevel(-1),
       m_touchscreenVibrationLevel(-1),
       m_ringerToneEnabled(-1),
@@ -221,6 +223,24 @@ void ProfileControl::setSystemSoundLevel(int level)
     m_systemSoundLevel = level;
     profile_set_value_as_int(GeneralProfile, SystemSoundLevelKey, level);
     emit systemSoundLevelChanged();
+}
+
+int ProfileControl::batterySoundLevel()
+{
+    if (m_batterySoundLevel == -1) {
+        m_batterySoundLevel = profile_get_value_as_int(GeneralProfile, BatterySoundLevelKey);
+    }
+    return m_batterySoundLevel;
+}
+
+void ProfileControl::setBatterySoundLevel(int level)
+{
+    if (level == m_batterySoundLevel) {
+        return;
+    }
+    m_batterySoundLevel = level;
+    profile_set_value_as_int(GeneralProfile, BatterySoundLevelKey, level);
+    emit batterySoundLevelChanged();
 }
 
 int ProfileControl::touchscreenToneLevel()
@@ -681,6 +701,12 @@ void ProfileControl::updateStateCallBack(const char *profile, const char *key, c
             if (newLevel != m_systemSoundLevel) {
                 m_systemSoundLevel = newLevel;
                 emit systemSoundLevelChanged();
+            }
+        } else if (qstrcmp(key, BatterySoundLevelKey) == 0) {
+            int newLevel = QString(val).toInt();
+            if (newLevel != m_batterySoundLevel) {
+                m_batterySoundLevel = newLevel;
+                emit batterySoundLevelChanged();
             }
         } else if (qstrcmp(key, TouchscreenToneLevelKey) == 0) {
             int newLevel = QString(val).toInt();
