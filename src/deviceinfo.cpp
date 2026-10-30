@@ -404,4 +404,21 @@ QString DeviceInfo::deviceUid()
     return QString();
 }
 
+QString DeviceInfo::deviceDefeasibleUid()
+{
+    QStringList candidateFiles;
+    candidateFiles << "/etc/machine-id"
+                   << "/etc/unique-id"
+                   << "/var/lib/dbus/machine-id";
+
+    for (const QString &filename : candidateFiles) {
+        QFile file(filename);
+        if (file.open(QFile::ReadOnly | QFile::Text) && file.size() > 0) {
+            return normalizeUid(file.readAll());
+        }
+    }
+
+    return QString();
+}
+
 #include "deviceinfo.moc"
