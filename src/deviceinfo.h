@@ -265,6 +265,11 @@ public:
      */
     QString deviceUid();
 
+    /*!
+     * Get device ID, similar to deviceUid but guaranteed to change with device factory reset.
+     */
+    QString deviceDefeasibleUid();
+
 Q_SIGNALS:
     void imeiNumbersChanged();
 
