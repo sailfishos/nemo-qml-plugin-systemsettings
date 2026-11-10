@@ -46,6 +46,7 @@ class SYSTEMSETTINGS_EXPORT KeypadSettings: public QObject
     Q_OBJECT
 
     Q_PROPERTY(bool backlightEnabled READ backlightEnabled WRITE setBacklightEnabled NOTIFY backlightEnabledChanged)
+    Q_PROPERTY(bool backlightAutoBrightnessEnabled READ backlightAutoBrightnessEnabled WRITE setBacklightAutoBrightnessEnabled NOTIFY backlightAutoBrightnessEnabledChanged)
     Q_PROPERTY(bool populated READ populated NOTIFY populatedChanged)
 
 public:
@@ -54,10 +55,14 @@ public:
     bool backlightEnabled() const;
     void setBacklightEnabled(bool);
 
+    bool backlightAutoBrightnessEnabled() const;
+    void setBacklightAutoBrightnessEnabled(bool enable);
+
     bool populated() const;
 
 signals:
     void backlightEnabledChanged();
+    void backlightAutoBrightnessEnabledChanged();
     void populatedChanged();
 
 private slots:
@@ -70,6 +75,7 @@ private:
     ComNokiaMceSignalInterface *m_mceSignalIface;
 
     bool m_backlightEnabled = false;
+    bool m_backlightAutoBrightnessEnabled = true;
     bool m_populated = false;
 };
 

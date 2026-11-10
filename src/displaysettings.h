@@ -56,6 +56,7 @@ class SYSTEMSETTINGS_EXPORT DisplaySettings: public QObject
     Q_PROPERTY(bool lowPowerModeEnabled READ lowPowerModeEnabled WRITE setLowPowerModeEnabled NOTIFY lowPowerModeEnabledChanged)
     Q_PROPERTY(bool ambientLightSensorEnabled READ ambientLightSensorEnabled WRITE setAmbientLightSensorEnabled NOTIFY ambientLightSensorEnabledChanged)
     Q_PROPERTY(bool autoBrightnessEnabled READ autoBrightnessEnabled WRITE setAutoBrightnessEnabled NOTIFY autoBrightnessEnabledChanged)
+    Q_PROPERTY(bool ledAutoBrightnessEnabled READ ledAutoBrightnessEnabled WRITE setLedAutoBrightnessEnabled NOTIFY ledAutoBrightnessEnabledChanged)
     Q_PROPERTY(int doubleTapMode READ doubleTapMode WRITE setDoubleTapMode NOTIFY doubleTapModeChanged)
     Q_PROPERTY(QVariant orientationLock READ orientationLock WRITE setOrientationLock NOTIFY orientationLockChanged)
     Q_PROPERTY(bool lidSensorEnabled READ lidSensorEnabled WRITE setLidSensorEnabled NOTIFY lidSensorEnabledChanged)
@@ -116,6 +117,9 @@ public:
     bool autoBrightnessEnabled() const;
     void setAutoBrightnessEnabled(bool);
 
+    bool ledAutoBrightnessEnabled() const;
+    void setLedAutoBrightnessEnabled(bool mode);
+
     int doubleTapMode() const;
     void setDoubleTapMode(int);
 
@@ -154,6 +158,7 @@ signals:
     void lowPowerModeEnabledChanged();
     void ambientLightSensorEnabledChanged();
     void autoBrightnessEnabledChanged();
+    void ledAutoBrightnessEnabledChanged();
     void doubleTapModeChanged();
     void orientationLockChanged();
     void lidSensorEnabledChanged();
@@ -184,6 +189,7 @@ private:
     bool m_lowPowerModeEnabled = false;
     bool m_ambientLightSensorEnabled = true;
     bool m_autoBrightnessEnabled = true;
+    bool m_ledAutoBrightnessEnabled = true;
     bool m_doubleTapMode = true;
     bool m_lidSensorEnabled = true;
     bool m_lidSensorFeedback = false;

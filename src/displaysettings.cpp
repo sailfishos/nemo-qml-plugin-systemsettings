@@ -46,6 +46,7 @@ static const char *MceDisplayUseAdaptiveDimming = "/system/osso/dsm/display/use_
 static const char *MceDisplayUseLowPowerMode = "/system/osso/dsm/display/use_low_power_mode";
 static const char *MceDisplayUseAmbientLightSensor = "/system/osso/dsm/display/als_enabled";
 static const char *MceDisplayAutoBrightnessEnabled = "/system/osso/dsm/display/als_autobrightness";
+static const char *MceLedAutoBrightnessEnabled = "/system/osso/dsm/leds/als_autobrightness";
 static const char *MceDoubleTapMode = "/system/osso/dsm/doubletap/mode";
 static const char *MceLidSensorEnabled = "/system/osso/dsm/locks/lid_sensor_enabled";
 static const char *MceLidSensorFeedback = "/system/osso/dsm/locks/lid_sensor_feedback";
@@ -209,6 +210,20 @@ void DisplaySettings::setAutoBrightnessEnabled(bool enabled)
         m_autoBrightnessEnabled = enabled;
         m_mceIface->set_config(QDBusObjectPath(MceDisplayAutoBrightnessEnabled), QDBusVariant(enabled));
         emit autoBrightnessEnabledChanged();
+    }
+}
+
+bool DisplaySettings::ledAutoBrightnessEnabled() const
+{
+    return m_ledAutoBrightnessEnabled;
+}
+
+void DisplaySettings::setLedAutoBrightnessEnabled(bool enabled)
+{
+    if (m_ledAutoBrightnessEnabled != enabled) {
+        m_ledAutoBrightnessEnabled = enabled;
+        m_mceIface->set_config(QDBusObjectPath(MceLedAutoBrightnessEnabled), QDBusVariant(enabled));
+        emit ledAutoBrightnessEnabledChanged();
     }
 }
 
@@ -392,6 +407,12 @@ void DisplaySettings::updateConfig(const QString &key, const QVariant &value)
         if (m_autoBrightnessEnabled != val) {
             m_autoBrightnessEnabled = val;
             emit autoBrightnessEnabledChanged();
+        }
+    } else if (key == MceLedAutoBrightnessEnabled) {
+        int val = value.toBool();
+        if (m_ledAutoBrightnessEnabled != val) {
+            m_ledAutoBrightnessEnabled = val;
+            emit ledAutoBrightnessEnabledChanged();
         }
     } else if (key == MceDoubleTapMode) {
         int val = value.toInt();
