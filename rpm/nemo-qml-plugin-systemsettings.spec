@@ -9,6 +9,7 @@ Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
 Requires:       connman
 Requires:       mce >= 1.113.0
+Requires:       %{name}-location-configs
 Requires:       user-managerd >= 0.4.0
 Requires:       udisks2 >= 2.8.1+git6
 Requires(post): coreutils
@@ -50,6 +51,14 @@ Summary: Translation source for %{name}
 %description ts-devel
 %{summary}.
 
+%package location-configs-default
+Summary:    System settings plugin default location configs
+Requires:   %{name}
+Provides:   %{name}-location-configs
+
+%description location-configs-default
+%{summary}.
+
 %prep
 %setup -q -n %{name}-%{version}
 
@@ -71,10 +80,6 @@ Summary: Translation source for %{name}
 %{_libdir}/qt5/qml/org/nemomobile/systemsettings/qmldir
 %{_libdir}/libsystemsettings.so.*
 %attr(4710,-,privileged) %{_libexecdir}/setlocale
-%dir %attr(0775, root, privileged) /etc/location
-%config %attr(0664, root, privileged) /etc/location/location.conf
-%dir %attr(0775, root, privileged) /var/lib/location
-%config %attr(0664, root, privileged) /var/lib/location/location.conf
 %{_datadir}/translations/*.qm
 
 %files devel
@@ -84,3 +89,9 @@ Summary: Translation source for %{name}
 
 %files ts-devel
 %{_datadir}/translations/source/*.ts
+
+%files location-configs-default
+%dir %attr(0775, root, privileged) /etc/location
+%config %attr(0664, root, privileged) /etc/location/location.conf
+%dir %attr(0775, root, privileged) /var/lib/location
+%config %attr(0664, root, privileged) /var/lib/location/location.conf
