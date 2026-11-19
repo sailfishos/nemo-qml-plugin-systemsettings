@@ -1,6 +1,6 @@
 Name:       nemo-qml-plugin-systemsettings
 Summary:    System settings plugin for Nemo Mobile
-Version:    0.11
+Version:    0.11.4
 Release:    1
 License:    BSD
 URL:        https://github.com/sailfishos/nemo-qml-plugin-systemsettings/
