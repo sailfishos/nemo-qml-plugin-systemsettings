@@ -101,6 +101,10 @@ public:
         FeatureSuspend,
         FeatureReboot,
         FeatureBluetoothTethering,
+        FeatureKeypad,
+        FeatureKeypadBacklight,
+        FeatureLid,
+        FeaturePrivacySwitch,
     };
     Q_ENUM(Feature)
 
