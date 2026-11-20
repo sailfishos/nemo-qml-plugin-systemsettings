@@ -37,6 +37,7 @@
 #include <QDebug>
 
 static const char MceKeypadBacklight[] = "/system/osso/dsm/keypadbacklight/enabled";
+static const char MceKeypadAutoBrightness[] = "/system/osso/dsm/keypadbacklight/als_autobrightness";
 
 KeypadSettings::KeypadSettings(QObject *parent)
     : QObject(parent)
@@ -73,6 +74,20 @@ void KeypadSettings::setBacklightEnabled(bool value)
     }
 }
 
+bool KeypadSettings::backlightAutoBrightnessEnabled() const
+{
+    return m_backlightAutoBrightnessEnabled;
+}
+
+void KeypadSettings::setBacklightAutoBrightnessEnabled(bool enable)
+{
+    if (m_backlightAutoBrightnessEnabled != enable) {
+        m_backlightAutoBrightnessEnabled = enable;
+        m_mceIface->set_config(QDBusObjectPath(MceKeypadAutoBrightness), QDBusVariant(enable));
+        emit backlightAutoBrightnessEnabledChanged();
+    }
+}
+
 void KeypadSettings::updateConfig(const QString &key, const QVariant &value)
 {
     if (key == MceKeypadBacklight) {
@@ -80,6 +95,12 @@ void KeypadSettings::updateConfig(const QString &key, const QVariant &value)
         if (m_backlightEnabled != val) {
             m_backlightEnabled = val;
             emit backlightEnabledChanged();
+        }
+    } else if (key == MceKeypadAutoBrightness) {
+        int val = value.toBool();
+        if (m_backlightAutoBrightnessEnabled != val) {
+            m_backlightAutoBrightnessEnabled = val;
+            emit backlightAutoBrightnessEnabledChanged();
         }
     }
 }
