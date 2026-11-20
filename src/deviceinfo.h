@@ -105,6 +105,7 @@ public:
         FeatureKeypadBacklight,
         FeatureLid,
         FeaturePrivacySwitch,
+        FeatureHAC,
     };
     Q_ENUM(Feature)
 
