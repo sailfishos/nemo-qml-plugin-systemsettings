@@ -31,6 +31,8 @@
 
 #include "deviceinfo.h"
 
+#include <systemd/sd-id128.h>
+
 #include <QSet>
 
 #include <ssusysinfo.h>
@@ -78,6 +80,8 @@ private:
     QString macAddress(DeviceInfoPrivate::NetworkMode mode, int interface);
     const QStringList &networkModeDirectoryList(DeviceInfoPrivate::NetworkMode mode);
     static QString readSimpleFile(const QString &path);
+    static void toSdId128(const QUuid &uuid, sd_id128_t *id);
+    static QUuid toUuid(sd_id128_t id);
 
     DeviceInfo *q_ptr;
     bool m_synchronousInit;
@@ -268,6 +272,18 @@ QString DeviceInfoPrivate::readSimpleFile(const QString &path)
     return QString();
 }
 
+void DeviceInfoPrivate::toSdId128(const QUuid &uuid, sd_id128_t *id)
+{
+    QByteArray bytes = uuid.toRfc4122();
+    std::copy(bytes.constBegin(), bytes.constEnd(), std::begin(id->bytes));
+}
+
+QUuid DeviceInfoPrivate::toUuid(sd_id128_t id)
+{
+    QByteArray bytes(reinterpret_cast<const char*>(id.bytes), sizeof(id.bytes));
+    return QUuid::fromRfc4122(bytes);
+}
+
 DeviceInfo::DeviceInfo(bool synchronousInit, QObject *parent)
     : QObject(parent)
     , d_ptr(new DeviceInfoPrivate(this, synchronousInit))
@@ -402,6 +418,40 @@ QString DeviceInfo::deviceUid()
     }
 
     return QString();
+}
+
+QUuid DeviceInfo::deviceDefeasibleUid(const QUuid &applicationUid)
+{
+    sd_id128_t appId;
+    DeviceInfoPrivate::toSdId128(applicationUid, &appId);
+
+    sd_id128_t machineIdAppSpecific;
+    int rc = sd_id128_get_machine_app_specific(appId, &machineIdAppSpecific);
+    if (rc != 0) {
+        return DeviceInfoPrivate::toUuid(machineIdAppSpecific);
+    } else if (rc == -EOPNOTSUPP) {
+        // It possibly failed because CONFIG_CRYPTO_USER_API_HASH is not
+        // enabled, so try to get the plain machineId and derive the app
+        // specific ID ourselves below.
+    } else {
+        qWarning() << "DeviceInfo::deviceDefeasibleUid() unable to get (app specific) machine ID:" << rc;
+        return {};
+    };
+
+    sd_id128_t machineId;
+    rc = sd_id128_get_machine(&machineId);
+    if (rc != 0) {
+        qWarning() << "DeviceInfo::deviceDefeasibleUid() unable to get machine ID:" << rc;
+        return {};
+    }
+
+    QByteArray key(reinterpret_cast<const char*>(machineId.bytes), 16);
+    QByteArray data(reinterpret_cast<const char*>(appId.bytes), 16);
+    QByteArray hmacResult = QMessageAuthenticationCode::hash(data, key, QCryptographicHash::Sha256);
+    QByteArray finalBytes = hmacResult.left(16);
+    std::copy(finalBytes.constBegin(), finalBytes.constEnd(), std::begin(machineIdAppSpecific.bytes));
+
+    return DeviceInfoPrivate::toUuid(machineIdAppSpecific);
 }
 
 #include "deviceinfo.moc"

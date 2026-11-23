@@ -269,6 +269,12 @@ public:
      */
     QString deviceUid();
 
+    /*!
+     * Get device ID, similar to deviceUid but guaranteed to change with device
+     * factory reset and application specific.
+     */
+    QUuid deviceDefeasibleUid(const QUuid &applicationUid);
+
 Q_SIGNALS:
     void imeiNumbersChanged();
 
