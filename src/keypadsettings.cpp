@@ -38,6 +38,9 @@
 
 static const char MceKeypadBacklight[] = "/system/osso/dsm/keypadbacklight/enabled";
 static const char MceKeypadAutoBrightness[] = "/system/osso/dsm/keypadbacklight/als_autobrightness";
+static const char MceKeypadAutoBrightnessMode[] = "/system/osso/dsm/keypadbacklight/autobrightness_mode";
+static const char MceKeypadBacklightOnThreshold[] = "/system/osso/dsm/keypadbacklight/threshold_on";
+static const char MceKeypadBacklightOffThreshold[] = "/system/osso/dsm/keypadbacklight/threshold_off";
 
 KeypadSettings::KeypadSettings(QObject *parent)
     : QObject(parent)
@@ -88,6 +91,47 @@ void KeypadSettings::setBacklightAutoBrightnessEnabled(bool enable)
     }
 }
 
+int KeypadSettings::backlightAutoBrightnessMode() const
+{
+    return m_backlightAutoBrightnessMode;
+}
+
+void KeypadSettings::setBacklightAutoBrightnessMode(int mode)
+{
+    if (m_backlightAutoBrightnessMode != mode) {
+        m_backlightAutoBrightnessMode = static_cast<AutoBrightnessMode>(mode);
+        m_mceIface->set_config(QDBusObjectPath(MceKeypadAutoBrightnessMode), QDBusVariant(mode));
+        emit backlightAutoBrightnessModeChanged();
+    }
+}
+
+int KeypadSettings::backlightOnThreshold() const
+{
+    return m_backlightOnThreshold;
+}
+void KeypadSettings::setBacklightOnThreshold(int threshold)
+{
+    if (m_backlightOnThreshold != threshold) {
+        m_backlightOnThreshold = threshold;
+        m_mceIface->set_config(QDBusObjectPath(MceKeypadBacklightOnThreshold), QDBusVariant(threshold));
+        emit backlightOnThresholdChanged();
+    }
+}
+
+int KeypadSettings::backlightOffThreshold() const
+{
+    return m_backlightOffThreshold;
+}
+
+void KeypadSettings::setBacklightOffThreshold(int threshold)
+{
+    if (m_backlightOffThreshold != threshold) {
+        m_backlightOffThreshold = threshold;
+        m_mceIface->set_config(QDBusObjectPath(MceKeypadBacklightOffThreshold), QDBusVariant(threshold));
+        emit backlightOffThresholdChanged();
+    }
+}
+
 void KeypadSettings::updateConfig(const QString &key, const QVariant &value)
 {
     if (key == MceKeypadBacklight) {
@@ -97,10 +141,28 @@ void KeypadSettings::updateConfig(const QString &key, const QVariant &value)
             emit backlightEnabledChanged();
         }
     } else if (key == MceKeypadAutoBrightness) {
-        int val = value.toBool();
+        bool val = value.toBool();
         if (m_backlightAutoBrightnessEnabled != val) {
             m_backlightAutoBrightnessEnabled = val;
             emit backlightAutoBrightnessEnabledChanged();
+        }
+    } else if (key == MceKeypadAutoBrightnessMode) {
+        int mode = value.toInt();
+        if (m_backlightAutoBrightnessMode != mode) {
+            m_backlightAutoBrightnessMode = static_cast<AutoBrightnessMode>(mode);
+            emit backlightAutoBrightnessModeChanged();
+        }
+    } else if (key == MceKeypadBacklightOnThreshold) {
+        int threshold = value.toInt();
+        if (m_backlightOnThreshold != threshold) {
+            m_backlightOnThreshold = threshold;
+            emit backlightOnThresholdChanged();
+        }
+    } else if (key == MceKeypadBacklightOffThreshold) {
+        int threshold = value.toInt();
+        if (m_backlightOffThreshold != threshold) {
+            m_backlightOffThreshold = threshold;
+            emit backlightOffThresholdChanged();
         }
     }
 }

@@ -44,12 +44,20 @@ class QDBusVariant;
 class SYSTEMSETTINGS_EXPORT KeypadSettings: public QObject
 {
     Q_OBJECT
-
+    Q_ENUMS(AutoBrightnessMode)
     Q_PROPERTY(bool backlightEnabled READ backlightEnabled WRITE setBacklightEnabled NOTIFY backlightEnabledChanged)
     Q_PROPERTY(bool backlightAutoBrightnessEnabled READ backlightAutoBrightnessEnabled WRITE setBacklightAutoBrightnessEnabled NOTIFY backlightAutoBrightnessEnabledChanged)
     Q_PROPERTY(bool populated READ populated NOTIFY populatedChanged)
+    Q_PROPERTY(int backlightAutoBrightnessMode READ backlightAutoBrightnessMode WRITE setBacklightAutoBrightnessMode NOTIFY backlightAutoBrightnessModeChanged)
+    Q_PROPERTY(int backlightOnThreshold READ backlightOnThreshold WRITE setBacklightOnThreshold NOTIFY backlightOnThresholdChanged)
+    Q_PROPERTY(int backlightOffThreshold READ backlightOffThreshold WRITE setBacklightOffThreshold NOTIFY backlightOffThresholdChanged)
 
 public:
+    enum AutoBrightnessMode {
+        AutoBrightnessLadder = 0,
+        AutoBrightnessThreshold = 1,
+    };
+
     explicit KeypadSettings(QObject *parent = 0);
 
     bool backlightEnabled() const;
@@ -58,11 +66,23 @@ public:
     bool backlightAutoBrightnessEnabled() const;
     void setBacklightAutoBrightnessEnabled(bool enable);
 
+    int backlightAutoBrightnessMode() const;
+    void setBacklightAutoBrightnessMode(int mode);
+
+    int backlightOnThreshold() const;
+    void setBacklightOnThreshold(int threshold);
+
+    int backlightOffThreshold() const;
+    void setBacklightOffThreshold(int threshold);
+
     bool populated() const;
 
 signals:
     void backlightEnabledChanged();
     void backlightAutoBrightnessEnabledChanged();
+    void backlightAutoBrightnessModeChanged();
+    void backlightOnThresholdChanged();
+    void backlightOffThresholdChanged();
     void populatedChanged();
 
 private slots:
@@ -76,6 +96,9 @@ private:
 
     bool m_backlightEnabled = false;
     bool m_backlightAutoBrightnessEnabled = true;
+    AutoBrightnessMode m_backlightAutoBrightnessMode = AutoBrightnessLadder;
+    int m_backlightOnThreshold = 50;
+    int m_backlightOffThreshold = 60;
     bool m_populated = false;
 };
 
